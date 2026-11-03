@@ -14,7 +14,7 @@ Manual steps for Sowan (secrets go into dashboards only, never into chat or file
 
 - [ ] Create the private GitHub repository and connect it to Claude Code
 - [ ] Create a Gemini API key in Google AI Studio and note the current Flash, vision and embedding model names
-- [ ] Create a Supabase project in the Singapore region, enable the `vector` extension, create a private storage bucket named `documents`
+- [x] Create a Supabase project in the Singapore region, enable the `vector` extension, create a private storage bucket named `documents` (done by Sowan; `pg_trgm` also enabled, Data API disabled)
 - [ ] Create a Render web service from the repo (Docker runtime, Singapore region, free instance) and add the environment variables from `.env.example`
 - [ ] Create a Vercel project for the `frontend` folder and add its environment variables
 - [ ] Add `GEMINI_API_KEY` as a GitHub Actions secret (used only by the evaluation workflow)

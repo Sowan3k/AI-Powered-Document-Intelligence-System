@@ -5,9 +5,13 @@ Revises:
 Create Date: 2026-11-03
 
 The embedding column size comes from EMBED_DIM at the time this migration
-runs. Changing EMBED_DIM later needs a new migration (DECISIONS.md D18).
-Status columns are VARCHAR with CHECK constraints (D19). The values are
+runs. Changing EMBED_DIM later needs a new migration (DECISIONS.md D19).
+Status columns are VARCHAR with CHECK constraints (D20). The values are
 written out here, not imported, so this migration never changes after it ships.
+
+Extensions: Supabase already has `vector` and `pg_trgm` in its "extensions"
+schema, which is on the search_path, so CREATE EXTENSION IF NOT EXISTS is a
+no-op there. In CI and docker-compose it creates them (D30).
 """
 
 from collections.abc import Sequence
@@ -74,8 +78,9 @@ def _uuid_id() -> sa.Column:
 def upgrade() -> None:
     embed_dim = get_settings().embed_dim
 
-    # Supabase may already have the extension in its "extensions" schema.
+    # No-ops on Supabase, where both already exist in the "extensions" schema.
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
     op.create_table(
         "documents",
@@ -203,6 +208,14 @@ def upgrade() -> None:
     )
     op.create_index(
         "ix_invoices_search_vector", "invoices", ["search_vector"], postgresql_using="gin"
+    )
+    # Fuzzy supplier lookup for duplicate checks and reconciliation (D30).
+    op.create_index(
+        "ix_invoices_supplier_norm_trgm",
+        "invoices",
+        ["supplier_norm"],
+        postgresql_using="gin",
+        postgresql_ops={"supplier_norm": "gin_trgm_ops"},
     )
     if embed_dim <= HNSW_MAX_DIM:
         op.create_index(

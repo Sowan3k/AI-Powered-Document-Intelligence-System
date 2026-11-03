@@ -9,7 +9,7 @@ services:
     region: singapore
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    # Liveness only: a paused database must not fail a deploy (DECISIONS.md D23).
+    # Liveness only: a paused database must not fail a deploy (DECISIONS.md D24).
     healthCheckPath: /api/health/live
     buildFilter:
       paths:

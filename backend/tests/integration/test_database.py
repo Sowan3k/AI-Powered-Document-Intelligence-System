@@ -136,3 +136,20 @@ def test_database_rejects_duplicate_page_numbers(db: Session) -> None:
     db.add(document)
     with pytest.raises(IntegrityError):
         db.flush()
+
+
+def test_trigram_similarity_finds_near_supplier_names(db: Session) -> None:
+    document = make_document()
+    db.add_all(
+        [
+            Invoice(document=document, invoice_number="1", supplier_norm="acme traders ltd"),
+            Invoice(document=document, invoice_number="2", supplier_norm="acme tradres ltd"),
+            Invoice(document=document, invoice_number="3", supplier_norm="globex corporation"),
+        ]
+    )
+    db.flush()
+    score = func.similarity(Invoice.supplier_norm, "acme traders limited")
+    rows = db.execute(
+        select(Invoice.invoice_number, score).where(score > 0.3).order_by(score.desc())
+    ).all()
+    assert [number for number, _ in rows] == ["1", "2"]

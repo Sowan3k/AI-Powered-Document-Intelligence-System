@@ -26,6 +26,12 @@ Prompted Claude to explain the brief in plain language, compare stack options un
 
 Prompt: "Read CLAUDE.md, STATUS.md, PHASES.md and DECISIONS.md in that order. Then start Phase 0: backend and frontend skeletons, the first migration, the Dockerfile, docker-compose.yml and the CI workflow. Never put a secret in any file. When done, update STATUS.md and docs/AI_USAGE.md, then commit and push."
 
-AI-generated in this session: the FastAPI skeleton, settings, health endpoints, worker loop, SQLAlchemy models, the first Alembic migration, `start.sh`, both Dockerfiles, `docker-compose.yml`, `render.yaml`, the CI workflow, the Next.js health page, all tests, decisions D17 to D28 and the README stub. Alembic's autogenerate produced a first draft of the migration; Claude Code rewrote it by hand so it is readable and does not depend on the models.
+AI-generated in this session: the FastAPI skeleton, settings, health endpoints, worker loop, SQLAlchemy models, the first Alembic migration, `start.sh`, both Dockerfiles, `docker-compose.yml`, `render.yaml`, the CI workflow, the Next.js health page, all tests, decisions D18 to D29 and the README stub. Alembic's autogenerate produced a first draft of the migration; Claude Code rewrote it by hand so it is readable and does not depend on the models.
 
 How it was verified: ruff, 36 pytest tests against a real Postgres with pgvector, a migration up, down and up cycle, `alembic check` for drift between models and migration, the container started and stopped under each failure case, the full compose stack checked in a headless browser, and the frontend built for production. A test caught one real bug (missing ORM delete cascade), which was fixed. Steps the sandbox could not run (Tesseract install, gitleaks) run in CI.
+
+### 4 Nov 2026, Supabase rules and pg_trgm (Claude Code)
+
+Prompt (summary): Sowan reported the Supabase setup (Data API disabled, `vector` and `pg_trgm` in the `extensions` schema, private 50 MB bucket) and asked to record the Data API rule as D17, add `pg_trgm` to the migration with plain `CREATE EXTENSION IF NOT EXISTS`, and record `pg_trgm` as a decision.
+
+AI-generated: decisions D17 and D30, the migration and model changes, a dependency guard test, a trigram similarity test and an extension no-op test. Verified with ruff, 40 passing tests, and a migration run against a local database laid out like Supabase.

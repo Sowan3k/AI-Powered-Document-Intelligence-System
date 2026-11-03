@@ -6,15 +6,25 @@ from app.db.models import Base
 from tests.integration.conftest import run_alembic
 from tests.unit.test_models import EXPECTED_TABLES
 
+EXTENSIONS_SQL = text("SELECT extname FROM pg_extension WHERE extname IN ('vector', 'pg_trgm')")
 
-def test_upgrade_creates_every_table_and_the_vector_extension(engine: Engine) -> None:
+
+def test_upgrade_creates_every_table_and_both_extensions(engine: Engine) -> None:
     with engine.connect() as conn:
         tables = set(inspect(conn).get_table_names())
-        has_vector = conn.execute(
-            text("SELECT 1 FROM pg_extension WHERE extname = 'vector'")
-        ).scalar()
+        extensions = set(conn.execute(EXTENSIONS_SQL).scalars())
     assert tables >= EXPECTED_TABLES
-    assert has_vector == 1
+    assert extensions == {"vector", "pg_trgm"}
+
+
+def test_upgrade_is_a_no_op_for_extensions_that_already_exist(engine: Engine) -> None:
+    # On Supabase both extensions exist before the first migration runs.
+    run_alembic(engine, "downgrade", "base")
+    with engine.connect() as conn:
+        assert set(conn.execute(EXTENSIONS_SQL).scalars()) == {"vector", "pg_trgm"}
+    run_alembic(engine, "upgrade", "head")
+    with engine.connect() as conn:
+        assert set(inspect(conn).get_table_names()) >= EXPECTED_TABLES
 
 
 def test_models_match_the_migrated_schema(engine: Engine) -> None:

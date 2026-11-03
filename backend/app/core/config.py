@@ -33,7 +33,9 @@ class Settings(BaseSettings):
     db_max_overflow: int = Field(default=2, ge=0, le=20)
     db_connect_timeout_s: int = Field(default=5, ge=1, le=60)
 
-    # File storage (Supabase Storage, private bucket).
+    # Files only, through the Supabase Storage API. The Data API is disabled and the
+    # database is reached only through SQLAlchemy (DECISIONS.md D17). The private
+    # bucket already exists with a 50 MB file limit; code never creates buckets.
     supabase_url: str | None = None
     supabase_service_role_key: SecretStr | None = None
     supabase_bucket: str = "documents"
@@ -55,7 +57,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
 
     # Upload and processing limits.
-    max_file_mb: int = Field(default=50, ge=1)
+    max_file_mb: int = Field(default=50, ge=1)  # keep at or below the bucket limit (50 MB)
     max_files_per_batch: int = Field(default=20, ge=1)
     max_pdf_pages: int = Field(default=1500, ge=1)
     ocr_confidence_threshold: float = Field(default=60, ge=0, le=100)

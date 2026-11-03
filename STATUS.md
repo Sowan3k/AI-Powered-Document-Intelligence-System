@@ -9,6 +9,8 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Done:** Backend skeleton (FastAPI, config, health endpoints, worker loop), all ten tables with the first Alembic migration, backend and frontend Dockerfiles, `docker-compose.yml`, Next.js health page, CI workflow, `render.yaml` blueprint.
 
+**Supabase (set up by Sowan):** project created, `vector` and `pg_trgm` enabled in the `extensions` schema (on the search_path), private bucket `documents` with a 50 MB limit, Data API disabled. The backend uses SQLAlchemy over the pooler for the database and the Storage API only for files (D17). Code never creates buckets.
+
 **Next:**
 
 1. Sowan merges branch `ccr-406a2a1e-uip46r` into `main`. Render and Vercel deploy from `main`.
@@ -17,7 +19,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Manual steps for Sowan (phone, in this order):**
 
-1. Supabase: create the project in Singapore. Database > Extensions: enable `vector`. Storage: create a private bucket `documents`. Connect > Session pooler: copy the string and change `postgresql://` to `postgresql+psycopg://`.
+1. Supabase: done, except one step. Connect > Session pooler: copy the string and change `postgresql://` to `postgresql+psycopg://`. That is the `DATABASE_URL` for Render.
 2. Render: New > Blueprint > this repo. Paste the values it asks for. Set `CORS_ORIGINS` to `http://localhost:3000` for now. Wait for the deploy, then copy the service URL.
 3. Vercel: import the repo with Root Directory `frontend`. Add `NEXT_PUBLIC_API_BASE_URL` = the Render URL, no trailing slash. Deploy and copy the Vercel URL.
 4. Render: set `CORS_ORIGINS` to the Vercel URL, no trailing slash. Render redeploys.
@@ -26,7 +28,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 `NEXT_PUBLIC_API_BASE_URL` is baked in at build time. After changing it on Vercel, redeploy.
 
-**Blockers:** None in code. Waiting on accounts: Supabase, Render, Vercel, Gemini key.
+**Blockers:** None in code. Waiting on accounts: Render, Vercel, Gemini key.
 
 **Open questions:**
 
@@ -37,9 +39,15 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 4 Nov 2026, Supabase rules and pg_trgm (Claude Code)
+
+Recorded Sowan's Supabase setup. Added D17: the Data API is disabled, the backend reaches Postgres only through SQLAlchemy and files only through the Storage API, never `supabase-js` or the table client. The earlier D17 to D28 moved to D18 to D29, and all references in code and docs moved with them. Added D30: `pg_trgm` for fuzzy supplier matching. Migration `0001` (never applied to Supabase yet, since `main` does not contain it) now also runs `CREATE EXTENSION IF NOT EXISTS pg_trgm` and adds a GIN trigram index on `invoices.supplier_norm`. A new unit test fails CI if any Supabase client package appears in the backend or frontend dependencies.
+
+Tested: ruff clean, 40 tests pass (26 unit, 14 integration), including a trigram similarity query and a run where both extensions already exist. Also ran the migration on a local copy of the Supabase layout (extensions in an `extensions` schema on the search_path): it ran, left the extensions where they were, and `alembic check` found no drift.
+
 ### 4 Nov 2026, Phase 0 build (Claude Code)
 
-Built the Phase 0 code. Backend: FastAPI app factory, settings from environment (secrets as `SecretStr`), `/api/health/live` and `/api/health`, worker loop with clean shutdown, SQLAlchemy models for all ten tables, hand-written migration `0001`. `start.sh` runs migrations, then the API and the worker, and exits if either dies. Frontend: Next.js 16 page that calls `/api/health` and shows healthy, degraded, unreachable and cold-start states. Added Dockerfiles, `docker-compose.yml`, `render.yaml` and the CI workflow (ruff, migrations, pytest, frontend build, gitleaks, Docker compose smoke test). Added decisions D17 to D28.
+Built the Phase 0 code. Backend: FastAPI app factory, settings from environment (secrets as `SecretStr`), `/api/health/live` and `/api/health`, worker loop with clean shutdown, SQLAlchemy models for all ten tables, hand-written migration `0001`. `start.sh` runs migrations, then the API and the worker, and exits if either dies. Frontend: Next.js 16 page that calls `/api/health` and shows healthy, degraded, unreachable and cold-start states. Added Dockerfiles, `docker-compose.yml`, `render.yaml` and the CI workflow (ruff, migrations, pytest, frontend build, gitleaks, Docker compose smoke test). Added decisions D18 to D29.
 
 Tested in the sandbox:
 

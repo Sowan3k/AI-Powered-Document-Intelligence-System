@@ -196,7 +196,19 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D17: Synchronous SQLAlchemy sessions, not async
+## D17: Supabase Data API disabled; the backend reaches Postgres only through SQLAlchemy
+
+**Alternatives:** `supabase-js` in the frontend with row level security, or the Supabase table client (PostgREST) in the backend.
+
+**Why:** Least privilege. The frontend never talks to Supabase directly (D14), so nothing needs Supabase's auto-generated REST API over the tables. With the Data API turned off, no table can be reached through Supabase's public API, even if a key leaks or a row level security policy is wrong. The backend reaches the database only with SQLAlchemy over the Session pooler string, so every query goes through the same models, transactions and ORM parameters (security rule 6). Files go through the Supabase Storage API, called only by the backend with the service role key. The private bucket `documents` (50 MB file limit) was created in the dashboard; code never creates or changes buckets. A unit test fails CI if `supabase-js`, any `@supabase/` package, or the Python `supabase` or `postgrest` packages appear in the dependencies.
+
+**Trade-off:** No Supabase realtime, auto-generated REST endpoints or browser-side queries. Every new data need is a FastAPI endpoint, and the frontend polls the backend for progress.
+
+**In one sentence:** One door into the database, owned by the backend; Supabase's public Data API stays closed.
+
+---
+
+## D18: Synchronous SQLAlchemy sessions, not async
 
 **Alternatives:** Async SQLAlchemy with `asyncpg` or async psycopg.
 
@@ -208,7 +220,7 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D18: Embedding size fixed by `EMBED_DIM` when the migration runs
+## D19: Embedding size fixed by `EMBED_DIM` when the migration runs
 
 **Alternatives:** Hard-code the dimension in the migration, or use an untyped vector column.
 
@@ -220,7 +232,7 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D19: Status columns as VARCHAR with CHECK constraints, not native Postgres enums
+## D20: Status columns as VARCHAR with CHECK constraints, not native Postgres enums
 
 **Alternatives:** Native `CREATE TYPE ... AS ENUM`, or free text with no constraint.
 
@@ -232,7 +244,7 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D20: UUID keys for rows the API exposes, BIGINT keys for child rows
+## D21: UUID keys for rows the API exposes, BIGINT keys for child rows
 
 **Alternatives:** UUIDs everywhere, or integers everywhere.
 
@@ -244,7 +256,7 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D21: Quantity and unit price keep four decimals; amounts keep two
+## D22: Quantity and unit price keep four decimals; amounts keep two
 
 **Alternatives:** Two decimals for every money-like column, as the general rule in CLAUDE.md says.
 
@@ -256,7 +268,7 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D22: The full-text `search_vector` is filled by application code
+## D23: The full-text `search_vector` is filled by application code
 
 **Alternatives:** A generated column (`GENERATED ALWAYS AS (to_tsvector(...)) STORED`), or a database trigger.
 
@@ -268,7 +280,7 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D23: Two health endpoints: liveness without the database, readiness with it
+## D24: Two health endpoints: liveness without the database, readiness with it
 
 **Alternatives:** One endpoint that always checks the database.
 
@@ -280,7 +292,7 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D24: Migrations run in `start.sh`, and the container stops if either process dies
+## D25: Migrations run in `start.sh`, and the container stops if either process dies
 
 **Alternatives:** Render's pre-deploy command (paid plans only), or running migrations by hand.
 
@@ -292,7 +304,7 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D25: Supabase Session pooler, with psycopg prepared statements turned off
+## D26: Supabase Session pooler, with psycopg prepared statements turned off
 
 **Alternatives:** Supabase's direct connection, or the transaction pooler with default driver settings.
 
@@ -304,7 +316,7 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D26: Exact dependency pins compiled with `uv`
+## D27: Exact dependency pins compiled with `uv`
 
 **Alternatives:** Loose ranges in `requirements.txt`, Poetry, or `uv` with `pyproject.toml` and a lock file.
 
@@ -316,7 +328,7 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D27: CI builds the Docker images and runs the whole stack
+## D28: CI builds the Docker images and runs the whole stack
 
 **Alternatives:** Test only the Python and TypeScript code, and trust the Dockerfiles.
 
@@ -328,7 +340,7 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 ---
 
-## D28: A Render Blueprint (`render.yaml`) describes the backend service
+## D29: A Render Blueprint (`render.yaml`) describes the backend service
 
 **Alternatives:** Create the service by hand in the Render dashboard.
 
@@ -337,3 +349,15 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 **Trade-off:** Blueprint changes need a sync in Render. Manual setup still works; the file then serves as the written record of the settings.
 
 **In one sentence:** The service settings live in Git, and the secrets never do.
+
+---
+
+## D30: pg_trgm for fuzzy supplier matching
+
+**Alternatives:** Exact match on the normalised supplier name only, fuzzy matching in Python (for example rapidfuzz) over every stored invoice, or embedding similarity on supplier names.
+
+**Why:** The same supplier appears as "Acme Traders Ltd", "ACME TRADERS LIMITED" or "Acme Tradres Ltd" (an OCR slip) on different invoices. Exact matching misses those duplicates (rules R06 and R07) and reconciliation pairs. `pg_trgm` scores how many three-letter chunks two names share. A GIN trigram index on `invoices.supplier_norm` lets the database find close names fast, without loading every invoice into Python. Embeddings measure meaning, not spelling, and cost an API call per name. The database only proposes candidates; Python with `Decimal` still decides whether numbers, dates and totals match (D09). Supabase already has the extension enabled in its `extensions` schema. The migration runs `CREATE EXTENSION IF NOT EXISTS pg_trgm`, which is a no-op there and creates it in CI and docker-compose.
+
+**Trade-off:** The similarity threshold needs tuning on the evaluation set. Trigrams are weak on very short names, so Phase 3 normalises names (case, punctuation, suffixes like "Ltd") before comparing. Fuzzy matching becomes tied to PostgreSQL.
+
+**In one sentence:** The database finds suppliers that look alike, and code decides whether the invoices really match.

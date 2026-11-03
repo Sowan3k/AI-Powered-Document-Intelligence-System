@@ -4,7 +4,7 @@
 the service health check, so a paused Supabase project cannot fail a deploy.
 
 `/api/health` also runs `SELECT 1`. The frontend calls it to show
-"API healthy, database connected" (DECISIONS.md D23).
+"API healthy, database connected" (DECISIONS.md D24).
 """
 
 import logging

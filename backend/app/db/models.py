@@ -1,11 +1,12 @@
 """SQLAlchemy models for every table in the DocIntel data model.
 
-Conventions (see DECISIONS.md D19 to D22):
+Conventions (see DECISIONS.md D20 to D23):
 - UUID keys for rows the API exposes by ID; BIGINT identity keys for child rows.
 - Money is NUMERIC(14,2). Quantity and unit price are NUMERIC(14,4).
 - Status columns are VARCHAR with CHECK constraints, not native enums.
 - `invoices.search_vector` is filled by application code, not a generated column.
 - `invoices.embedding` has the dimension from EMBED_DIM.
+- `invoices.supplier_norm` has a pg_trgm GIN index for fuzzy supplier matching.
 """
 
 import uuid
@@ -258,6 +259,13 @@ class Invoice(Base):
         Index("ix_invoices_supplier_number", "supplier_norm", "invoice_number_norm"),
         Index("ix_invoices_invoice_date", "invoice_date"),
         Index("ix_invoices_search_vector", "search_vector", postgresql_using="gin"),
+        # Trigram index for fuzzy supplier matching (pg_trgm, DECISIONS.md D30).
+        Index(
+            "ix_invoices_supplier_norm_trgm",
+            "supplier_norm",
+            postgresql_using="gin",
+            postgresql_ops={"supplier_norm": "gin_trgm_ops"},
+        ),
         *(
             [
                 Index(

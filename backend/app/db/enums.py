@@ -1,7 +1,7 @@
 """Allowed values for status-like columns.
 
 The database stores these as VARCHAR with a CHECK constraint, not as native
-PostgreSQL enums (see DECISIONS.md D19). Adding a value means editing the
+PostgreSQL enums (see DECISIONS.md D20). Adding a value means editing the
 enum here and writing a migration that replaces the CHECK constraint.
 """
 

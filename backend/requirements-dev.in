@@ -1,0 +1,7 @@
+# Test and lint tools. Compile with:
+#   uv pip compile requirements-dev.in --python-version 3.12 -o requirements-dev.txt
+-r requirements.in
+pytest==9.2.0
+pytest-cov==7.1.0
+httpx2==2.16.0  # used by the FastAPI test client
+ruff==0.17.3

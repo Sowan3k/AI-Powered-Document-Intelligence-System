@@ -1,0 +1,64 @@
+# Render Blueprint for the DocIntel backend (API and worker in one container).
+# In Render: New > Blueprint > pick this repository. Render asks for every
+# value marked "sync: false" in its dashboard. Never write secrets here.
+services:
+  - type: web
+    name: docintel-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # Liveness only: a paused database must not fail a deploy (DECISIONS.md D23).
+    healthCheckPath: /api/health/live
+    buildFilter:
+      paths:
+        - backend/**
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      # Supabase > Connect > Session pooler string, with "postgresql+psycopg://".
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: documents
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        sync: false
+      - key: GEMINI_VISION_MODEL
+        sync: false
+      - key: GEMINI_EMBED_MODEL
+        sync: false
+      - key: EMBED_DIM
+        value: "768"
+      - key: LLM_MAX_CONCURRENCY
+        value: "2"
+      # Render generates a random value; nobody needs to see it.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DEMO_USERNAME
+        value: reviewer
+      - key: DEMO_PASSWORD
+        sync: false
+      # The Vercel URL, for example https://docintel.vercel.app (no trailing slash).
+      - key: CORS_ORIGINS
+        sync: false
+      - key: MAX_FILE_MB
+        value: "50"
+      - key: MAX_FILES_PER_BATCH
+        value: "20"
+      - key: MAX_PDF_PAGES
+        value: "1500"
+      - key: OCR_CONFIDENCE_THRESHOLD
+        value: "60"
+      - key: FIELD_CONFIDENCE_THRESHOLD
+        value: "0.7"
+      - key: MONEY_TOLERANCE
+        value: "0.01"

@@ -1,0 +1,85 @@
+"""Application settings, read from environment variables.
+
+Every name here matches `.env.example` at the repository root. Secrets use
+`SecretStr`, so they never appear in logs, reprs or error messages.
+
+Phase 0 needs only `DATABASE_URL`. The other secrets are optional until the
+feature that uses them exists, so a missing Gemini key cannot stop the API
+from starting.
+"""
+
+from decimal import Decimal
+from functools import lru_cache
+from typing import Literal
+
+from pydantic import Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    app_env: Literal["development", "test", "production"] = "development"
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+
+    # Database. Use the Supabase session pooler string on Render (IPv4).
+    database_url: SecretStr = SecretStr("postgresql+psycopg://localhost:5432/docintel")
+    db_pool_size: int = Field(default=3, ge=1, le=20)
+    db_max_overflow: int = Field(default=2, ge=0, le=20)
+    db_connect_timeout_s: int = Field(default=5, ge=1, le=60)
+
+    # File storage (Supabase Storage, private bucket).
+    supabase_url: str | None = None
+    supabase_service_role_key: SecretStr | None = None
+    supabase_bucket: str = "documents"
+
+    # Gemini. Model names are configuration, never code.
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str | None = None
+    gemini_vision_model: str | None = None
+    gemini_embed_model: str | None = None
+    embed_dim: int = Field(default=768, ge=1, le=16000)
+    llm_max_concurrency: int = Field(default=2, ge=1, le=32)
+
+    # Auth for the single demo account (Phase 4).
+    jwt_secret: SecretStr | None = None
+    demo_username: str = "reviewer"
+    demo_password: SecretStr | None = None
+
+    # Comma-separated list of allowed browser origins.
+    cors_origins: str = "http://localhost:3000"
+
+    # Upload and processing limits.
+    max_file_mb: int = Field(default=50, ge=1)
+    max_files_per_batch: int = Field(default=20, ge=1)
+    max_pdf_pages: int = Field(default=1500, ge=1)
+    ocr_confidence_threshold: float = Field(default=60, ge=0, le=100)
+    field_confidence_threshold: float = Field(default=0.7, ge=0, le=1)
+    money_tolerance: Decimal = Field(default=Decimal("0.01"), ge=0)
+
+    # Worker loop.
+    worker_poll_interval_s: float = Field(default=2.0, gt=0)
+
+    @field_validator("cors_origins")
+    @classmethod
+    def _strip_origins(cls, value: str) -> str:
+        return ",".join(part.strip().rstrip("/") for part in value.split(",") if part.strip())
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin for origin in self.cors_origins.split(",") if origin]
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == "production"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Return the process-wide settings. Tests clear the cache to change them."""
+    return Settings()

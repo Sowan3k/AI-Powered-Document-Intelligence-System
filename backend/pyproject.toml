@@ -1,0 +1,23 @@
+[project]
+name = "docintel-backend"
+version = "0.1.0"
+description = "DocIntel backend: document ingestion, extraction, validation and search API"
+requires-python = ">=3.12,<3.13"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "N"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: needs a PostgreSQL database with pgvector (set TEST_DATABASE_URL)",
+]

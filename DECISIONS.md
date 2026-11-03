@@ -193,3 +193,147 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 **Trade-off:** Time taken from other phases. It is scheduled after validation, so it can be cut if earlier phases run late.
 
 **In one sentence:** It addresses a pain the company described, not only the checklist it wrote.
+
+---
+
+## D17: Synchronous SQLAlchemy sessions, not async
+
+**Alternatives:** Async SQLAlchemy with `asyncpg` or async psycopg.
+
+**Why:** The API and the worker share the same models and database code. The worker is CPU-bound (OCR, PDF parsing), so async gives it nothing. FastAPI runs plain `def` endpoints in a thread pool, which is enough for a demo-scale API. One session style means one set of helpers and simpler tests.
+
+**Trade-off:** Each in-flight request holds a thread. Under thousands of concurrent requests an async stack would use less memory. That load is far beyond this deployment.
+
+**In one sentence:** The slow work is CPU-bound, so async would add complexity without adding speed.
+
+---
+
+## D18: Embedding size fixed by `EMBED_DIM` when the migration runs
+
+**Alternatives:** Hard-code the dimension in the migration, or use an untyped vector column.
+
+**Why:** Model names and their output sizes are configuration (CLAUDE.md). The first migration reads `EMBED_DIM` and creates `vector(EMBED_DIM)`. It also creates an HNSW index with cosine distance, but only when the size is 2,000 or less, because pgvector cannot index larger `vector` columns with HNSW. Gemini embedding models can return a reduced size, so 768 keeps the index possible and the rows small.
+
+**Trade-off:** Changing `EMBED_DIM` after the first deploy needs a new migration and fresh embeddings. Stored vectors from different models cannot be mixed anyway.
+
+**In one sentence:** The vector size follows configuration, and the index exists whenever pgvector can build it.
+
+---
+
+## D19: Status columns as VARCHAR with CHECK constraints, not native Postgres enums
+
+**Alternatives:** Native `CREATE TYPE ... AS ENUM`, or free text with no constraint.
+
+**Why:** A CHECK constraint still stops bad values at the database. Changing the allowed values is a plain constraint swap in a migration. A native enum needs `ALTER TYPE`, which has transaction limits and cannot remove a value. The Python side uses `StrEnum`, so code gets type safety too.
+
+**Trade-off:** Slightly more storage than a native enum. Irrelevant at this scale.
+
+**In one sentence:** Same protection as an enum, with migrations that stay simple.
+
+---
+
+## D20: UUID keys for rows the API exposes, BIGINT keys for child rows
+
+**Alternatives:** UUIDs everywhere, or integers everywhere.
+
+**Why:** Documents, invoices, jobs and reconciliations appear in URLs. Random UUIDs cannot be guessed or counted. Pages, line items, validation issues, corrections and events are always reached through a parent. A 1,000-page PDF creates 1,000 page rows, and BIGINT identity keys keep those rows and their indexes small.
+
+**Trade-off:** Two key types to remember. The rule is short: if it has its own URL, it gets a UUID.
+
+**In one sentence:** Unguessable IDs where users see them, compact IDs where they do not.
+
+---
+
+## D21: Quantity and unit price keep four decimals; amounts keep two
+
+**Alternatives:** Two decimals for every money-like column, as the general rule in CLAUDE.md says.
+
+**Why:** Real invoices quote unit prices like 0.125 per item or 3.3333 per hour. Rounding them to two decimals would make rule R04 (quantity times unit price equals amount) fail on correct invoices. So `quantity` and `unit_price` are `NUMERIC(14,4)`. Every amount that is actually charged (`subtotal`, `tax`, `total`, line `amount`) stays `NUMERIC(14,2)`. No column uses floats.
+
+**Trade-off:** One exception to remember. It refines the money rule; it does not break it.
+
+**In one sentence:** Charged amounts are exact to the cent, and rates keep the precision the supplier printed.
+
+---
+
+## D22: The full-text `search_vector` is filled by application code
+
+**Alternatives:** A generated column (`GENERATED ALWAYS AS (to_tsvector(...)) STORED`), or a database trigger.
+
+**Why:** The searchable text should include line item descriptions, which live in another table. A generated column can only read its own row. A manual correction must also refresh the search text. Doing it in Python, in the same place that saves the invoice, keeps the logic visible and testable. A GIN index makes the search fast.
+
+**Trade-off:** Every code path that changes an invoice must refresh the vector. Phase 4 puts that in one function and tests it.
+
+**In one sentence:** The search text spans two tables, so the code that writes them also builds it.
+
+---
+
+## D23: Two health endpoints: liveness without the database, readiness with it
+
+**Alternatives:** One endpoint that always checks the database.
+
+**Why:** Render calls the health check during every deploy. If that check needed the database, a paused Supabase project would block deploys of a working API. So `/api/health/live` only proves the process is up, and Render uses it. `/api/health` also runs `SELECT 1` and returns 503 when the database is down. The frontend calls that one to show "API healthy, database connected". Errors are logged by type only, because driver messages can contain host names.
+
+**Trade-off:** Render can route traffic to an instance whose database is down. The frontend shows that state clearly instead of hiding it.
+
+**In one sentence:** The platform checks that the process lives; people check that the whole system works.
+
+---
+
+## D24: Migrations run in `start.sh`, and the container stops if either process dies
+
+**Alternatives:** Render's pre-deploy command (paid plans only), or running migrations by hand.
+
+**Why:** The free plan has no pre-deploy step. `start.sh` runs `alembic upgrade head` before it starts the API and the worker, so the schema always matches the code. The script then waits on both processes. If one exits, it stops the other and exits with an error, so Render restarts the whole container instead of leaving a half-working service. A normal stop signal exits cleanly. `docker-compose.yml` uses the same script with `api` and `worker` modes.
+
+**Trade-off:** With several instances starting together, two could race to migrate. This deployment has one instance. At scale, migrations would move to a release step.
+
+**In one sentence:** One instance can safely migrate at start, and a half-dead container restarts as a whole.
+
+---
+
+## D25: Supabase Session pooler, with psycopg prepared statements turned off
+
+**Alternatives:** Supabase's direct connection, or the transaction pooler with default driver settings.
+
+**Why:** The direct connection uses IPv6, which Render's free services cannot reach. The Session pooler works over IPv4. psycopg 3 prepares statements after a few runs, and the transaction pooler rejects that, so the engine sets `prepare_threshold=None`. That keeps both pooler modes working. Each process keeps a small pool (three plus two overflow) to stay inside Supabase's free connection limit.
+
+**Trade-off:** Prepared statements would save a little parsing time per query. The gain is negligible here.
+
+**In one sentence:** Use the connection path Render can actually reach, and keep the driver compatible with any Supabase pooler mode.
+
+---
+
+## D26: Exact dependency pins compiled with `uv`
+
+**Alternatives:** Loose ranges in `requirements.txt`, Poetry, or `uv` with `pyproject.toml` and a lock file.
+
+**Why:** `requirements.in` lists the direct dependencies. `uv pip compile` turns it into `requirements.txt` with every transitive package pinned. Docker, CI and reviewers all install the same versions with plain `pip`, which every reviewer already has. The frontend pins exact versions in `package.json` and commits `package-lock.json`. The backend image is pinned to `python:3.12.16-slim-trixie`, and the database image to `pgvector/pgvector:0.8.7-pg17`.
+
+**Trade-off:** Updates are manual. That is the point: nothing changes between the test run and the deploy.
+
+**In one sentence:** Every environment installs exactly what CI tested.
+
+---
+
+## D27: CI builds the Docker images and runs the whole stack
+
+**Alternatives:** Test only the Python and TypeScript code, and trust the Dockerfiles.
+
+**Why:** The builder has no local machine, and the cloud sandbox blocks the Debian package mirror, so a full image build cannot run there. CI fills that gap. A `docker` job builds both images, checks that Tesseract is installed, starts `docker compose`, and confirms that the API reports a connected database, the worker started and the web app answers. If the Dockerfile breaks, CI fails before Render does. CI and compose use Postgres 17 with pgvector, to stay close to Supabase.
+
+**Trade-off:** The CI run takes a few minutes longer.
+
+**In one sentence:** What reviewers will run locally is tested on every push.
+
+---
+
+## D28: A Render Blueprint (`render.yaml`) describes the backend service
+
+**Alternatives:** Create the service by hand in the Render dashboard.
+
+**Why:** The builder works from a phone. The blueprint sets the Docker paths, the Singapore region, the free plan, the liveness health check and every environment variable name. Render asks for the secret values in its own dashboard, and it generates `JWT_SECRET` itself, so no secret passes through chat or Git. A build filter skips backend deploys for frontend-only changes.
+
+**Trade-off:** Blueprint changes need a sync in Render. Manual setup still works; the file then serves as the written record of the settings.
+
+**In one sentence:** The service settings live in Git, and the secrets never do.

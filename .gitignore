@@ -33,3 +33,6 @@ eval/reports/raw/
 .DS_Store
 .idea/
 .vscode/
+
+# Test reports written by CI
+backend/reports/

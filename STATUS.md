@@ -11,6 +11,8 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Supabase (set up by Sowan):** project created, `vector` and `pg_trgm` enabled in the `extensions` schema (on the search_path), private bucket `documents` with a 50 MB limit, Data API disabled. The backend uses SQLAlchemy over the pooler for the database and the Storage API only for files (D17). Code never creates buckets.
 
+**Gemini models (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` for text, `gemini-3.8-flash` for vision, `gemini-embedding-2` with `output_dimensionality=768`. The embedding model has no `task_type`: queries use the prefix `task: search result | query: ` and documents use `title: {title} | text: ` (D31). Phase 2 and Phase 4 must follow this.
+
 **Next:**
 
 1. Sowan merges branch `ccr-406a2a1e-uip46r` into `main`. Render and Vercel deploy from `main`.
@@ -20,7 +22,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 **Manual steps for Sowan (phone, in this order):**
 
 1. Supabase: done, except one step. Connect > Session pooler: copy the string and change `postgresql://` to `postgresql+psycopg://`. That is the `DATABASE_URL` for Render.
-2. Render: New > Blueprint > this repo. Paste the values it asks for. Set `CORS_ORIGINS` to `http://localhost:3000` for now. Wait for the deploy, then copy the service URL.
+2. Render: New > Blueprint > this repo. Paste the values it asks for (the model names are already filled in). Set `CORS_ORIGINS` to `http://localhost:3000` for now. Wait for the deploy, then copy the service URL.
 3. Vercel: import the repo with Root Directory `frontend`. Add `NEXT_PUBLIC_API_BASE_URL` = the Render URL, no trailing slash. Deploy and copy the Vercel URL.
 4. Render: set `CORS_ORIGINS` to the Vercel URL, no trailing slash. Render redeploys.
 5. Exit test: open the Vercel URL. Within a minute it should say "API healthy, database connected".
@@ -38,6 +40,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 4. Confirm in the Supabase dashboard that the project runs Postgres 17. CI and compose use 17.
 
 ## Session log
+
+### 4 Nov 2026, Gemini model config (Claude Code)
+
+Set the confirmed model names in `.env.example` and `render.yaml` (model names are not secrets, so Render no longer asks for them). Recorded D31: Flash-Lite for text extraction, Flash for the vision fallback, `gemini-embedding-2` at 768 dimensions, and the exact query and document prefixes. Tested: unit tests pass, including the check that `.env.example` parses and documents every setting.
 
 ### 4 Nov 2026, Supabase rules and pg_trgm (Claude Code)
 

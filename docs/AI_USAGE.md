@@ -35,3 +35,10 @@ How it was verified: ruff, 36 pytest tests against a real Postgres with pgvector
 Prompt (summary): Sowan reported the Supabase setup (Data API disabled, `vector` and `pg_trgm` in the `extensions` schema, private 50 MB bucket) and asked to record the Data API rule as D17, add `pg_trgm` to the migration with plain `CREATE EXTENSION IF NOT EXISTS`, and record `pg_trgm` as a decision.
 
 AI-generated: decisions D17 and D30, the migration and model changes, a dependency guard test, a trigram similarity test and an extension no-op test. Verified with ruff, 40 passing tests, and a migration run against a local database laid out like Supabase.
+
+### 4 Nov 2026, Gemini model config (Claude Code)
+
+Prompt (summary): Sowan gave the model names confirmed against Google's model list (`gemini-3.5-flash-lite`, `gemini-3.8-flash`, `gemini-embedding-2` at 768 dimensions) and the embedding prefix format, and asked to update `.env.example` and record the choices.
+
+AI-generated: decision D31 and the config edits in `.env.example` and `render.yaml`. The model names and the prefix format came from Sowan, not from the AI. Verified with the unit tests that parse `.env.example`.
+

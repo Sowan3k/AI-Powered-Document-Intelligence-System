@@ -361,3 +361,31 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 **Trade-off:** The similarity threshold needs tuning on the evaluation set. Trigrams are weak on very short names, so Phase 3 normalises names (case, punctuation, suffixes like "Ltd") before comparing. Fuzzy matching becomes tied to PostgreSQL.
 
 **In one sentence:** The database finds suppliers that look alike, and code decides whether the invoices really match.
+
+---
+
+## D31: Gemini models: Flash-Lite for text, Flash for vision, gemini-embedding-2 at 768 dimensions
+
+**Alternatives:** One model for every call, a larger model for text extraction, or the embedding model's full output size.
+
+**Why:** Sowan confirmed the names against Google's model list on 4 November 2026. They live in environment variables (`GEMINI_MODEL`, `GEMINI_VISION_MODEL`, `GEMINI_EMBED_MODEL`), never in code.
+
+`gemini-3.5-flash-lite` does text extraction. It is the highest-volume call, one or more per page window, so it uses the cheapest and fastest tier, which matters most under free-tier rate limits. The job is reading values that are already in the text, and code checks every value afterwards (D09, D10), so a smaller model's mistakes get caught instead of trusted.
+
+`gemini-3.8-flash` reads page images, but only when Tesseract confidence is below the threshold (D07). Those pages are few and the hardest to read, so a stronger model is worth its cost there.
+
+`gemini-embedding-2` creates the search embeddings, called with `output_dimensionality=768` to match `EMBED_DIM` and the `vector(768)` column (D19). 768 keeps the HNSW index possible and the rows small. The index uses cosine distance, which ignores vector length, so the shortened vectors need no extra normalisation step.
+
+This embedding model has no `task_type` parameter. The text itself says what it is, with these exact prefixes:
+
+```
+query:     task: search result | query: {query}
+document:  title: {title} | text: {text}
+```
+
+Search queries and stored invoices must both use them, or the similarity scores lose meaning. The templates go in `backend/app/extract/prompts.py` with the other prompts (CLAUDE.md, AI rule 7). Phase 4 decides what the title and text of each invoice contain, and tests the format.
+
+**Trade-off:** Flash-Lite may miss values on messy layouts. The Phase 6 evaluation reports accuracy per field. If it falls short, moving `GEMINI_MODEL` up a tier is a configuration change, not a code change. Changing the embedding model or `EMBED_DIM` means re-embedding every invoice, plus a migration for a new size (D19). The prefix format belongs to this model, so a new embedding model means checking its format first.
+
+**In one sentence:** The cheap model does the bulk reading, the strong model handles only the hard pages, and the embeddings stay small enough to index.
+

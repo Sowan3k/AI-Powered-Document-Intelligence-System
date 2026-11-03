@@ -30,12 +30,13 @@ services:
         value: documents
       - key: GEMINI_API_KEY
         sync: false
+      # Model names are configuration, not secrets (DECISIONS.md D31).
       - key: GEMINI_MODEL
-        sync: false
+        value: gemini-3.5-flash-lite
       - key: GEMINI_VISION_MODEL
-        sync: false
+        value: gemini-3.8-flash
       - key: GEMINI_EMBED_MODEL
-        sync: false
+        value: gemini-embedding-2
       - key: EMBED_DIM
         value: "768"
       - key: LLM_MAX_CONCURRENCY

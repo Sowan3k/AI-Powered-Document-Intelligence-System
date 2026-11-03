@@ -21,13 +21,13 @@ Manual steps for Sowan (secrets go into dashboards only, never into chat or file
 
 Claude Code checklist:
 
-- [ ] Backend skeleton: FastAPI app, config from environment, `/api/health` endpoint that checks the database connection
-- [ ] SQLAlchemy models and the first Alembic migration for every table in the CLAUDE.md data model
-- [ ] `Dockerfile` that installs Tesseract and runs `start.sh` (API process plus worker process)
-- [ ] `docker-compose.yml` with backend, worker and a pgvector Postgres for reviewers who run locally
-- [ ] Frontend skeleton: Next.js app with one page that calls `/api/health`
-- [ ] GitHub Actions workflow: ruff, pytest, gitleaks
-- [ ] `docs/BRIEF.md` with the full assignment text
+- [x] Backend skeleton: FastAPI app, config from environment, `/api/health` endpoint that checks the database connection
+- [x] SQLAlchemy models and the first Alembic migration for every table in the CLAUDE.md data model
+- [x] `Dockerfile` that installs Tesseract and runs `start.sh` (API process plus worker process)
+- [x] `docker-compose.yml` with backend, worker and a pgvector Postgres for reviewers who run locally
+- [x] Frontend skeleton: Next.js app with one page that calls `/api/health`
+- [x] GitHub Actions workflow: ruff, pytest, gitleaks
+- [x] `docs/BRIEF.md` with the full assignment text
 
 Exit test: the Vercel page shows "API healthy, database connected" from the live Render service.
 

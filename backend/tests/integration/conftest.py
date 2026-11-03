@@ -20,8 +20,6 @@ from app.db.session import build_engine
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 
-pytestmark = pytest.mark.integration
-
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     for item in items:

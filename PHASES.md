@@ -84,28 +84,30 @@ Goal: the system checks every invoice like an auditor and flags what a human mus
 
 Validation rules (all in plain Python with `Decimal` and a configurable tolerance):
 
-- [ ] `R01` required field missing (invoice number, date, supplier, total); customer and tax only warn (D41)
-- [ ] `R02` value cannot be parsed or is negative where it must not be
-- [ ] `R03` sum of line item amounts does not equal subtotal
-- [ ] `R04` line item quantity times unit price does not equal its amount
-- [ ] `R05` subtotal plus tax does not equal total
-- [ ] `R06` duplicate invoice: same normalised supplier and invoice number already stored
-- [ ] `R07` possible duplicate: same supplier, date and total under a different number
-- [ ] `R08` date is in the future or unreasonably old
-- [ ] `R09` field confidence below threshold
-- [ ] `R10` evidence not found in the source text
-- [ ] `R11` currency missing or mixed within one invoice
-- [ ] Review status: any error-level issue sets the invoice to `needs_review`
+- [x] `R01` required field missing (invoice number, date, supplier, total); customer and tax only warn (D41)
+- [x] `R02` value cannot be parsed or is negative where it must not be
+- [x] `R03` sum of line item amounts does not equal subtotal
+- [x] `R04` line item quantity times unit price does not equal its amount
+- [x] `R05` subtotal plus tax does not equal total
+- [x] `R06` duplicate invoice: same normalised supplier and invoice number already stored
+- [x] `R07` possible duplicate: same supplier, date and total under a different number
+- [x] `R08` date is in the future or unreasonably old
+- [x] `R09` field confidence below threshold
+- [x] `R10` evidence not found in the source text
+- [x] `R11` currency missing or mixed within one invoice
+- [x] Review status: any error-level issue sets the invoice to `needs_review`
 
 Cross-verification (from the scenario, beyond the seven tasks):
 
-- [ ] Reconciliation service that compares two documents (PDF with PDF, or PDF with Excel)
-- [ ] Match by normalised invoice number, then fall back to supplier plus date plus total
-- [ ] Report matched, mismatched (with the differing fields), only in A, only in B
+- [x] Reconciliation service that compares two documents (PDF with PDF, or PDF with Excel)
+- [x] Match by normalised invoice number, then fall back to supplier plus date plus total
+- [x] Report matched, mismatched (with the differing fields), only in A, only in B
 
-- [ ] Unit tests for every rule and for reconciliation, using planted errors
+- [x] Unit tests for every rule and for reconciliation, using planted errors
 
 Exit test: every planted error in the fixtures is caught by the right rule.
+
+**Exit test passed on 4 Nov 2026** (CI run 14, all jobs green). Each planted error gives exactly its rule, and clean invoices give no issues.
 
 ---
 

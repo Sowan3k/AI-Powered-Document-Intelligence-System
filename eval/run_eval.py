@@ -108,7 +108,7 @@ def line_scores(inv: Invoice, want: dict) -> tuple[int, int, int]:
     return tp, len(inv.line_items), len(expected)
 
 
-def run(scale: int, fake: bool, workdir: Path) -> dict:
+def run(scale: int, fake: bool, workdir: Path, budget_s: float = 45 * 60) -> dict:
     settings = get_settings()
     configure_logging(settings.log_level)
     data = workdir / "data"
@@ -141,6 +141,11 @@ def run(scale: int, fake: bool, workdir: Path) -> dict:
             session.commit()
     jobs = 0
     while True:
+        if time.monotonic() - started > budget_s:
+            print(
+                f"  time budget of {budget_s / 60:.0f} min used; scoring what finished", flush=True
+            )
+            break
         if worker.run_once():
             jobs += 1
             if jobs % 5 == 0:
@@ -165,6 +170,7 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
     line_tp = line_got = line_want = 0
     outcomes: Counter[str] = Counter()
     failures: Counter[str] = Counter()
+    failure_errors: dict[str, str | None] = {}
     expected_failures: dict[str, str] = {}
     timing = defaultdict(list)
     tokens_per_doc: list[int] = []
@@ -180,6 +186,9 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
         for entry in manifest:
             name, expect = entry["file"], entry["expect"]
             doc = s.get(Document, ids[name])
+            if doc.status.value in ("queued", "processing"):
+                outcomes["not processed (time budget)"] += 1
+                continue
             if "error" in expect:
                 ok = doc.error_code == expect["error"]
                 outcomes["correctly rejected" if ok else "wrong outcome on a broken file"] += 1
@@ -188,6 +197,11 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
             if doc.status.value != "completed":
                 outcomes["failed"] += 1
                 failures[doc.error_code or "unknown"] += 1
+                last = s.scalars(
+                    select(Job.last_error).where(Job.document_id == doc.id)
+                    .order_by(Job.created_at.desc())
+                ).first()  # fmt: skip
+                failure_errors[f"{name}: {doc.error_code}"] = last
                 continue
             outcomes["completed"] += 1
 
@@ -283,6 +297,7 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
         "wall_seconds": round(wall_s, 1),
         "documents": dict(outcomes),
         "failures_by_cause": dict(failures),
+        "failure_errors": failure_errors,
         "broken_files": expected_failures,
         "invoices": {"expected": expected_invoices, "found": found},
         "field_accuracy": {
@@ -345,6 +360,7 @@ def markdown(r: dict) -> str:
         f"F1 {pct(r['line_items']['f1'])} ({r['line_items']['extracted']} extracted, {r['line_items']['expected']} expected).",
         "",
         f"Documents: {r['documents']}. Failures by cause: {r['failures_by_cause'] or 'none'}.",
+        f"Last error of each failed document: {r['failure_errors'] or 'none'}.",
         f"Broken files and the code each got: {r['broken_files']}.",
         "",
         "| Timing | n | mean (s) | p95 (s) |",
@@ -372,9 +388,10 @@ def main() -> int:
     parser.add_argument("--scale", type=int, default=1)
     parser.add_argument("--fake", action="store_true")
     parser.add_argument("--out", type=Path, default=Path("../eval/reports"))
+    parser.add_argument("--budget-min", type=float, default=45, help="stop taking jobs after this")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="docintel-eval-") as tmp:
-        report = run(args.scale, args.fake, Path(tmp))
+        report = run(args.scale, args.fake, Path(tmp), args.budget_min * 60)
     args.out.mkdir(parents=True, exist_ok=True)
     stamp = report["run_at"].replace(":", "").replace("-", "")
     (args.out / f"eval-{stamp}.json").write_text(json.dumps(report, indent=2, default=str))

@@ -1,9 +1,12 @@
 """Windows over pages, and merging invoices across window edges."""
 
+import threading
+import time
+
 import pytest
 
 from app.core.config import Settings
-from app.extract.llm import LlmOutputError
+from app.extract.llm import LlmError, LlmOutputError
 from app.extract.schemas import LlmInvoice
 from app.extract.segment import merge_windows, windows
 from app.extract.service import extract_pages
@@ -103,3 +106,51 @@ def test_two_bad_replies_raise() -> None:
     fake = FakeLlmClient(["{}", "[]"])
     with pytest.raises(LlmOutputError):
         extract_pages(fake, "m", pages(2), Settings())
+
+
+def test_windows_run_in_parallel_and_merge_in_page_order() -> None:
+    lock, active, peak = threading.Lock(), [0], [0]
+
+    def reply(call: FakeCall) -> dict:
+        window = window_of(call)
+        with lock:
+            active[0] += 1
+            peak[0] = max(peak[0], active[0])
+        time.sleep(0.05 if window[0] == 1 else 0.01)  # the first window finishes last
+        with lock:
+            active[0] -= 1
+        return {"invoices": [llm_invoice(n, invoice_number=f"INV-{n}") for n in window]}
+
+    progress: list[tuple[int, int, str]] = []
+    settings = Settings(segment_window_pages=2, segment_overlap_pages=0, llm_max_concurrency=3)
+    found, usages = extract_pages(
+        FakeLlmClient(reply), "m", pages(10), settings,
+        on_progress=lambda d, t: progress.append((d, t, threading.current_thread().name)),
+    )  # fmt: skip
+    assert [i.invoice_number.value for i in found] == [f"INV-{n}" for n in range(1, 11)]
+    assert len(usages) == 5 and 1 < peak[0] <= 3
+    assert [d for d, _, _ in progress] == [0, 1, 2, 3, 4, 5]
+    assert {name for _, _, name in progress} == {threading.current_thread().name}
+
+
+def test_an_overloaded_model_falls_back_for_that_window() -> None:
+    def reply(call: FakeCall) -> dict:
+        if call.model == "text-model":
+            raise LlmError("Gemini call failed with HTTP 503")
+        return {"invoices": [llm_invoice(1, invoice_number="INV-1")]}
+
+    settings = Settings(gemini_model="text-model", gemini_fallback_model="backup-model")
+    fake = FakeLlmClient(reply)
+    found, usages = extract_pages(fake, "text-model", pages(2), settings)
+    assert [c.model for c in fake.calls] == ["text-model", "backup-model"]
+    assert [i.invoice_number.value for i in found] == ["INV-1"]
+    assert [u.model for u in usages] == ["backup-model"]
+
+
+def test_fallback_defaults_to_the_vision_model_and_skips_bad_replies() -> None:
+    assert Settings(gemini_model="a", gemini_vision_model="b").extraction_fallback_model == "b"
+    assert Settings(gemini_model="a", gemini_vision_model="a").extraction_fallback_model is None
+    fake = FakeLlmClient(["{}", "[]"])  # a schema failure is final: no fallback call
+    with pytest.raises(LlmOutputError):
+        extract_pages(fake, "a", pages(2), Settings(gemini_model="a", gemini_vision_model="b"))
+    assert len(fake.calls) == 2

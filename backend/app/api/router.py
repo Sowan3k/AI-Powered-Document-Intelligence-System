@@ -12,6 +12,7 @@ from app.api.routes import (
     jobs,
     reconcile,
     search,
+    stats,
 )
 
 api_router = APIRouter(prefix="/api")
@@ -24,3 +25,4 @@ api_router.include_router(search.router)
 api_router.include_router(reconcile.router)
 api_router.include_router(activity.router)
 api_router.include_router(export.router)
+api_router.include_router(stats.router)

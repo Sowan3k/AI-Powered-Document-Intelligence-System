@@ -214,3 +214,19 @@ export type ActivityItem = {
 };
 
 export type Activity = { active: ActivityItem[]; recent: ActivityItem[]; review_count: number };
+
+export type Stats = {
+  documents: Record<string, number>;
+  success_rate: number | null;
+  failure_rate: number | null;
+  invoices: Record<string, number>;
+  processing_seconds_mean: number | null;
+  processing_seconds_p95: number | null;
+  tokens_input: number;
+  tokens_output: number;
+  tokens_thinking: number;
+  by_model: Record<string, { calls: number; input_tokens: number; output_tokens: number; thinking_tokens: number; cost_usd: number | null }>;
+  cost_usd: number | null;
+  cost_per_completed_document_usd: number | null;
+  prices_checked: string;
+};

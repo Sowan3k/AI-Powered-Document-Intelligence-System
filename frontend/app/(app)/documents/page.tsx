@@ -10,6 +10,7 @@ import { DropZone } from "@/components/drop-zone";
 import { ExportButton } from "@/components/export-button";
 import { SearchIcon } from "@/components/icons";
 import { ProcessFlow } from "@/components/process-flow";
+import { StatsLine } from "@/components/stats-line";
 import { Button, Card, Empty, ErrorBox, Loading, StatusBadge, inputClass } from "@/components/ui";
 import { query } from "@/lib/api";
 import { bytes, dateText, money } from "@/lib/format";
@@ -183,6 +184,7 @@ function RecentDocuments() {
         </div>
       )}
       {data && data.total > 0 && <ExportButton />}
+      <StatsLine changes={changes} />
     </section>
   );
 }

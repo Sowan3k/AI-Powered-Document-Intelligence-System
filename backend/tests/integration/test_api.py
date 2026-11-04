@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_llm, get_storage
 from app.core.config import Settings, get_settings
+from app.core.pricing import PRICES_USD_PER_M
 from app.core.ratelimit import login_limiter, upload_limiter
 from app.db.session import get_db
 from app.extract.llm import LlmError
@@ -445,3 +446,26 @@ def test_export_csv_for_excel(env: Env, tmp_path: Path) -> None:
     assert got["Review status"] in {"ok", "needs_review"}
     only = env.get("/api/export/invoices.csv", params={"review_status": "reviewed"})
     assert len(list(csv.reader(io.StringIO(only.content.decode("utf-8-sig"))))) == 1
+
+
+def test_stats_report_outcomes_tokens_and_cost(env: Env, monkeypatch: pytest.MonkeyPatch) -> None:
+    env.login()
+    names = ["digital_classic_0.pdf", "encrypted.pdf"]
+    env.fake.replies = reader_for_truths([env.truth("digital_classic_0.pdf")])
+    env.upload(*names)
+    env.work()
+    s = env.get("/api/stats").json()
+    assert s["documents"] == {"completed": 1, "failed": 1}
+    assert (s["success_rate"], s["failure_rate"]) == (0.5, 0.5)
+    assert s["invoices"] and s["processing_seconds_mean"] is not None
+    # The fake model answers 100 input and 20 output tokens per call.
+    text = s["by_model"]["text-model"]
+    assert (text["calls"], text["input_tokens"], text["output_tokens"]) == (1, 100, 20)
+    assert text["cost_usd"] is None and s["cost_usd"] is None  # no listed price: no guess
+    monkeypatch.setitem(PRICES_USD_PER_M, "text-model", (1.0, 2.0))
+    monkeypatch.setitem(PRICES_USD_PER_M, "embed-model", (1.0, 0.0))
+    s = env.get("/api/stats").json()
+    embed = s["by_model"]["embed-model"]
+    expected = (100 * 1.0 + 20 * 2.0 + embed["input_tokens"] * 1.0) / 1_000_000
+    assert s["cost_usd"] == pytest.approx(expected)
+    assert s["cost_per_completed_document_usd"] == pytest.approx(expected)

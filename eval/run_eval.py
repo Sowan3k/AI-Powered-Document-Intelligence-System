@@ -181,7 +181,8 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
     clean_flagged = clean_total = 0
     flag_rules: Counter[str] = Counter()
     wrong_fields: Counter[str] = Counter()
-    tokens_in = tokens_out = 0
+    tokens_in = tokens_out = tokens_think = 0
+    latency_ms: dict[str, list[float]] = defaultdict(list)
     extra_invoices: dict[str, int] = {}
     not_invoice: dict[str, int] = {}  # file -> invoices wrongly extracted from it
     adversarial: dict[str, dict] = {}
@@ -235,9 +236,13 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
             calls = [e for e in events if e.event == "llm_call"]
             tokens = 0
             for e in calls:
-                n = int(e.detail["prompt_tokens"]) + int(e.detail["output_tokens"])
+                think = int(e.detail.get("thinking_tokens") or 0)
+                n = int(e.detail["prompt_tokens"]) + int(e.detail["output_tokens"]) + think
                 tokens_in += int(e.detail["prompt_tokens"])
                 tokens_out += int(e.detail["output_tokens"])
+                tokens_think += think
+                if e.detail.get("latency_ms") is not None:
+                    latency_ms[e.detail["purpose"]].append(float(e.detail["latency_ms"]))
                 tokens += n
                 tokens_by_purpose[e.detail["purpose"]] += n
                 calls_by_purpose[e.detail["purpose"]] += 1
@@ -375,9 +380,11 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
             "per_document": summary([float(t) for t in tokens_per_doc]),
             "input": tokens_in,
             "output": tokens_out,
+            "thinking": tokens_think,
             "total": sum(tokens_per_doc),
             "by_purpose": dict(tokens_by_purpose),
             "calls_by_purpose": dict(calls_by_purpose),
+            "latency_ms_by_purpose": {k: summary(v) for k, v in sorted(latency_ms.items())},
         },
         "job_attempts": {str(k): v for k, v in sorted(job_attempts.items())},
     }
@@ -429,9 +436,12 @@ def markdown(r: dict) -> str:
         f"{r['adjustments']['flagged_r05']} flagged by R05.",
         "",
         f"Tokens: {r['tokens']['total']} in total ({r['tokens']['input']} input, "
-        f"{r['tokens']['output']} output); per completed document mean "
+        f"{r['tokens']['output']} output, {r['tokens']['thinking']} thinking); "
+        f"per completed document mean "
         f"{r['tokens']['per_document']['mean']}, p95 {r['tokens']['per_document']['p95']}. "
         f"By purpose: {r['tokens']['by_purpose']}. Calls: {r['tokens']['calls_by_purpose']}.",
+        f"Latency per model call in ms (mean, p95): "
+        f"{ {k: (v['mean'], v['p95']) for k, v in r['tokens']['latency_ms_by_purpose'].items()} }.",
         f"Job attempts: {r['job_attempts']}.",
         f"Wrong fields (field and path): {r['wrong_fields'] or 'none'}.",
     ]

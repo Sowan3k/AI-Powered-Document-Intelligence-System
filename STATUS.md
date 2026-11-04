@@ -4,14 +4,14 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the exit tests on the live site for Phases 4 and 5 (they need the merge to `main`), and the Phase 7 items only Sowan can do.
+**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. All of it is merged into `main` and deployed. Still open: the exit tests on the live site for Phases 4 and 5, and the Phase 7 items only Sowan can do.
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
 
 - Web app: https://docintel-tan-two.vercel.app (Vercel project `docintel`)
 - API: https://docintel-api-y25b.onrender.com (Render service `docintel-api`, Singapore, free plan). Docs at `/api/docs`, health at `/api/health`.
-- Render and Vercel deploy automatically from `main`. All work so far is on the session branch `sowan/admiring-gates-y0oyrm`; **nothing since Phase 0 is live yet.**
+- Render and Vercel deploy automatically from `main`. Phases 1 to 7 were merged into `main` on 4 Nov 2026 (Sowan3k/AI-Powered-Document-Intelligence-System#1, merge commit `d37fe29`).
 
 **Supabase (set up by Sowan):** `vector` and `pg_trgm` in the `extensions` schema, private bucket `documents` (50 MB), Data API disabled. `SUPABASE_SERVICE_ROLE_KEY` holds an `sb_secret_` key, sent only in the `apikey` header (D32).
 
@@ -21,7 +21,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next, for Sowan (in order):**
 
-1. Merge `sowan/admiring-gates-y0oyrm` into `main`. Render and Vercel deploy by themselves.
+1. ~~Merge `sowan/admiring-gates-y0oyrm` into `main`.~~ Done 4 Nov 2026.
 2. In Render, check these environment variables: `DEMO_PASSWORD` is set (pick one and put it in the submission email); `STORAGE_BACKEND=supabase` and the new defaults come from `render.yaml` (sync the Blueprint if Render asks). Optional: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` while `gemini-3.8-flash` stays overloaded; weak scans then skip a wait of about a minute.
 3. After the deploy: open the web app on your phone, sign in, upload a few files from the dataset (or your own), and check results, review, a correction, both searches and reconcile. Tell Claude Code what you see, and it will tick the exit tests for Phases 4 and 5.
 4. Record the walkthrough video (3 to 5 minutes) following the Phase 7 list.
@@ -38,6 +38,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Real public invoice samples were not added to the evaluation (licensing and personal data). The report says so.
 
 ## Session log
+
+### 4 Nov 2026, merge to main and deploy (Claude Code)
+
+Sowan asked for the merge. Opened and merged Sowan3k/AI-Powered-Document-Intelligence-System#1 after CI run 35 was green on `669a6d2`. Merge commit `d37fe29`. Vercel production build: READY. Render deploy: build done, migrations ran (no schema change since Phase 0), API and worker started, `/api/health/live` returns 200. Not yet checked from a browser: sign-in and a real upload on the live site (this sandbox cannot reach Render or Vercel).
 
 ### 4 Nov 2026, frontend redesign and scale check (Claude Code)
 

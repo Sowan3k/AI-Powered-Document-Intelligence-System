@@ -7,6 +7,8 @@ The backend runs on a free Render instance that sleeps when idle; the first requ
 
 ## What it does
 
+The web app is built for the shortest path: one Home screen where you drop files, watch each one move through Upload, Read, AI extract, Check and Done, and approve or fix whatever needs a look with one tap. The live processing view follows you to every screen.
+
 1. **Upload** several files at once. Each is checked by its bytes (never its name), stored privately under a random key, and queued. A bad file fails alone with a clear code (`ENCRYPTED_PDF`, `CORRUPTED_FILE`, `EMPTY_FILE`, `UNSUPPORTED_TYPE`, `TOO_LARGE`, `TOO_MANY_PAGES`); the rest of the batch goes on.
 2. **Read** each file in a background worker. Digital PDF pages give their text directly. Scanned pages and images are cleaned with OpenCV and read by Tesseract, which reports a confidence per page; weak pages go to Gemini vision. Spreadsheets are read sheet by sheet, with header detection, merged cells and CSV encoding and delimiter detection.
 3. **Extract** invoice number, date, supplier, customer, subtotal, tax, total, currency and line items. Gemini copies each value as printed, with a confidence and the text it came from. Code then parses dates and money and checks that the evidence really appears in the source. Missing values stay empty; nothing is guessed.
@@ -109,7 +111,7 @@ CI runs ruff, 351 tests on Postgres with Tesseract, the frontend build, a gitlea
 
 ## Design decisions
 
-All 54 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
+All 55 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
 
 1. **One Python service, not a Node.js API plus a Python worker** (D01). Every heavy library is Python; one language means one deployment and no network hop.
 2. **The queue is a PostgreSQL table** (D02, D45). Jobs survive a restart of the free instance, live in the same transaction as the data they change, and need no extra service.

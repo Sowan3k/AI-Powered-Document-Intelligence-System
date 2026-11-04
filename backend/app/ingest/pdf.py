@@ -96,6 +96,9 @@ def _read_page(doc: pymupdf.Document, index: int, settings: Settings) -> PageCon
     image = render_gray(page, settings.ocr_dpi)
     result = ocr_image(image, settings.ocr_timeout_s)
     del image
+    # A scanned page's decoded image stays in MuPDF's cache; drop it now, not at the
+    # end of the batch, so memory stays flat on a 512 MB instance.
+    pymupdf.TOOLS.store_shrink(100)
     return PageContent(
         page_number=index + 1,
         text=result.text,

@@ -113,3 +113,9 @@ The first real run measured perfect extraction on every completed document, and 
 
 Run 3 failed every multi-invoice document at the embedding step. Claude Code ran the real google-genai SDK against a fake HTTP transport to see the exact request it builds, found that a list of strings becomes one multi-part content, and changed the client to send one `Content` per text (D54), with a test that checks the request body. Run 4 then completed every document. The numbers in `docs/EVALUATION.md` are copied from that run's log, not estimated; the interpretation of the single R04 flag is labelled as the most likely cause, since the run does not record which value was misread.
 
+### 4 Nov 2026, frontend redesign and scale check (Claude Code)
+
+Prompt (summary): Sowan shared the original brief and asked whether the project is on track, and asked for a simpler frontend for users who prefer the shortest path, with a live document processing animation, and to check everything.
+
+AI-generated: the redesigned web app (Home, live process view and dock, bottom tabs, one-tap approval), the activity endpoint, per-window progress, the top issue in the review queue, the scale check, and decision D55. Verified with backend tests, a production build and an automated phone-size walk-through with screenshots; the screenshots led to three refinements (dock text, failed-step styling, the dock hidden on Home). The scale check found and fixed a memory peak on scanned PDFs.
+

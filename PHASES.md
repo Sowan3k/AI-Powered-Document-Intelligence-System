@@ -158,6 +158,7 @@ Goal: a simple, clean interface that covers every user action in the brief.
 - [x] Reconcile page: choose two documents, see the comparison
 - [x] Clear states for loading, empty, error and a sleeping backend (cold start message)
 - [x] Usable on a phone screen, since the walkthrough is recorded on a phone
+- [x] Redesign after Sowan's review (D55): one Home screen, upload on pick, live processing view on every screen, one-tap Approve, bottom tab bar
 
 Exit test: every action in the brief works end to end on the live Vercel URL.
 

@@ -733,3 +733,22 @@ A reply with the wrong number or size of vectors now raises `LlmOutputError`, wh
 **Trade-off:** None beyond the one batch call per document it already made.
 
 **In one sentence:** Each text is its own embedding request, and a reply that cannot be right is not retried.
+
+---
+
+## D55: The web app is one Home screen with a live processing view, built for least effort
+
+**Alternatives:** Keep the first design (six menu items, a separate upload page with a confirm button, progress shown only as status badges), or add a guided step-by-step wizard.
+
+**Why:** Sowan's feedback on 4 November: people here prefer the shortest path, and the processing should be visible as it happens. The redesign:
+
+- **One Home screen** holds everything a person does daily: a search box, a drop zone that uploads the moment files are picked (no second button), the files being processed, the invoices that need attention, and recent documents with one-tap filter chips. The separate Upload page now redirects to Home.
+- **A live processing view.** Each file moves through five steps (Upload, Read, AI extract, Check, Done) with the current step pulsing and a progress count in pages or extraction windows. On Home it is shown in full; on every other screen a floating dock carries the same view, so a long PDF can be watched from anywhere. The animation respects the phone's reduced-motion setting.
+- **Shortcuts.** Review items show the actual problem ("subtotal plus tax is 418.75, but the total is 428.75") with **Approve** and **Fix** side by side, so most decisions need one tap and no page change. On an invoice, each issue has a Fix link that opens the form with that field focused. A search typed on Home runs at once.
+- **Phone first.** A bottom tab bar (Home, Review with a count badge, Search, Compare) replaces the scrolling top menu on small screens. The start page signs in directly and says whether the free server is awake.
+
+The backend gained `GET /api/activity` (each document's stage from its latest history event, its progress, counts, and the review total, in one cheap call polled every 2 seconds while anything runs and every 12 seconds when idle), progress per extraction window, and the first error in the review queue.
+
+**Trade-off:** Polling, not push: a state change shows within 2 seconds rather than at once. Server-sent events would be faster but need a long-lived connection that the free Render instance and its proxy handle less reliably. The dock adds a small amount of screen clutter while files run; it hides itself once they finish.
+
+**In one sentence:** Drop files, watch them move, and fix or approve each problem with one tap.

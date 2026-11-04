@@ -39,6 +39,15 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 4 Nov 2026, frontend redesign and scale check (Claude Code)
+
+Sowan's review: people here prefer minimal steps and a visible live process. Rebuilt the web app around one Home screen (search, upload on pick, live processing, needs-attention cards with the problem and one-tap Approve, recent documents with filter chips), a floating live dock on every other screen, and a bottom tab bar on phones (D55). Backend: `GET /api/activity`, extraction progress per window, and the first error in the review queue. Checked the brief Sowan sent against the build: all seven tasks and nine deliverables are covered except the video.
+
+Scale check for the brief's 1,000-page PDFs: a 1,000-page digital PDF reads in 2.6 s with flat memory (160 MB peak); 143 extraction calls, about 12 minutes on the free tier. Scanned pages took 0.79 s each and first peaked at 290 MB; MuPDF's cache is now trimmed after every scanned page, which brought the peak to 211 MB.
+
+Tested: 353 backend tests, frontend lint, typecheck and build, and a new Chromium walk-through at iPhone size: sign-in from the start page, 6 files picked (upload at once, empty file explained), live steps on Home and in the dock on another tab ("AI is extracting the fields: ... (+3 more, 3 waiting)", "0/6 windows"), the problem shown on the attention card, one-tap Approve, quick search, the Failed filter, no console errors, no sideways scrolling.
+
+
 ### 4 Nov 2026, evaluation run 4 and Phase 6 closed (Claude Code)
 
 Run 4 (real Gemini, 15 minutes): 27 documents completed, 9 broken files correctly rejected, 0 failures, every job on its first attempt. 87 of 87 invoices with all fields 100% correct (including the 37-page statement), line items 211 of 211, planted errors 10 of 10, 1 false flag (R04) in 77 clean invoices, 75,048 tokens in total. Wrote the results into `docs/EVALUATION.md` with the weak spots and what runs 1 to 3 found, and the summary into the README. Phase 6 checklist and exit test ticked (the optional real samples were not added). Phase 7 documents ticked: README, architecture, schema, security, AI usage, design decisions. CI run 32 green: 351 tests, coverage 96%.

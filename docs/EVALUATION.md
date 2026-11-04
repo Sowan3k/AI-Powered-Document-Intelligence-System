@@ -96,6 +96,20 @@ Before these runs, the manual smoke test had also found the vision model overloa
 - **Line items are matched by amount.** A misread quantity or unit price does not lower the line item score; R04 catches it instead, as it did once here.
 - **Speed under the free tier.** About 40 seconds per document is the quota at work. Large batches will take a long time on the free tier.
 
+## Scale check: a 1,000-page PDF
+
+The brief says PDFs can run to about 1,000 pages. Measured in the coding sandbox on 4 November with the real readers (no model calls), using `eval/generate/synth` to build the files:
+
+| File | Pages | Read time | Per page | Peak memory | Memory after the last page |
+|---|---|---|---|---|---|
+| Digital PDF | 1,000 | 2.6 s | 2.6 ms | 160 MB (145 MB at start) | flat |
+| Scanned PDF (light noise, 300 DPI OCR) | 30 | 23.8 s | 0.79 s | 211 MB | 145 MB |
+
+- Pages stream in batches, so a digital PDF adds about 15 MB however long it is.
+- The first scanned run peaked at 290 MB, because MuPDF kept each decoded page image in its cache until the end of a 20-page batch. The cache is now trimmed after every scanned page, which brought the peak to 211 MB and keeps memory flat. That matters on Render's 512 MB instance, where the API process runs beside the worker.
+- A 1,000-page document needs 143 extraction calls (windows of 8 pages, 1 page of overlap). At the free-tier pace of 12 calls a minute (D53) that is about 12 minutes of model calls, plus about 13 minutes of OCR if every page is scanned (at this sandbox's CPU speed; Render's free CPU is slower). The document page shows progress as "window 12 of 143" while it runs.
+- Not measured: a full 1,000-page run through Gemini, which would spend a large share of the free-tier daily quota.
+
 ## The dataset
 
 `eval/generate/synth` builds the dataset with a fixed seed, and writes ground truth JSON beside each file. At scale 2 it holds 36 files:

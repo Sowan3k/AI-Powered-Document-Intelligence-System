@@ -34,11 +34,13 @@ PDFS = [
     "planted_missing_tax.pdf",
     "planted_missing_customer.pdf",
     "multi_invoice.pdf",
+    "long_statement.pdf",
 ]
 
 
 def printed(truth: dict, layout: str) -> dict[str, object]:
     """The strings each layout prints (see eval/generate/synth/layouts.py)."""
+    layout = "classic" if layout == "classic_two_page" else layout
     d = date.fromisoformat(truth["invoice_date"])
     cur = truth["currency"]
 
@@ -90,14 +92,20 @@ def money_of(v: Decimal, layout: str, cur: str) -> str:
     return f"{fmt_amount(v, 'eu')} {cur}"
 
 
-def evidence_line(text: str, value: str) -> str:
+def find_line(text: str, value: str) -> str | None:
     for row in text.splitlines():
         if value in row:
-            return row.strip()[:80] if len(row.strip()) <= 80 else value
-    raise AssertionError(f"{value!r} is not printed on the page; the test's formats are wrong")
+            return row.strip() if len(row.strip()) <= 80 else value
+    return None
 
 
 def perfect_reader(truth: dict, page_texts: dict[int, str]):  # type: ignore[no-untyped-def]
+    """Copies every value printed on the pages the prompt shows, as a careful reader would.
+
+    An invoice only partly inside the window gives the fields visible there and
+    null for the rest. For an invoice wholly inside, a value the generator
+    printed but the page lacks means this test's formats are wrong, so it fails.
+    """
     ranges = truth.get("pages") or [[1, 1]] * len(truth["invoices"])
     layouts = truth.get("layouts") or [truth["layout"]] * len(truth["invoices"])
 
@@ -106,18 +114,32 @@ def perfect_reader(truth: dict, page_texts: dict[int, str]):  # type: ignore[no-
         shown = [int(x.split(" ---")[0]) for x in prompt.split("--- page ")[1:]]
         out = []
         for inv, (start, end), layout in zip(truth["invoices"], ranges, layouts, strict=True):
-            if start not in shown:
+            visible = [n for n in range(start, end + 1) if n in shown]
+            if not visible:
                 continue
-            text = page_texts[start]
+            whole = len(visible) == end - start + 1
+            text = "\n".join(page_texts[n] for n in visible)
             p = printed(inv, layout)
-            entry: dict[str, object] = {"page_start": start, "page_end": end}
+            entry: dict[str, object] = {"page_start": visible[0], "page_end": visible[-1]}
             for name in FIELDS:
                 value = p[name]
-                ev = evidence_line(text, value) if value is not None else None
-                entry[name] = {"value": value, "confidence": 0.95, "evidence": ev}
-            entry["line_items"] = [
-                {**li, "page": start, "confidence": 0.9} for li in p["line_items"]
-            ]
+                line = find_line(text, value) if value is not None else None
+                if value is not None and line is None and whole:
+                    raise AssertionError(f"{value!r} is not printed; the test's formats are wrong")
+                found = line is not None
+                entry[name] = {
+                    "value": value if found else None,
+                    "confidence": 0.95,
+                    "evidence": line if found else None,
+                }
+            items = []
+            for li in p["line_items"]:
+                page = next((n for n in visible if li["description"] in page_texts[n]), None)
+                if page is None and whole:
+                    raise AssertionError(f"line {li['description']!r} is not printed")
+                if page is not None:
+                    items.append({**li, "page": page, "confidence": 0.9})
+            entry["line_items"] = items
             out.append(entry)
         return {"invoices": out}
 
@@ -145,9 +167,15 @@ def test_pdf_extraction_matches_ground_truth(synthetic_dir: Path, name: str) -> 
     fake = FakeLlmClient(perfect_reader(truth, texts))
     settings = Settings(segment_window_pages=3, segment_overlap_pages=1)
     found, _ = extract_pages(fake, "m", list(texts.items()), settings)
-    built = [build_invoice(inv, texts[inv.page_start]) for inv in found]
+    built = [
+        build_invoice(inv, "\n".join(texts[n] for n in range(inv.page_start, inv.page_end + 1)))
+        for inv in found
+    ]
 
     assert len(built) == len(truth["invoices"])
+    assert [[b.page_start, b.page_end] for b in built] == (
+        truth.get("pages") or [[1, 1]] * len(built)
+    )
     for got, want in zip(built, truth["invoices"], strict=True):
         assert_matches(got, want)
         for field in FIELDS:
@@ -222,3 +250,22 @@ def reader_for_truths(truths: list[dict]):  # type: ignore[no-untyped-def]
         return {"invoices": []}
 
     return reply
+
+
+@pytest.mark.parametrize(("window", "overlap"), [(8, 1), (5, 2), (2, 1)])
+def test_long_statement_segments_at_any_window_size(
+    synthetic_dir: Path, window: int, overlap: int
+) -> None:
+    """Two-page invoices cross window edges at every size; each must come out whole."""
+    truth = json.loads((synthetic_dir / "long_statement.pdf.json").read_text())
+    doc = read_document(synthetic_dir / "long_statement.pdf", Settings())
+    texts = {p.page_number: p.text for p in doc.pages}
+    fake = FakeLlmClient(perfect_reader(truth, texts))
+    settings = Settings(segment_window_pages=window, segment_overlap_pages=overlap)
+    found, _ = extract_pages(fake, "m", list(texts.items()), settings)
+    assert [[i.page_start, i.page_end] for i in found] == truth["pages"]
+    assert [i.invoice_number.value for i in found] == [
+        t["invoice_number"] for t in truth["invoices"]
+    ]
+    for inv, want in zip(found, truth["invoices"], strict=True):
+        assert len(inv.line_items) == len(want["line_items"])  # no line lost or counted twice

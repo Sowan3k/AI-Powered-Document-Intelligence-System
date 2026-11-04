@@ -506,6 +506,8 @@ Each stored invoice keeps the parsed values in columns, and per field the confid
 
 **In one sentence:** Overlapping windows keep invoices whole at a fraction of the calls, and deterministic rules stitch the edges.
 
+**Update (4 Nov):** a 37-page statement with two-page invoices (the second page repeats no number) found a bug: with windows that overlap by more than one page, a continuation page could join an invoice that starts after it. A continuation now joins only the invoice that starts closest before it and reaches its page. Tests run the statement at window sizes 8, 5 and 3 with overlaps 1 and 2; every invoice comes out with its exact page range and all its lines.
+
 ---
 
 ## D40: One Gemini client with its own retries; failures split into retryable and final

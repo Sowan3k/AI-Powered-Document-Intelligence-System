@@ -6,8 +6,9 @@ cut by a window edge is seen whole, or at least with its header, in one of
 them. Results are merged:
 
 - the same normalised invoice number in touching page ranges is one invoice;
-- an invoice with no number that starts on a window's first page and touches
-  the previous invoice's last page is that invoice's continuation.
+- an invoice with no number that starts on a window's first page is the
+  continuation of the invoice that starts closest before it and reaches that
+  page (or the page just before it).
 
 Merging keeps the more confident value of each field, and takes line items
 page by page so lines on a shared page are not counted twice.
@@ -75,17 +76,26 @@ def merge_windows(results: list[tuple[list[int], list[LlmInvoice]]]) -> list[Llm
         for inv in sorted(invoices, key=lambda i: (i.page_start, i.page_end)):
             key = norm_invoice_number(inv.invoice_number.value)
             target = None
-            for i in range(len(merged) - 1, -1, -1):
-                prev = merged[i]
-                touches = inv.page_start <= prev.page_end + 1 and inv.page_end >= prev.page_start
-                prev_key = norm_invoice_number(prev.invoice_number.value)
-                if key and prev_key == key and touches:
-                    target = i
-                    break
-                continuation = key is None and inv.page_start == window[0]
-                if continuation and inv.page_start <= prev.page_end:
-                    target = i
-                    break
+            if key:
+                for i in range(len(merged) - 1, -1, -1):
+                    prev = merged[i]
+                    touches = (
+                        inv.page_start <= prev.page_end + 1 and inv.page_end >= prev.page_start
+                    )
+                    if norm_invoice_number(prev.invoice_number.value) == key and touches:
+                        target = i
+                        break
+            elif inv.page_start == window[0]:
+                # A continuation joins the invoice that starts closest before it and
+                # reaches its first page (or the page just before). Never one that
+                # starts after it: windows can overlap by more than one page.
+                candidates = [
+                    i
+                    for i, prev in enumerate(merged)
+                    if prev.page_start <= inv.page_start <= prev.page_end + 1
+                ]
+                if candidates:
+                    target = max(candidates, key=lambda i: merged[i].page_start)
             if target is None:
                 merged.append(inv)
             else:

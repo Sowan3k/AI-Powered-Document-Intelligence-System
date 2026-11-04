@@ -174,7 +174,7 @@ Labelled dataset (`eval/data/`, ground truth JSON beside each file):
 - [x] Synthetic invoices from three or four different layouts, with known values
 - [x] Planted cases: missing tax, missing customer, wrong totals, wrong line sums, duplicates, several currencies
 - [x] Scanned versions: the same invoices rendered to images and degraded (blur, small rotation, noise, JPEG compression)
-- [ ] One long multi-invoice PDF for segmentation and timing
+- [x] One long multi-invoice PDF for segmentation and timing (`long_statement.pdf`: 30 invoices on 37 pages, every fourth over two pages)
 - [x] Excel workbook with two sheets, plus a CSV export, matching some PDF invoices for reconciliation
 - [x] Broken files: truncated PDF, empty file, wrong extension, encrypted PDF
 - [ ] Optional: a few real public invoice or receipt samples, with source and licence recorded

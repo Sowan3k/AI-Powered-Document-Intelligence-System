@@ -229,5 +229,29 @@ def build(out: Path, seed: int = 7, scale: int = 1) -> list[dict]:
     )  # fmt: skip
     sheets.write_xlsx(path, {"Export": sheet_rows})
 
+    # A long statement: 30 invoices, every fourth over two pages, so invoices
+    # cross the edges of the extraction windows (segmentation and timing).
+    long = []
+    for i in range(30):
+        inv = new()
+        if i % 4 == 3:
+            while len(inv.line_items) < 4:  # enough lines to fill two pages
+                inv = new()
+        long.append((inv, "classic_two_page" if i % 4 == 3 else layout_names[i % 3]))
+    ranges, page = [], 1
+    for _, layout in long:
+        size = 2 if layout == "classic_two_page" else 1
+        ranges.append([page, page + size - 1])
+        page += size
+    path = add(
+        "long_statement.pdf",
+        {"kind": "pdf", "pages": page - 1, "methods": ["digital"],
+         "contains": [long[0][0].invoice_number, long[-1][0].invoice_number]},
+        [inv for inv, _ in long],
+        pages=ranges,
+        layouts=[layout for _, layout in long],
+    )  # fmt: skip
+    layouts.invoice_pdf(long).save(path)
+
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     return manifest

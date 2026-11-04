@@ -822,3 +822,33 @@ The backend gained `GET /api/activity` (each document's stage from its latest hi
 **Trade-off:** Prices change, so the table needs a manual update; the date beside it says how fresh it is. The free tier costs nothing, so the figure shown is what the same work would cost on the paid tier.
 
 **In one sentence:** Every call's tokens are counted, thinking included, and the app shows what the work would cost.
+
+## D63: Security headers on every response
+
+**Alternatives:** Rely on the hosts' defaults; add a full nonce-based CSP to the web app.
+
+**Why:** The API returns data, never pages, so every response says so: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store` (invoice data must not sit in shared caches), a deny-all `Content-Security-Policy`, and HSTS in production. The Swagger page at `/api/docs` is left without the CSP because it loads its own scripts. The web app sends a CSP that lets the browser talk only to its own origin and the API origin, forbids plugins and framing (`frame-ancestors 'none'` stops clickjacking), and allows `blob:` frames only for the original file the page fetched itself (D65).
+
+**Trade-off:** The web app's CSP still allows inline scripts, because Next.js inlines its bootstrap; a nonce per request would remove that but needs every page rendered on the server. React already escapes all document text, and no code uses `dangerouslySetInnerHTML`.
+
+**In one sentence:** The browser is told exactly what the app may load and that it may not be framed.
+
+## D64: A low-confidence scan is also read upside down
+
+**Alternatives:** Tesseract's orientation detection (`--psm 0`), which needs an extra language file and fails on sparse pages; send every low-confidence page to the vision model.
+
+**Why:** Phone photos are often taken the wrong way up. A sideways page already read well (the cleanup and Tesseract's layout analysis handle 90 degrees: 94% confidence in a test), but an upside-down page fell to 47% and went to the slow, paid vision model. Now a page under 70% confidence is read once more turned 180 degrees, and the reading with the higher confidence wins. It costs one extra Tesseract pass (about half a second) and only on weak pages; a noisy page that is the right way up keeps its first reading. The evaluation set has an upside-down photo.
+
+**Trade-off:** Weak pages that are simply noisy pay the extra half second for nothing.
+
+**In one sentence:** One cheap extra OCR pass beats a slow vision call for a photo taken upside down.
+
+## D65: The original file can be viewed, and a document can be deleted
+
+**Alternatives:** Public or signed storage links; soft delete with a flag.
+
+**Why:** A reviewer checks a value against the page it came from, so the document page now shows the original: `GET /api/documents/{id}/file` streams the stored file through the API with the same login, and the page shows PDFs and photos inline (spreadsheets and TIFFs download). The bucket stays private and no link outlives the session (security rule 4). Deleting is the other half of handling personal data: `DELETE /api/documents/{id}` removes the stored file first and then the document row, and the database cascade removes pages, invoices, line items, issues, corrections, jobs, history and reconciliations. It refuses while a job runs, and if the file store fails it keeps the row so nothing is left half deleted. The log records only the document ID and the user.
+
+**Trade-off:** Streaming through the API uses the free instance's bandwidth and memory for large files, where a signed URL would not. A hard delete cannot be undone; the page asks for confirmation first.
+
+**In one sentence:** Reviewers see the real page, and data can be removed completely when it must be.

@@ -86,6 +86,19 @@ jobs:
           path: backend/reports/
           retention-days: 30
 
+      # The synthetic files, downloadable from the run page, for trying the live
+      # site or recording the walkthrough from a phone (docs/WALKTHROUGH.md).
+      - name: Build the demo files
+        working-directory: eval/generate
+        run: python -m synth --out ../../demo-files --scale 1
+
+      - name: Upload the demo files
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-files
+          path: demo-files/
+          retention-days: 30
+
   frontend:
     name: Frontend (lint, typecheck, build)
     runs-on: ubuntu-latest

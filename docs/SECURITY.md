@@ -43,6 +43,14 @@ What DocIntel protects today, and what a production deployment would add. Every 
 - **Not sent:** the original files, file names, user names, tokens, database IDs, and pages that read cleanly by rule (spreadsheets whose headers are known need no model call at all).
 - **Free tier versus paid tier.** Google's [Gemini API terms](https://ai.google.dev/gemini-api/terms) say content sent to the unpaid quota may be used to improve Google's products and may be read by human reviewers, and ask users not to send confidential or personal data. Content sent to the paid quota is not used that way and falls under Google's data processing terms. This demo runs on the free tier, so it is used only with synthetic invoices. A company deploying DocIntel must use a paid Gemini project (or Gemini on Vertex AI in its own cloud) before any real document is uploaded. The model name and key are configuration, so this needs no code change.
 
+## Headers
+
+The API sends `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, a deny-all CSP and, in production, HSTS. The web app sends a CSP that allows only its own origin and the API, and forbids framing (D63).
+
+## Deleting data
+
+`DELETE /api/documents/{id}` removes the stored file and every row derived from it: pages, invoices, line items, issues, corrections, jobs, history and reconciliations (D65). The original file is only ever served through the API to a signed-in user; the bucket has no public links.
+
 ## Logs
 
 Logs hold IDs, statuses, counts and timings. They never hold document text, extracted values, prompts or replies. Gemini calls log purpose, model, tokens, latency and attempts. SQL echo and per-request HTTP logs are switched off.
@@ -53,5 +61,5 @@ Logs hold IDs, statuses, counts and timings. They never hold document text, extr
 2. Token revocation, or short-lived tokens with refresh.
 3. Rate limits in a shared store, and a web application firewall in front of the API.
 4. Malware scanning of uploads before parsing, and parsing in a separate sandboxed process.
-5. Encryption keys managed by the company, and a data retention policy with automatic deletion.
+5. Encryption keys managed by the company, and a retention policy that deletes documents automatically after a set time (manual delete exists, D65).
 6. A data processing agreement for documents sent to the model provider, or a model hosted inside the company's own cloud.

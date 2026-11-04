@@ -13,7 +13,7 @@ The web app is built for the shortest path: one Home screen where you drop files
 2. **Read** each file in a background worker. Digital PDF pages give their text directly. Scanned pages and images are cleaned with OpenCV and read by Tesseract, which reports a confidence per page; weak pages go to Gemini vision. Spreadsheets are read sheet by sheet, with header detection, merged cells and CSV encoding and delimiter detection.
 3. **Extract** invoice number, date, supplier, customer, subtotal, tax, total, currency and line items, plus any discount, delivery or service charge printed before the total. Gemini copies each value as printed, with a confidence and the text it came from. Code then parses dates and money (including Bangladeshi forms such as "Tk 1,25,000/-" and Bengali digits) and checks that the evidence really appears in the source. Missing values stay empty; nothing is guessed. A file that is not an invoice, such as a letter or a staff list, gives no invoice and says "No invoice found".
 4. **Validate** with eleven rules in exact decimal arithmetic: missing fields, line sums, quantity times price, subtotal plus tax plus discounts and charges, duplicates (with fuzzy supplier names), dates, low confidence, unproven values, mixed currencies. Any error sends the invoice to the review queue.
-5. **Correct** a field in the web app. The change is recorded with who made it, the rules run again, and search updates.
+5. **Correct** a field in the web app, with the original file open beside it. The change is recorded with who made it, the rules run again, and search updates. A document can also be deleted with everything derived from it.
 6. **Search** by keyword (invoice numbers, names, line items, with filters) or by meaning ("printer supplies bought in spring").
 7. **Reconcile** two documents, for example a supplier statement PDF against an Excel export: matched, mismatched with the differing fields, and invoices found on one side only.
 8. **Export** every invoice as a CSV that opens in Excel (Bengali text included), ready to enter into an accounting system.
@@ -113,7 +113,7 @@ CI runs ruff, 351 tests on Postgres with Tesseract, the frontend build, a gitlea
 
 ## Design decisions
 
-All 62 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
+All 65 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
 
 1. **One Python service, not a Node.js API plus a Python worker** (D01). Every heavy library is Python; one language means one deployment and no network hop.
 2. **The queue is a PostgreSQL table** (D02, D45). Jobs survive a restart of the free instance, live in the same transaction as the data they change, and need no extra service.

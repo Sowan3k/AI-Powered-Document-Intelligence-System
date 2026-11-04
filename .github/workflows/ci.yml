@@ -40,6 +40,8 @@ jobs:
       # Throwaway CI database in a service container, not a secret.
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/docintel_test
       TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/docintel_test
+      # OCR tests fail instead of skipping if Tesseract is missing.
+      REQUIRE_TESSERACT: "1"
     steps:
       - uses: actions/checkout@v5
 
@@ -49,14 +51,20 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
 
+      - name: Install Tesseract
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+          tesseract --version
+
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      - name: Ruff lint
-        run: ruff check .
+      - name: Ruff lint (backend and dataset generator)
+        run: ruff check . ../eval
 
       - name: Ruff format check
-        run: ruff format --check .
+        run: ruff format --check . ../eval
 
       - name: Apply migrations
         run: alembic upgrade head
@@ -136,6 +144,12 @@ jobs:
 
       - name: Tesseract is installed in the backend image
         run: docker run --rm docintel-backend:local tesseract --version
+
+      - name: Ingestion libraries load in the backend image
+        run: >-
+          docker run --rm docintel-backend:local python -c
+          "import cv2, pymupdf, pytesseract, openpyxl, xlrd, app.ingest.reader;
+          print('tesseract', pytesseract.get_tesseract_version(), 'pymupdf', pymupdf.__version__)"
 
       - name: Start the stack
         run: docker compose up -d --wait --wait-timeout 180

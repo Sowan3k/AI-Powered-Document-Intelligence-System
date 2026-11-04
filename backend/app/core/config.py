@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_service_role_key: SecretStr | None = None
     supabase_bucket: str = "documents"
+    # Where uploaded files live: "supabase" (Storage API) or "local" (a folder on disk,
+    # for docker-compose and tests). Unset means supabase in production, local elsewhere.
+    storage_backend: Literal["local", "supabase"] | None = None
+    local_storage_dir: str = "uploads"
+    storage_timeout_s: float = Field(default=60, gt=0)
 
     # Gemini. Model names are configuration, never code.
     gemini_api_key: SecretStr | None = None
@@ -74,6 +79,13 @@ class Settings(BaseSettings):
     field_confidence_threshold: float = Field(default=0.7, ge=0, le=1)
     money_tolerance: Decimal = Field(default=Decimal("0.01"), ge=0)
 
+    # Ingestion (Phase 1).
+    max_unzipped_mb: int = Field(default=200, ge=1)  # guard against .xlsx zip bombs
+    pdf_page_batch_size: int = Field(default=20, ge=1, le=500)
+    scanned_page_min_chars: int = Field(default=25, ge=0)  # fewer letters/digits means OCR
+    ocr_dpi: int = Field(default=300, ge=72, le=600)
+    ocr_timeout_s: int = Field(default=120, ge=5)
+
     # Worker loop.
     worker_poll_interval_s: float = Field(default=2.0, gt=0)
 
@@ -94,6 +106,12 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin for origin in self.cors_origins.split(",") if origin]
+
+    @property
+    def resolved_storage_backend(self) -> Literal["local", "supabase"]:
+        if self.storage_backend is not None:
+            return self.storage_backend
+        return "supabase" if self.is_production else "local"
 
     @property
     def is_production(self) -> bool:

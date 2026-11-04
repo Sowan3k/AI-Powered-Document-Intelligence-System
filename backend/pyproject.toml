@@ -17,7 +17,10 @@ ignore = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The synthetic data generator in eval/generate builds the reader fixtures.
+pythonpath = [".", "../eval/generate"]
 addopts = "-ra --strict-markers"
 markers = [
     "integration: needs a PostgreSQL database with pgvector (set TEST_DATABASE_URL)",
+    "tesseract: needs the tesseract binary (CI sets REQUIRE_TESSERACT=1 so these never skip)",
 ]

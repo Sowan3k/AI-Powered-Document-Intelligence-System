@@ -389,3 +389,65 @@ Search queries and stored invoices must both use them, or the similarity scores 
 
 **In one sentence:** The cheap model does the bulk reading, the strong model handles only the hard pages, and the embeddings stay small enough to index.
 
+
+---
+
+## D32: One storage interface; Supabase Storage in production, local disk for compose and tests
+
+**Alternatives:** Supabase Storage everywhere (compose would need a Supabase project), local disk everywhere (Render's free disk is wiped on every restart), or the `supabase` Python client.
+
+**Why:** `FileStorage` has three methods: `upload`, `download` and `delete`. `SupabaseStorage` calls the Storage REST API with `httpx2`. `LocalStorage` writes to a folder, which is a shared volume in docker-compose. `STORAGE_BACKEND` picks one; unset, it means `supabase` in production and `local` elsewhere, so a reviewer can run the whole stack with no Supabase account. The `supabase` client is banned anyway (D17), and the REST API needs only three calls.
+
+The key in `SUPABASE_SERVICE_ROLE_KEY` is a new-style secret key (`sb_secret_...`), not a JWT. Supabase's API key guide says such a key goes in the `apikey` header only; sent as `Authorization: Bearer`, it is parsed as a JWT and rejected. So the client sends `apikey` and no `Authorization` header, and a unit test checks every request for this. The gateway swaps the key for a service role token before the request reaches Storage.
+
+Storage keys are always `<document uuid>/original.<ext>`, where the extension comes from the detected type. A regular expression rejects any other key, which blocks path tricks in the local backend. Uploads set `x-upsert: true`: the keys are fresh UUIDs, so overwriting is safe, and a retried upload after a lost response succeeds instead of failing with "already exists". Network errors, 429 and 5xx are retried three times with backoff. Error messages carry only the operation and the HTTP status, never the key or a response body.
+
+**Trade-off:** Local and Supabase backends can drift apart in behaviour. The Supabase client is tested only against a fake transport here; the first real call happens on Render. A missing Supabase setting fails when storage is first used, not at startup, so a misconfigured deploy still serves `/api/health`.
+
+**In one sentence:** Callers see one small interface, production files live in the private bucket, and the secret key travels the way Supabase documents for non-JWT keys.
+
+---
+
+## D33: Readers return one structure; pages stream, sheets come whole
+
+**Alternatives:** One reader that returns everything at once, or a separate output format per file type.
+
+**Why:** PDFs and images become `PageContent` (page number, text, method, OCR confidence). Spreadsheets and CSV files become `SheetContent` (headers, rows of text, and the source row number of each row). Later stages read these and never care which reader made them (CLAUDE.md coding rule 2). Pages come from a generator, so the worker saves them in batches of `PDF_PAGE_BATCH_SIZE`, and only one rendered page image exists at a time. Sheets are returned whole, because a 50 MB upload limit bounds them and header detection needs the top rows.
+
+`probe` runs first and cheaply: size, type by magic bytes, encryption and page count. A file that breaks a limit fails before any OCR runs. File type comes only from the bytes: `%PDF-` in the first kilobyte, the JPEG, PNG and TIFF signatures, a ZIP that holds `xl/workbook.xml`, an OLE2 file with a `Workbook` stream, or text that splits into the same number of columns line after line. The extension is ignored, and the readers open files by handle, so a download saved without an extension still reads (a test caught openpyxl refusing exactly that).
+
+Two failure codes were added to the list in PHASES.md: `ENCRYPTED_FILE` for password-protected workbooks, and `TOO_MANY_FILES` for an oversized batch. A file that fails at upload is still recorded as a `failed` document with its code, so the batch goes on.
+
+Cell values become text without losing precision: floats go through `Decimal(repr(x))`, dates become ISO 8601. Phase 2 parses money from that text with `Decimal`.
+
+**Trade-off:** `.xlsx` files open in openpyxl's normal mode, because read-only mode cannot see merged cells. Normal mode holds the whole workbook in memory. A ZIP check rejects workbooks larger than `MAX_UNZIPPED_MB` once unpacked, which blocks zip bombs. Sheet rows are not stored in the database: Phase 2 reads them again from storage when it maps columns.
+
+**In one sentence:** Every file becomes pages or sheets of text, pages stream to keep memory flat, and type comes from the bytes alone.
+
+---
+
+## D34: OCR cleanup: median blur, projection-profile deskew, adaptive threshold
+
+**Alternatives:** OpenCV's `fastNlMeansDenoising`, deskew from `minAreaRect` over all ink, Otsu's global threshold, or Tesseract on the raw image.
+
+**Why:** A page is OCR'd when it has fewer than `SCANNED_PAGE_MIN_CHARS` letters and digits of real text. It is rendered at `OCR_DPI` in grayscale, then cleaned in a fixed order. Small images are upscaled to at least 1,600 pixels wide, since Tesseract reads small text badly. A 3 by 3 median blur removes scanner speckle; non-local means denoising is far slower on a 300 DPI page and the Render CPU share is small. Deskew rotates a small copy of the page through -10 to +10 degrees and keeps the angle where the rows of ink are sharpest (highest variance of row sums), coarse then fine. `minAreaRect` fits one box around all ink, and an invoice's ink is not one rectangle. An adaptive threshold handles shadows and uneven light on phone photos, where one global threshold fails.
+
+Tesseract runs once per page with `image_to_data`, which gives the words and a confidence for each. The page confidence is the mean over real words. On the test scans it is 87 to 95 for light noise and about 45 for heavy noise, so the `OCR_CONFIDENCE_THRESHOLD` of 60 separates them, and Phase 2 sends the heavy one to Gemini vision. A Tesseract timeout gives the page empty text and confidence 0, which routes it to vision too instead of failing the document.
+
+**Trade-off:** The deskew search costs about 50 small rotations per page. Text rotated more than 10 degrees, or upside down, is not corrected. The thresholds are tuned on synthetic scans; Phase 6 measures them.
+
+**In one sentence:** Cheap, predictable cleanup steps, chosen for messy invoice layouts and a small CPU, with a confidence score that decides when the vision model takes over.
+
+---
+
+## D35: The dataset generator builds the test fixtures; no binary fixtures in Git
+
+**Alternatives:** Commit sample PDFs, images and workbooks to `backend/tests/fixtures/`, or hand-make each test file inside its test.
+
+**Why:** `eval/generate/synth` draws invoices with PyMuPDF in three layouts, degrades them into scans, writes `.xlsx`, `.xls` and CSV registers, and makes the broken files (truncated, encrypted, empty, renamed, a Word ZIP, a damaged workbook and image). Each file gets ground truth JSON beside it, and a manifest says what ingestion must produce: a structure with page or sheet facts and text it must contain, or a failure code. pytest builds this set once per run with a fixed seed. The Phase 1 exit test reads the manifest and checks every file. Phase 6 runs the same generator at a larger scale for evaluation, so test data and evaluation data come from one source.
+
+PyMuPDF is pinned to 1.28.2, not 2.x. Version 2 pulls in `pymupdf4llm` and `pymupdf-layout` and doubles the installed size, and the reader needs none of it.
+
+**Trade-off:** The generator is test infrastructure that must itself be correct; its ground truth is checked by the reader tests. Synthetic files are cleaner than real ones (D13). `xlwt` is a dev-only dependency, used just to write the `.xls` fixture.
+
+**In one sentence:** One seeded generator makes both the test fixtures and the evaluation set, so the repository holds code, not binary samples.

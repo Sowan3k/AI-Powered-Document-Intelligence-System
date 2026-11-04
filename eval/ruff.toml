@@ -1,0 +1,6 @@
+# Same rules as the backend. The generator makes test data, so seeded random
+# numbers, asserts and the fixture-only PDF password are fine here.
+extend = "../backend/pyproject.toml"
+
+[lint.per-file-ignores]
+"**" = ["S101", "S107", "S311"]

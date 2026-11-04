@@ -24,10 +24,14 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
+      # The sb_secret_... key. The backend sends it only in the apikey header (D32).
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_BUCKET
         value: documents
+      # Render's free disk is wiped on restart, so files go to Supabase Storage.
+      - key: STORAGE_BACKEND
+        value: supabase
       - key: GEMINI_API_KEY
         sync: false
       # Model names are configuration, not secrets (DECISIONS.md D31).

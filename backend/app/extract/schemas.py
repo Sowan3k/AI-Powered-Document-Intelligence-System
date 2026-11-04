@@ -81,8 +81,9 @@ class LlmExtraction(BaseModel):
 
 
 class LlmColumnMapping(BaseModel):
-    """For each invoice field, the sheet header that holds it, or null."""
+    """Whether the rows are invoices, and for each field the header that holds it, or null."""
 
+    lists_invoices: bool
     invoice_number: str | None
     invoice_date: str | None
     supplier_name: str | None

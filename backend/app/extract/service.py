@@ -271,6 +271,9 @@ def extract_document(
 
     for usage in outcome.usages:
         _event(session, document, job, "llm_call", **usage.as_detail())
+    if outcome.invoices == 0:
+        # Completed, but nothing to extract: the file is not an invoice or receipt.
+        _event(session, document, job, "no_invoice_found")
     _event(
         session,
         document,
@@ -350,7 +353,11 @@ def _extract_sheets(
                 "headers": sheet.headers,
                 "fields": mapping.columns,
                 "by_llm": sorted(mapping.by_llm),
+                "lists_invoices": mapping.lists_invoices,
             }
+        if not mapping.lists_invoices:
+            _event(session, document, None, "sheet_skipped", sheet=sheet.sheet_index,
+                   reason="not_an_invoice_list")  # fmt: skip
         for data in rows_to_invoices(sheet, mapping, day_first=settings.date_day_first):
             raw = {"sheet": sheet.sheet_name, "row_start": data.row_start, "row_end": data.row_end}
             _store(session, document, data, raw, sheet_id=row.id if row is not None else None)

@@ -3,7 +3,7 @@
 from datetime import date
 from decimal import Decimal
 
-from app.extract.columns import map_by_rule, map_columns, rows_to_invoices
+from app.extract.columns import ALL_FIELDS, map_by_rule, map_columns, rows_to_invoices
 from app.ingest.schemas import SheetContent
 from tests.conftest import FakeLlmClient
 
@@ -47,7 +47,8 @@ def test_llm_maps_odd_headers_once_per_sheet() -> None:
         [["A-1", "2026-01-02", "Acme", "10.00"], ["A-2", "2026-01-03", "Delta", "20.00"]],
     )
     reply = {
-        "invoice_number": "Doc Ref", "invoice_date": "Posted", "supplier_name": "Counterparty",
+        "lists_invoices": True, "invoice_number": "Doc Ref", "invoice_date": "Posted",
+        "supplier_name": "Counterparty",
         "customer_name": None, "subtotal": None, "tax": None, "total": "Gross",
         "currency": "Invented Column", "description": None, "quantity": None,
         "unit_price": None, "amount": "Doc Ref",
@@ -91,3 +92,22 @@ def test_bad_cells_are_flagged_and_empty_rows_skipped() -> None:
     assert a.total.value is None and "unparsed" in a.total.flags
     assert b.invoice_date.value == date(2026, 1, 2)
     assert b.total.value == Decimal("1200.50")
+
+
+STAFF = (["Name", "Department", "Date", "Salary"], [["Rahim", "Sales", "2026-01-02", "45,000"]])
+
+
+def test_a_sheet_the_model_says_is_not_invoices_gives_none() -> None:
+    reply = {"lists_invoices": False} | {f: None for f in ALL_FIELDS}
+    fake = FakeLlmClient([reply])
+    mapping = map_columns(sheet(*STAFF), fake, "m")
+    assert len(fake.calls) == 1 and not mapping.lists_invoices
+    assert rows_to_invoices(sheet(*STAFF), mapping) == []
+
+
+def test_without_the_model_a_sheet_needs_a_money_column() -> None:
+    staff = map_columns(sheet(*STAFF), None, None)
+    assert staff.columns == {"invoice_date": "Date"} and not staff.lists_invoices
+    assert rows_to_invoices(sheet(*STAFF), staff) == []
+    receipts = sheet(["Date", "Shop", "Amount"], [["2026-01-02", "Agora", "1,250.00"]])
+    assert map_columns(receipts, None, None).lists_invoices

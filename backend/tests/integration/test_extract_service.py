@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.db.enums import DocumentStatus, PageMethod, ReviewStatus
 from app.db.models import Document, Invoice, LineItem, Page, ProcessingEvent, Sheet
+from app.extract.columns import ALL_FIELDS
 from app.extract.llm import LlmError
 from app.extract.service import EXTRACTION_FAILED, extract_document
 from app.ingest.service import ingest_document
@@ -142,6 +143,31 @@ def test_spreadsheet(
     assert all(i.row_start and i.page_start is None for i in stored)
     october = next(s for s in sheets.values() if s.sheet_name == "October")
     assert october.column_mapping["fields"]["total"] == "Total"
+
+
+def test_a_sheet_that_is_not_invoices_gives_none(
+    db: Session, storage: LocalStorage, settings: Settings, tmp_path: Path
+) -> None:
+    staff = tmp_path / "staff.csv"
+    staff.write_text("Name,Department,Joined,Salary\nRahim,Sales,2026-01-02,45000\n")
+    doc = ingested(db, storage, staff, settings)
+    reply = {"lists_invoices": False} | dict.fromkeys(ALL_FIELDS)
+    outcome = extract_document(db, storage, FakeLlmClient([reply]), doc.id, settings)
+    assert outcome is not None and outcome.invoices == 0
+    assert invoices_of(db, doc) == []
+    [sheet] = db.scalars(select(Sheet).where(Sheet.document_id == doc.id))
+    assert sheet.column_mapping["lists_invoices"] is False
+    assert len(events(db, doc, "sheet_skipped")) == 1
+    assert len(events(db, doc, "no_invoice_found")) == 1
+
+
+def test_a_pdf_with_no_invoice_says_so(
+    db: Session, storage: LocalStorage, settings: Settings, synthetic_dir: Path
+) -> None:
+    doc = ingested(db, storage, synthetic_dir / "digital_modern_0.pdf", settings)
+    outcome = extract_document(db, storage, FakeLlmClient([{"invoices": []}]), doc.id, settings)
+    assert outcome is not None and outcome.invoices == 0
+    assert len(events(db, doc, "no_invoice_found")) == 1
 
 
 def test_two_bad_replies_fail_the_document(

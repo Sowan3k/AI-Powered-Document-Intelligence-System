@@ -5,6 +5,10 @@ columns are still unused, the model sees the headers and a few sample rows,
 once per sheet, and names the column for each field. Its answer is checked:
 only real, unused headers are accepted.
 
+A sheet that does not list invoices (a staff list, a price list) gives no
+invoices. The model says so when it is asked; otherwise the rules decide: a
+sheet needs a money column and at least two mapped fields.
+
 Then every row is converted in plain Python. Rows that share an invoice number
 and carry line item columns form one invoice with several lines. Otherwise
 each row is one invoice. The cells are already text (Phase 1), so no data
@@ -82,6 +86,13 @@ class Mapping:
     columns: dict[str, str] = field(default_factory=dict)  # field -> header
     by_llm: set[str] = field(default_factory=set)
     usages: list[LlmUsage] = field(default_factory=list)
+    lists_invoices: bool = True
+
+
+def looks_like_invoices(columns: dict[str, str]) -> bool:
+    """The rule when the model is not asked: a money column and two mapped fields."""
+    fields = set(columns)
+    return bool(fields & {"total", "subtotal", "amount"}) and len(fields) >= 2
 
 
 def map_by_rule(headers: list[str]) -> dict[str, str]:
@@ -106,6 +117,7 @@ def map_columns(
     missing = [f for f in WANTED if f not in result.columns]
     unused = [h for h in sheet.headers if h not in result.columns.values()]
     if not missing or not unused or llm is None or not model:
+        result.lists_invoices = not missing or looks_like_invoices(result.columns)
         return result
     answer, usages = generate_structured(
         llm,
@@ -118,6 +130,9 @@ def map_columns(
         ],
     )
     result.usages = usages
+    result.lists_invoices = answer.lists_invoices
+    if not answer.lists_invoices:
+        return result
     for name in ALL_FIELDS:
         header = getattr(answer, name)
         if name in result.columns or header not in unused:
@@ -151,6 +166,8 @@ def _field(row, mapping: Mapping, name: str, parse, row_number: int) -> FieldVal
 def rows_to_invoices(
     sheet: SheetContent, mapping: Mapping, *, day_first: bool = True
 ) -> list[InvoiceData]:
+    if not mapping.lists_invoices:
+        return []
     rows = [dict(zip(sheet.headers, r, strict=True)) for r in sheet.rows]
     has_lines = any(f in mapping.columns for f in ("description", "quantity", "unit_price"))
     groups: list[list[int]] = []

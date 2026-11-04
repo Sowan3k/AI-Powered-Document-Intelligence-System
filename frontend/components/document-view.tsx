@@ -95,7 +95,12 @@ export function DocumentView() {
             <h2 className="font-semibold">Extracted invoices</h2>
             {results.error && <ErrorBox message={results.error} onRetry={results.reload} />}
             {!invoices && <Loading slow={results.slow} what="Loading results" />}
-            {invoices?.length === 0 && <Empty>No invoices were found in this file.</Empty>}
+            {invoices?.length === 0 && (
+              <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+                <span className="block font-medium">No invoice found</span>
+                This file does not look like an invoice or receipt, so nothing was extracted. If it is one, upload a clearer copy.
+              </p>
+            )}
             {invoices?.map((inv) => (
               <InvoiceCard
                 key={inv.id}

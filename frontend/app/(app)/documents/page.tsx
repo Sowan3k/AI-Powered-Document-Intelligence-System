@@ -155,7 +155,10 @@ function RecentDocuments() {
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{doc.filename}</span>
                 <span className="block text-xs text-neutral-500">
-                  {doc.status === "completed" ? `${doc.invoice_count} invoice${doc.invoice_count === 1 ? "" : "s"} · ` : ""}
+                  {doc.status === "completed" && doc.invoice_count === 0 && (
+                    <span className="font-medium text-amber-700 dark:text-amber-400">No invoice found · </span>
+                  )}
+                  {doc.status === "completed" && !!doc.invoice_count && `${doc.invoice_count} invoice${doc.invoice_count === 1 ? "" : "s"} · `}
                   {doc.error_code ? `${doc.error_code} · ` : ""}
                   {bytes(doc.size_bytes)} · {dateText(doc.created_at)}
                 </span>

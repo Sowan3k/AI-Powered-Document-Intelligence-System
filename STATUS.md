@@ -17,7 +17,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Gemini (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` (text), `gemini-3.8-flash` (vision), `gemini-embedding-2` at 768 dimensions. The vision model answered HTTP 503 (overloaded) in every real run; the fallback to the text model read those pages (D44).
 
-**Evaluation (run 4, real Gemini):** 87 of 87 invoices, all 8 fields 100%, line items 211 of 211, planted errors 10 of 10, 1 false flag in 77 clean invoices, all 9 broken files rejected correctly, no failed documents. See `docs/EVALUATION.md`.
+**Evaluation (run 5, real Gemini):** 91 of 91 invoices, all 8 fields 100%, line items 224 of 224, planted errors 12 of 12, 1 false flag in 80 clean invoices, 4 of 4 non-invoice files empty, all 9 broken files rejected correctly, no failed documents. About $0.0015 per invoice at paid Gemini prices. See `docs/EVALUATION.md`.
 
 **Next, for Sowan (in order):**
 
@@ -43,7 +43,9 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 Sowan asked whether a non-invoice file is reported, and asked for an interviewer's check of the whole project. Found and fixed, each with tests: Bangladeshi amounts ("Tk 1,25,000/-", lakh grouping, Bengali digits, টাকা) now parse (D56); discounts, delivery and service charges and SD count in the total check, so correct bills are no longer flagged (D57); a sheet that is not invoices gives no invoices, and every empty result says "No invoice found" (D58); a CSV export for Excel with a BOM and a formula-injection guard (D59); prompt version stored per document, and a scheduled ping keeps Supabase from pausing (D60). SECURITY.md now says what is sent to Gemini and why real documents need the paid tier. The dataset gained two Mushak-6.3 style VAT invoices, a restaurant bill, a prompt-injection invoice and four non-invoice files.
 
-Tested: 383 backend tests (coverage 96%), frontend lint, typecheck and build, a fake-model evaluation (4 of 4 non-invoices empty, 3 of 3 adjustment invoices right, 0 of 68 clean invoices flagged), and a phone-size browser walk-through: "No invoice found" on Home and the letter page, discount and delivery on the VAT invoice card with no total error, the CSV download with BOM, no console errors. Evaluation run 5 on real Gemini: see below once it finishes.
+Tested: 383 backend tests (coverage 96%), frontend lint, typecheck and build, a fake-model evaluation (4 of 4 non-invoices empty, 3 of 3 adjustment invoices right, 0 of 68 clean invoices flagged), and a phone-size browser walk-through: "No invoice found" on Home and the letter page, discount and delivery on the VAT invoice card with no total error, the CSV download with BOM, no console errors. Evaluation run 5 on real Gemini (44 files, 91 invoices): all fields 100%, line items 224 of 224, planted errors 12 of 12, 1 false flag in 80, 4 of 4 non-invoices empty, the injection ignored, 0 failures; 37,568 input and 48,679 output tokens, about $0.0015 per invoice at paid prices before thinking tokens.
+
+Then, on Sowan's request to cover fallback, rate limiting, async and cost: page windows now run in parallel within the existing limits, and a failed window tries a second model (D61); thinking tokens are recorded, `GEMINI_THINKING_LEVEL` can lower them, and `GET /api/stats` plus a line on Home show rates, time, tokens and cost (D62). 388 tests, coverage 96%, CI run 41 green. Run 6 measures thinking tokens and latency.
 
 ### 4 Nov 2026, merge to main and deploy (Claude Code)
 

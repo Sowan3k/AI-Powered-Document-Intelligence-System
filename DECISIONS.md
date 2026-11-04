@@ -466,7 +466,7 @@ The evidence check (AI rule 3) runs on every field with a value. A value is prov
 
 Each stored invoice keeps the parsed values in columns, and per field the confidence, evidence, raw text and flags in `field_meta`, plus the model's raw reply in `raw_extraction` for audit and evaluation. An amount with more than two decimals is rounded half up and flagged `rounded`; an amount too large for `NUMERIC(14,2)` is dropped and flagged `out_of_range`.
 
-**Trade-off:** More parsing code to own and test, and a few formats (Indian lakh grouping such as 12,34,567) are rejected rather than read. Rejected values go to review, which is the safe failure.
+**Trade-off:** More parsing code to own and test, and a few formats (Indian lakh grouping such as 12,34,567) are rejected rather than read. Rejected values go to review, which is the safe failure. *Updated by D56: lakh grouping, Bengali digits and the "/-" ending now parse.*
 
 **In one sentence:** The model copies what it sees, and deterministic code decides what the text means.
 
@@ -752,3 +752,53 @@ The backend gained `GET /api/activity` (each document's stage from its latest hi
 **Trade-off:** Polling, not push: a state change shows within 2 seconds rather than at once. Server-sent events would be faster but need a long-lived connection that the free Render instance and its proxy handle less reliably. The dock adds a small amount of screen clutter while files run; it hides itself once they finish.
 
 **In one sentence:** Drop files, watch them move, and fix or approve each problem with one tap.
+
+## D56: Amounts parse the way Bangladesh prints them
+
+**Alternatives:** Keep the strict thousands-only rule (D36) and send every lakh-grouped amount to review, or ask the model to convert amounts to plain numbers.
+
+**Why:** Bangladeshi invoices write "Tk 1,25,000/-": lakh grouping (the last three digits, then pairs), a "/-" or "/=" ending, sometimes Bengali digits (৳ ১,২৫,০০০) and the word টাকা. The old parser refused all of these, so the total of nearly every local invoice over one lakh came back unparsed and flagged. The parser now accepts lakh grouping (only with commas, and only when every group is well formed), strips the "/-" ending, turns Bengali digits into ASCII before parsing, and knows টাকা, Bengali month names and Bengali digits in dates and invoice numbers. The model still copies amounts exactly as printed; only Python reads them (AI rule 1).
+
+**Trade-off:** "12,34,567.00" used to count as malformed and now parses. A misread that happens to form valid lakh groups would no longer be caught by the parser, but the arithmetic rules (R03, R05) still catch a wrong number.
+
+**In one sentence:** A Bangladeshi invoice should not go to review just because it is written the Bangladeshi way.
+
+## D57: Discounts and charges between subtotal and total count in the total check
+
+**Alternatives:** Add fixed columns (discount, shipping) to the invoice table; let the model put a combined figure in tax; or keep the rule subtotal + tax = total and accept the false flags.
+
+**Why:** Real bills print other lines between subtotal and total: a discount, a delivery or service charge, a second duty such as SD, rounding. With only subtotal + tax = total, R05 flagged correct restaurant bills and VAT invoices. The model now copies each such line as a label and the printed amount (prompt rule 12). Python reads the amount and sets the sign from the label (discount, less, rebate, coupon, ছাড় make it negative), and R05 checks subtotal + tax + adjustments. An unreadable adjustment sends the invoice to review instead of being ignored. When no subtotal is printed, R03 adds the adjustments to the line sum. Spreadsheets map Discount, Delivery, Service charge and similar columns by rule. The lines are stored in `field_meta` beside each field's evidence, so no migration was needed, and the API returns them as `adjustments`.
+
+**Trade-off:** The sign comes from a keyword list, so an unusual label for a deduction ("goodwill") would be added instead of subtracted; R05 then flags it for a person, which is the safe direction. Adjustments are not a column, so they cannot be filtered in SQL.
+
+**In one sentence:** The model copies the extra lines, Python decides their sign and does the sum.
+
+## D58: A file that is not an invoice says so
+
+**Alternatives:** Add a classification call before extraction, or a separate document status `not_invoice`.
+
+**Why:** For PDFs and images the extraction prompt already allows an empty answer (rule 10), so a letter gives no invoice. A spreadsheet had no such guard: a staff list with a "Date" column became one fake invoice per row. Now the column-mapping call also answers `lists_invoices`, and a sheet the model says is not invoices gives none. When the model is not asked (headers map by rule, or no key), a sheet needs a money column and two mapped fields. A completed document with no invoices gets the event `no_invoice_found`, and the web app shows "No invoice found" on Home, in the live steps and on the document page, with a hint to upload a clearer copy if it is one. No extra call and no schema change: the existing calls carry the decision.
+
+**Trade-off:** If the model wrongly calls a real invoice register "not invoices", its rows are skipped. The sheet's stored mapping records the verdict, the document shows "No invoice found", and Process again retries it. Evaluation run 5 measures this on real Gemini.
+
+**In one sentence:** Nothing is invented from a file that is not an invoice, and the screen says why it is empty.
+
+## D59: Invoices download as a CSV for Excel
+
+**Alternatives:** An .xlsx export, or only the JSON API.
+
+**Why:** The brief says staff enter invoice data into internal systems, and in practice that means Excel or an accounting package import. `GET /api/export/invoices.csv` (optionally by review status) returns every invoice with its totals, discounts and charges, review status, open issues and source. It starts with a UTF-8 byte order mark, so Excel shows Bengali names correctly. Document text is untrusted, so any text cell that starts with = + - @ or a tab gets a leading apostrophe and cannot run as a formula (CSV injection). A button on Home downloads it.
+
+**Trade-off:** CSV has no types or formatting, and the export is capped at 20,000 rows to stay within the free instance's memory. An .xlsx writer would add a dependency for little gain.
+
+**In one sentence:** One tap gets the data into Excel, safely.
+
+## D60: Prompts carry a version, and a scheduled ping keeps the free demo awake
+
+**Alternatives:** Track prompt changes only in Git; let Supabase pause and wake it by hand before a demo.
+
+**Why:** `PROMPT_VERSION` in `prompts.py` is stored with the model name on every document's `extracted` event, so any stored result can be traced to the prompts and model that made it, and a prompt change can be compared run to run. Supabase pauses free projects after a week without activity, which would break the live link while reviewers look at it; a GitHub Actions workflow calls `/api/health` (which queries the database) every three days, and fails, which emails the owner, if the database does not answer.
+
+**Trade-off:** The version is bumped by hand. The ping costs a few minutes of the shared Render free hours each month.
+
+**In one sentence:** Every result says which prompt made it, and the demo stays up between visits.

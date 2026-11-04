@@ -11,11 +11,12 @@ The web app is built for the shortest path: one Home screen where you drop files
 
 1. **Upload** several files at once. Each is checked by its bytes (never its name), stored privately under a random key, and queued. A bad file fails alone with a clear code (`ENCRYPTED_PDF`, `CORRUPTED_FILE`, `EMPTY_FILE`, `UNSUPPORTED_TYPE`, `TOO_LARGE`, `TOO_MANY_PAGES`); the rest of the batch goes on.
 2. **Read** each file in a background worker. Digital PDF pages give their text directly. Scanned pages and images are cleaned with OpenCV and read by Tesseract, which reports a confidence per page; weak pages go to Gemini vision. Spreadsheets are read sheet by sheet, with header detection, merged cells and CSV encoding and delimiter detection.
-3. **Extract** invoice number, date, supplier, customer, subtotal, tax, total, currency and line items. Gemini copies each value as printed, with a confidence and the text it came from. Code then parses dates and money and checks that the evidence really appears in the source. Missing values stay empty; nothing is guessed.
-4. **Validate** with eleven rules in exact decimal arithmetic: missing fields, line sums, quantity times price, subtotal plus tax, duplicates (with fuzzy supplier names), dates, low confidence, unproven values, mixed currencies. Any error sends the invoice to the review queue.
+3. **Extract** invoice number, date, supplier, customer, subtotal, tax, total, currency and line items, plus any discount, delivery or service charge printed before the total. Gemini copies each value as printed, with a confidence and the text it came from. Code then parses dates and money (including Bangladeshi forms such as "Tk 1,25,000/-" and Bengali digits) and checks that the evidence really appears in the source. Missing values stay empty; nothing is guessed. A file that is not an invoice, such as a letter or a staff list, gives no invoice and says "No invoice found".
+4. **Validate** with eleven rules in exact decimal arithmetic: missing fields, line sums, quantity times price, subtotal plus tax plus discounts and charges, duplicates (with fuzzy supplier names), dates, low confidence, unproven values, mixed currencies. Any error sends the invoice to the review queue.
 5. **Correct** a field in the web app. The change is recorded with who made it, the rules run again, and search updates.
 6. **Search** by keyword (invoice numbers, names, line items, with filters) or by meaning ("printer supplies bought in spring").
 7. **Reconcile** two documents, for example a supplier statement PDF against an Excel export: matched, mismatched with the differing fields, and invoices found on one side only.
+8. **Export** every invoice as a CSV that opens in Excel (Bengali text included), ready to enter into an accounting system.
 
 Every document keeps its processing history, and failed jobs can be retried from the web app or the API.
 
@@ -111,7 +112,7 @@ CI runs ruff, 351 tests on Postgres with Tesseract, the frontend build, a gitlea
 
 ## Design decisions
 
-All 55 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
+All 60 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
 
 1. **One Python service, not a Node.js API plus a Python worker** (D01). Every heavy library is Python; one language means one deployment and no network hop.
 2. **The queue is a PostgreSQL table** (D02, D45). Jobs survive a restart of the free instance, live in the same transaction as the data they change, and need no extra service.
@@ -123,6 +124,7 @@ All 55 decisions, each with the alternatives, the reason and the cost, are in [D
 8. **Errors block, warnings inform** (D41), so reviewers see only what makes the numbers untrustworthy.
 9. **Search in one database** (D05, D47): full text and vectors beside the relational data, with one set of filters.
 10. **A synthetic labelled dataset** (D13, D35, D51) gives exact ground truth and planted errors, and the same generator builds the test fixtures.
+11. **Built for Bangladeshi documents** (D56, D57, D58): lakh grouping and Bengali digits parse, discounts and charges count in the total check, and files that are not invoices produce nothing.
 
 ## Known limitations
 

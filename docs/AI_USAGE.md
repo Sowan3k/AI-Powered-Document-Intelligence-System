@@ -119,3 +119,9 @@ Prompt (summary): Sowan shared the original brief and asked whether the project 
 
 AI-generated: the redesigned web app (Home, live process view and dock, bottom tabs, one-tap approval), the activity endpoint, per-window progress, the top issue in the review queue, the scale check, and decision D55. Verified with backend tests, a production build and an automated phone-size walk-through with screenshots; the screenshots led to three refinements (dock text, failed-step styling, the dock hidden on Home). The scale check found and fixed a memory peak on scanned PDFs.
 
+
+### 5 Nov 2026, interview readiness review and fixes (Claude Code)
+
+Prompt (summary): Sowan asked whether the system says so when a file is not an invoice, and asked Claude Code to think like an interviewer, check whether the project holds up, and not list the questions.
+
+Claude Code reviewed the code against likely probes and found real gaps, each confirmed in code before any change: Bangladeshi amounts ("Tk 1,25,000/-", Bengali digits) came back unparsed; a staff-list spreadsheet would have become fake invoices; discounts and service charges made R05 flag correct bills; there was no export for Excel; nothing described what is sent to Gemini on the free tier; prompts were not versioned; and the free Supabase project would pause after a week. AI-generated: the fixes (D56 to D60), their tests, the new evaluation files (Bangladeshi VAT invoices, a restaurant bill, a prompt-injection invoice, four non-invoice files) and the scoring for them. Verified with 383 backend tests, a fake-model evaluation run, a production build and a phone-size browser walk-through of the new screens and the CSV download. Gemini prices in the docs come from Google's pricing page, looked up on 5 Nov 2026; real accuracy numbers come only from evaluation run 5 in GitHub Actions.

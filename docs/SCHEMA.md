@@ -70,7 +70,7 @@ erDiagram
         varchar currency "ISO 4217"
         text invoice_number_norm
         text supplier_norm "pg_trgm index"
-        jsonb field_meta "confidence, evidence, flags"
+        jsonb field_meta "confidence, evidence, flags, adjustments"
         jsonb raw_extraction
         varchar review_status "pending, ok, needs_review, reviewed"
         tsvector search_vector "GIN index"
@@ -147,4 +147,4 @@ erDiagram
 
 ## Why some data is JSON
 
-`field_meta`, `raw_extraction`, `column_mapping`, issue `details` and the reconciliation `result` change shape with the document or the rule. JSONB keeps the strict columns strict (values the rules and search use) and the descriptive data flexible (D06).
+`field_meta`, `raw_extraction`, `column_mapping`, issue `details` and the reconciliation `result` change shape with the document or the rule. `field_meta` also holds `currencies_seen` and, when an invoice prints them, `adjustments`: each discount or charge with its label, signed amount, printed text, evidence and flags (D57). `column_mapping` records whether the model judged the sheet to list invoices (D58). JSONB keeps the strict columns strict (values the rules and search use) and the descriptive data flexible (D06).

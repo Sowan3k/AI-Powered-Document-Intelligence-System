@@ -17,6 +17,7 @@ The web app is built for the shortest path: one Home screen where you drop files
 6. **Search** by keyword (invoice numbers, names, line items, with filters) or by meaning ("printer supplies bought in spring").
 7. **Reconcile** two documents, for example a supplier statement PDF against an Excel export: matched, mismatched with the differing fields, and invoices found on one side only.
 8. **Export** every invoice as a CSV that opens in Excel (Bengali text included), ready to enter into an accounting system.
+9. **Watch the numbers**: `GET /api/stats` (and a line on Home) gives the success and failure rate, average processing time, tokens used and what they would cost on paid Gemini.
 
 Every document keeps its processing history, and failed jobs can be retried from the web app or the API.
 
@@ -112,7 +113,7 @@ CI runs ruff, 351 tests on Postgres with Tesseract, the frontend build, a gitlea
 
 ## Design decisions
 
-All 60 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
+All 62 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
 
 1. **One Python service, not a Node.js API plus a Python worker** (D01). Every heavy library is Python; one language means one deployment and no network hop.
 2. **The queue is a PostgreSQL table** (D02, D45). Jobs survive a restart of the free instance, live in the same transaction as the data they change, and need no extra service.
@@ -124,7 +125,8 @@ All 60 decisions, each with the alternatives, the reason and the cost, are in [D
 8. **Errors block, warnings inform** (D41), so reviewers see only what makes the numbers untrustworthy.
 9. **Search in one database** (D05, D47): full text and vectors beside the relational data, with one set of filters.
 10. **A synthetic labelled dataset** (D13, D35, D51) gives exact ground truth and planted errors, and the same generator builds the test fixtures.
-11. **Built for Bangladeshi documents** (D56, D57, D58): lakh grouping and Bengali digits parse, discounts and charges count in the total check, and files that are not invoices produce nothing.
+11. **Fast and resilient model calls** (D53, D61, D62): page windows run in parallel under a per-minute limiter, a failed window tries a second model, and every call's tokens, thinking included, are counted and priced.
+12. **Built for Bangladeshi documents** (D56, D57, D58): lakh grouping and Bengali digits parse, discounts and charges count in the total check, and files that are not invoices produce nothing.
 
 ## Known limitations
 

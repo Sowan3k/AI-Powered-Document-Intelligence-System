@@ -802,3 +802,23 @@ The backend gained `GET /api/activity` (each document's stage from its latest hi
 **Trade-off:** The version is bumped by hand. The ping costs a few minutes of the shared Render free hours each month.
 
 **In one sentence:** Every result says which prompt made it, and the demo stays up between visits.
+
+## D61: Page windows run in parallel, and a failed window tries a second model
+
+**Alternatives:** Keep one call at a time per document; use asyncio for the model calls; retry only through the job queue.
+
+**Why:** A 1,000-page PDF needs about 143 extraction calls (windows of 8 pages, D39). One at a time, the wait for each reply adds up, and the semaphore set by `LLM_MAX_CONCURRENCY` was never used because the worker is single-threaded. Windows now run on a small thread pool of that size. Threads fit here: the calls are I/O-bound and release the GIL, the rest of the code is synchronous (D18), and the client's semaphore and per-minute limiter (D53) already bound every call, so the free-tier quota still holds. Replies are merged in page order, whatever order they finish in, and progress is written on the worker's own thread because a database session is not thread-safe. A window whose model still fails after its retries (an overload or a quota error) tries `GEMINI_FALLBACK_MODEL`, by default the vision model, the same idea as the vision chain (D44). A reply that breaks the schema twice stays final (D40). If both models fail, the job queue retries the document with backoff (D45), and after the last attempt it shows as failed with a Process again button.
+
+**Trade-off:** On the free tier the per-minute limit, not concurrency, sets the speed, so the gain shows on a paid tier: raising `LLM_MAX_CONCURRENCY` and `LLM_CALLS_PER_MINUTE` is a configuration change. A fallback model may cost more per token, but only for windows that would otherwise fail.
+
+**In one sentence:** Long PDFs no longer wait for one reply at a time, and one busy model no longer fails a document.
+
+## D62: Cost is measured from real token counts, including thinking, and shown live
+
+**Alternatives:** Estimate cost from page counts; report tokens only; rely on the Google Cloud billing page.
+
+**Why:** Every Gemini call already stores its purpose, model, input and output tokens and latency as an `llm_call` event. Two gaps made the cost wrong or invisible. First, Gemini 3 models can think, and Google bills thinking tokens as output; the client counted only the answer's tokens. It now records `thinking_tokens` too, and `GEMINI_THINKING_LEVEL` (unset by default) can lower thinking for extraction, which copies text and needs little reasoning. Second, nobody could see the cost without reading the database. `GET /api/stats` now sums tokens by model and prices them from a small table in `app/core/pricing.py` (Google's list prices, with the date they were checked), and also gives document success and failure rates and processing time. Home shows one line of it. A model with no listed price gives no estimate rather than a guess. Embedding replies carry no token count, so embedding tokens are estimated at four characters per token, a small share of the total.
+
+**Trade-off:** Prices change, so the table needs a manual update; the date beside it says how fresh it is. The free tier costs nothing, so the figure shown is what the same work would cost on the paid tier.
+
+**In one sentence:** Every call's tokens are counted, thinking included, and the app shows what the work would cost.

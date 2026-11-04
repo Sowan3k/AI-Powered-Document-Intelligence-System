@@ -89,7 +89,7 @@ Keyword search uses PostgreSQL full text over invoice numbers, names and line it
 
 These choices fit a free-tier demo. At real volume:
 
-1. Workers would run on their own machines and scale with the queue, and the queue would move to a dedicated broker once polling load grows (D02, D03).
+1. Workers would run on their own machines and scale with the queue, and the queue would move to a dedicated broker once polling load grows (D02, D03). Scaling out needs no code change: `FOR UPDATE SKIP LOCKED` gives each job to exactly one worker (tested), and locally `docker compose up --scale worker=3` runs three. Within one document, page windows already run in parallel up to `LLM_MAX_CONCURRENCY` (D61).
 2. Rate limits would move to a shared store, and login to the company's single sign-on with roles (D14, D46).
 3. Migrations would run in a release step, not at container start (D25).
 4. A document marked as a reference copy would not trigger the duplicate rule (D50).

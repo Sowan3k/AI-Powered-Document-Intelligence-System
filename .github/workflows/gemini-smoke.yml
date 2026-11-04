@@ -1,10 +1,21 @@
 name: Gemini smoke test
 
-# Manual only. Runs real extraction on a few synthetic invoices with the
-# GEMINI_API_KEY secret, to prove the schema and prompts work against the live
-# API. The sandbox where the code is written cannot reach Google's API.
+# Runs real extraction on a few synthetic invoices with the GEMINI_API_KEY
+# secret, to prove the schema and prompts work against the live API. The
+# sandbox where the code is written has no key. Runs by hand (Actions tab, once
+# this file is on main), or on a push that changes the extraction code or this
+# test, so prompt changes are checked against the real model.
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - backend/app/extract/**
+      - eval/smoke_extract.py
+      - .github/workflows/gemini-smoke.yml
+
+concurrency:
+  group: gemini-smoke-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

@@ -282,6 +282,8 @@ def extract_document(
         job,
         "extracted",
         invoices=outcome.invoices,
+        model=model,
+        prompt_version=prompts.PROMPT_VERSION,
         vision_pages=outcome.vision_pages,
         prompt_tokens=outcome.prompt_tokens,
         output_tokens=outcome.output_tokens,

@@ -1,0 +1,36 @@
+name: Keep the demo awake
+
+# Supabase pauses free projects after about a week without activity, and a
+# paused database breaks the live demo. Every three days this calls the
+# public health endpoint, which wakes the Render instance and runs SELECT 1
+# on the database. If the database does not answer, the run fails and GitHub
+# emails the repository owner. Scheduled runs only start from the default
+# branch, so this works once the file is on main. No secrets are used.
+on:
+  schedule:
+    - cron: "17 3 */3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      API_URL: https://docintel-api-y25b.onrender.com
+    steps:
+      - name: Call /api/health until the database answers
+        run: |
+          # A sleeping Render free instance can take about a minute to start.
+          for attempt in 1 2 3 4 5 6; do
+            body=$(curl -sS --max-time 90 "$API_URL/api/health" || true)
+            echo "attempt $attempt: $body"
+            if echo "$body" | grep -q '"database":"connected"'; then
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::error::the API or its database did not answer"
+          exit 1

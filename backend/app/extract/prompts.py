@@ -8,6 +8,9 @@ the data block and pose as instructions.
 
 import json
 
+# Bump when any prompt below changes, so stored results say which prompts made them.
+PROMPT_VERSION = "2026-11-05.1"
+
 DOC_OPEN = "<<<DOCUMENT_DATA>>>"
 DOC_CLOSE = "<<<END_DOCUMENT_DATA>>>"
 

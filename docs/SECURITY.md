@@ -37,6 +37,12 @@ What DocIntel protects today, and what a production deployment would add. Every 
 - The model never calculates. Every check that decides whether numbers are right runs in Python with `Decimal` (D09). A value the model cannot prove from the source text is flagged for a person (D10).
 - Validation retry messages describe the schema error without the rejected values.
 
+## What goes to Gemini
+
+- **Sent:** the text of each page window for extraction; a page image only when Tesseract is unsure of that page; the headers and five sample rows of a sheet whose headers do not map by rule; a short summary of each invoice (number, parties, total, line descriptions) for its embedding; the search query in semantic search.
+- **Not sent:** the original files, file names, user names, tokens, database IDs, and pages that read cleanly by rule (spreadsheets whose headers are known need no model call at all).
+- **Free tier versus paid tier.** Google's [Gemini API terms](https://ai.google.dev/gemini-api/terms) say content sent to the unpaid quota may be used to improve Google's products and may be read by human reviewers, and ask users not to send confidential or personal data. Content sent to the paid quota is not used that way and falls under Google's data processing terms. This demo runs on the free tier, so it is used only with synthetic invoices. A company deploying DocIntel must use a paid Gemini project (or Gemini on Vertex AI in its own cloud) before any real document is uploaded. The model name and key are configuration, so this needs no code change.
+
 ## Logs
 
 Logs hold IDs, statuses, counts and timings. They never hold document text, extracted values, prompts or replies. Gemini calls log purpose, model, tokens, latency and attempts. SQL echo and per-request HTTP logs are switched off.

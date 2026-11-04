@@ -56,9 +56,11 @@ class Record:
     @classmethod
     def of(cls, inv: Invoice) -> "Record":
         if inv.page_start is not None:
-            where = f"pages {inv.page_start}-{inv.page_end}"
+            same = inv.page_end in (None, inv.page_start)
+            where = f"page {inv.page_start}" if same else f"pages {inv.page_start}-{inv.page_end}"
         else:
-            where = f"rows {inv.row_start}-{inv.row_end}"
+            same = inv.row_end in (None, inv.row_start)
+            where = f"row {inv.row_start}" if same else f"rows {inv.row_start}-{inv.row_end}"
         return cls(
             id=str(inv.id),
             invoice_number=inv.invoice_number,

@@ -93,3 +93,11 @@ AI-generated: the job queue, pipeline and worker (`backend/app/worker`), auth, r
 
 How it was verified: 337 tests, including API tests for every endpoint and a SKIP LOCKED test with two real database connections. A manual run of the API and worker as separate processes covered upload, processing and search. Tests caught two real bugs: a SQL type error in the search index, and negated search words that slipped through.
 
+### 4 Nov 2026, Phase 5 build (Claude Code)
+
+Continuing the same instruction ("continue to next phase"). Claude Code read this Next.js version's bundled documentation first, as `frontend/AGENTS.md` asks, because the version has breaking changes (Suspense rules for URL hooks with Cache Components).
+
+AI-generated: every page and component in `frontend/app` and `frontend/components`, the API client, types and data hook in `frontend/lib`, and decisions D49 and D50.
+
+How it was verified: lint, typecheck and a production build, then an automated walk-through in Chromium at phone size against the real API and worker (with the fake model in place of Gemini). It covered every action in the brief and checked for console errors and horizontal scrolling. Screenshots were reviewed, which led to two display fixes.
+

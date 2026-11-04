@@ -4,7 +4,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) done on 4 Nov (CI run 14). Phase 4 (API, job queue, search) checklist done on 4 Nov (CI run 19); its exit test waits for the merge to `main`. Phase 5 (frontend) in progress.
+**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) done on 4 Nov (CI run 14). Phase 4 (API, job queue, search) checklist done on 4 Nov (CI run 19); its exit test waits for the merge to `main`. Phase 5 (frontend) built on 4 Nov, waiting on CI. Exit tests for Phases 4 and 5 need the merge to `main`.
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -24,7 +24,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 1. Sowan: decide on the vision model. In two smoke runs about 10 minutes apart, `gemini-3.8-flash` answered 503 (overloaded) on every try, and the fallback to `gemini-3.5-flash-lite` read both scanned pages correctly. Each weak page waits about 2.5 minutes on the busy model first. Option: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` in Render (and `render.yaml`) until Flash recovers. It is a config change, not a code change.
 2. Phase 4 exit test: after the merge, upload a mixed batch on the live site and search it. Claude Code can run it once the backend is live.
 3. Sowan: merge the session branch into `main`, then in Render check that `DEMO_PASSWORD` is set (Render generates `JWT_SECRET` itself). Then log in through `/api/docs` with user `reviewer`.
-4. Claude Code builds Phase 5 (frontend).
+4. After the merge: check the live site on a phone (sign in, upload, review, search, reconcile). Claude Code then starts Phase 6 (evaluation).
 
 **Blockers:** None.
 
@@ -36,6 +36,15 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Whether a few real public invoice samples can be added to the evaluation set.
 
 ## Session log
+
+### 4 Nov 2026, Phase 5 build (Claude Code)
+
+Built the frontend: login, upload (several files, drag and drop, live status per file), documents list (status filter, pages, polls while anything runs), document page (fields beside the source text, confidence and evidence per field, issues, line items, inline correction with "mark as reviewed", correction history, processing history with model calls and tokens, retry and process-again buttons), review queue, search (keyword or by meaning, filters), and reconcile. Loading, empty, error and sleeping-backend states on every page. Decisions D49 and D50.
+
+Tested: lint, typecheck and production build pass. Ran the real API and worker on Postgres with the fake model, and the built web app, then drove it with Chromium at iPhone 13 size. Every step passed: redirect to login, a wrong password, upload of 7 files (5 completed, the empty and the encrypted file failed with their codes), detail page, review queue, correcting the planted wrong total (R05 cleared, status reviewed), keyword search, semantic search, reconciliation (2 matched, 1 mismatched, 1 only in A, 1 only in B), and the failed document's error. The page stayed 390 pixels wide on a 390-pixel screen. The only console error was the 401 from the deliberate wrong password.
+
+Found on the way: quantities showed four decimals ("12.0000"), now trimmed; reconciliation said "pages 2-2", now "page 2". Known limitation recorded as D50: a reconciliation workbook that repeats PDF invoices gets R06 duplicate errors.
+
 
 ### 4 Nov 2026, Phase 4 build and real Gemini check (Claude Code)
 

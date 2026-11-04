@@ -641,3 +641,29 @@ Semantic search embeds the query with the D31 query format and orders by cosine 
 **Trade-off:** A corrected value is trusted completely; a wrong correction is caught only by the arithmetic rules (R03 to R05). The audit trail shows who made it.
 
 **In one sentence:** A person's correction wins, is checked by the same rules, and leaves a record.
+
+---
+
+## D49: The frontend renders in the browser and talks to the API directly
+
+**Alternatives:** Server Components that fetch on the Vercel server, a Next.js backend-for-frontend that proxies the API, or a data library such as SWR or TanStack Query.
+
+**Why:** The browser holds the JWT and calls the Render API directly (D14), so every app page is a Client Component. Server-side fetching would need the token on the Vercel server, which means cookies and a second place that handles credentials. Pages sit in an `(app)` route group whose layout shows them only to a signed-in user; the gate renders inside a Suspense boundary, as this Next.js version requires for anything that reads the URL. The token lives in `sessionStorage`: it ends with the tab, and the API sets no cookies, so there is no CSRF surface. A 401 from any call clears the token and sends the user back to login.
+
+One small hook (`useApi`) loads data, polls while a job runs (the documents list and the document page update by themselves), and shows a "the backend may be waking up" note when the first answer takes more than five seconds, because a free Render instance sleeps. Money stays a string from the API to the screen; only the display groups the digits. The layout is single-column cards on a phone and puts the extracted fields beside the source text on a wide screen.
+
+**Trade-off:** No server rendering for data pages, so the first view of a page shows a short loading state. A data library would add caching and deduplication; at this size, one hook of about 60 lines is easier to read and defend.
+
+**In one sentence:** The browser is the only client of the API, with one token, one data hook and states for loading, empty, error and a sleeping backend.
+
+---
+
+## D50: Known limitation: reconciliation files also trigger the duplicate rule
+
+**Alternatives:** Exclude documents uploaded for reconciliation from R06, or mark a document as a reference copy at upload.
+
+**Why:** A supplier statement and the company's Excel export list the same invoices by design. When both are uploaded, the later one's invoices get R06 (duplicate) errors, which is the rule working as defined in D41, and they appear in the review queue. The browser test on 4 November showed this with the reconciliation pair. Changing it needs a way to say "this file is a reference copy", which is a product decision, not a bug fix.
+
+**Trade-off:** Some noise in the review queue when the same invoices arrive twice on purpose. The duplicate message names the matching invoice, so a reviewer clears it quickly.
+
+**In one sentence:** The duplicate rule cannot yet tell an intentional second copy from a real duplicate, and the report says so.

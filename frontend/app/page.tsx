@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { HealthStatus } from "@/components/health-status";
 
 export default function Home() {
@@ -11,6 +13,20 @@ export default function Home() {
         </p>
       </header>
       <HealthStatus />
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href="/documents"
+          className="inline-flex min-h-10 items-center rounded-lg bg-neutral-900 px-4 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900"
+        >
+          Open the app
+        </Link>
+        <Link
+          href="/login"
+          className="inline-flex min-h-10 items-center rounded-lg border border-black/15 px-4 text-sm font-medium hover:bg-neutral-50 dark:border-white/20 dark:hover:bg-neutral-800"
+        >
+          Sign in
+        </Link>
+      </div>
     </main>
   );
 }

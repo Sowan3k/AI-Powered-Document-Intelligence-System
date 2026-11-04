@@ -46,3 +46,7 @@ AI-generated: decision D31 and the config edits in `.env.example` and `render.ya
 ### 4 Nov 2026, Render setup check (Claude Code)
 
 Prompt (summary): Sowan shared the list of Render environment variables to add. Claude Code did not handle any secret values. It used the Render and Supabase connectors read only to check the setup, found that the Render service did not exist yet, and corrected the setup steps in `STATUS.md`.
+
+### 4 Nov 2026, Phase 0 closed (Claude Code)
+
+Prompt: "Phase 0 should be done". Claude Code verified the deploy with the Render, Vercel and Supabase connectors (read only, no secret values read), found that the first Render deploy had failed on a missing `DATABASE_URL`, and added a fail-fast settings check so that failure now names the missing variable. Verified with 46 passing tests and a local reproduction of the failed start.

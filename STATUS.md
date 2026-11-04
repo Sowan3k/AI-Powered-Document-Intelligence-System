@@ -4,10 +4,14 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 0 (Setup and a deployed skeleton). Code done. Waiting on the manual account steps and the first deploy.
+**Phase:** 0 done on 4 Nov 2026. Next: Phase 1 (document ingestion).
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
-**Done:** Backend skeleton (FastAPI, config, health endpoints, worker loop), all ten tables with the first Alembic migration, backend and frontend Dockerfiles, `docker-compose.yml`, Next.js health page, CI workflow, `render.yaml` blueprint.
+**Live:**
+
+- Web app: https://docintel-tan-two.vercel.app (Vercel project `docintel`)
+- API: https://docintel-api-y25b.onrender.com (Render service `docintel-api`, Singapore, free plan). Docs at `/api/docs`, health at `/api/health`.
+- Render and Vercel deploy automatically from `main`. Work happens on the session branch; merging into `main` deploys it.
 
 **Supabase (set up by Sowan):** project created, `vector` and `pg_trgm` enabled in the `extensions` schema (on the search_path), private bucket `documents` with a 50 MB limit, Data API disabled. The backend uses SQLAlchemy over the pooler for the database and the Storage API only for files (D17). Code never creates buckets.
 
@@ -15,40 +19,27 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next:**
 
-1. Sowan does the manual steps below, starting with the merge, then runs the Phase 0 exit test.
-2. Claude Code starts Phase 1 (document ingestion).
+1. Claude Code starts Phase 1 (document ingestion).
+2. Sowan: tell Claude Code which kind of Supabase key is in `SUPABASE_SERVICE_ROLE_KEY` (the new `sb_secret_...` key or the legacy `service_role` key). Only the kind, never the value. Phase 1 needs it for Storage uploads.
+3. Sowan: add the `GEMINI_API_KEY` GitHub Actions secret before Phase 6, if not done yet.
 
-**Manual steps for Sowan (phone, in this order):**
+**Blockers:** None.
 
-1. Merge `ccr-406a2a1e-uip46r` into `main` first. The `docintel-api` service does not exist on Render yet (checked 4 Nov), and the Blueprint reads `render.yaml` from `main`.
-2. Render: New > Blueprint > this repo. This creates `docintel-api` and asks for these values. Type them straight into Render, never into chat:
-   - `DATABASE_URL`: Supabase > Connect > Session pooler (port 5432). Change `postgresql://` to `postgresql+psycopg://`. Replace `[YOUR-PASSWORD]`, brackets included, with the database password. If the password has `@ : / # ? %`, reset it in Supabase to letters and digits only, or the URL breaks.
-   - `SUPABASE_URL`: `https://kleyclkciegatavmatlc.supabase.co` (not a secret).
-   - `SUPABASE_SERVICE_ROLE_KEY`: Supabase > API keys, the secret key (`sb_secret_...`) or the legacy `service_role` key. Never the publishable or anon key. Tell Claude Code which kind you used, not the value, so Phase 1 sends it the right way.
-   - `GEMINI_API_KEY`: from your notes.
-   - `DEMO_PASSWORD`: your choice. It goes to the reviewers in the submission email, so use it nowhere else.
-   - `CORS_ORIGINS`: `http://localhost:3000` for now.
-   - `JWT_SECRET`: do not add it. The Blueprint generates it.
-   Wait for the deploy, then copy the service URL. `/api/health` should report the database as connected.
-3. Vercel: import the repo with Root Directory `frontend`. Add `NEXT_PUBLIC_API_BASE_URL` = the Render URL, no trailing slash. Deploy and copy the Vercel URL.
-4. Render: set `CORS_ORIGINS` to the Vercel URL, no trailing slash. Render redeploys.
-5. Exit test: open the Vercel URL. Within a minute it should say "API healthy, database connected".
-6. GitHub: add the `GEMINI_API_KEY` Actions secret (needed in Phase 6).
-
-`NEXT_PUBLIC_API_BASE_URL` is baked in at build time. After changing it on Vercel, redeploy.
-
-**Blockers:** None in code. Waiting on the merge to `main`, then Render and Vercel.
-
-**Note:** Render's free instance hours are shared across the workspace with BahasaBot and grab-realtime-demo. Idle services sleep and use no hours, so this should be fine, but busy demos elsewhere eat into the same allowance during the review period.
+**Note:** Render's free instance hours are shared across the workspace with BahasaBot and grab-realtime-demo. Idle services sleep and use no hours, but busy demos elsewhere eat into the same allowance during the review period.
 
 **Open questions:**
 
 1. Repository access at submission: invite the reviewers, or make the repo public after a full secret scan.
 2. Whether a few real public invoice samples can be added to the evaluation set.
 3. Local file storage: docker-compose has no Supabase Storage. Phase 1 needs a storage interface with a local-disk backend for compose and tests, and Supabase in production.
-4. Resolved: Supabase runs Postgres 17.11 in ap-southeast-1 (checked through the Supabase connector on 4 Nov). CI and compose use `pgvector/pgvector:0.8.7-pg17`, also Postgres 17.11.
 
 ## Session log
+
+### 4 Nov 2026, Phase 0 closed (Claude Code)
+
+Checked the deploy with the Render, Vercel and Supabase connectors (read only). `main` holds all Phase 0 work. Render: the first deploy failed because `DATABASE_URL` was not set yet, so the app fell back to its localhost default. After Sowan added the values, the live deploy ran migrations, started the worker and served `/api/health` with 200 (database connected). Vercel: production deploy READY from `main`. The sandbox blocks `onrender.com` and `vercel.app`, so the page itself was checked by Sowan, not from here. Ticked the Phase 0 manual items and the exit test; the GitHub Actions secret is still unconfirmed.
+
+Fix from that failed deploy: in production, settings now stop at startup with "DATABASE_URL must be set when APP_ENV=production" (same for `CORS_ORIGINS`) instead of trying localhost. Settings errors never echo input values, so a bad value cannot print the database password into logs. Tested: 46 tests pass; ran `alembic upgrade head` as production without `DATABASE_URL` and got the clear message.
 
 ### 4 Nov 2026, Render setup check (Claude Code)
 

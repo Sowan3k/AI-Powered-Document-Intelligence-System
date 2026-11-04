@@ -12,12 +12,12 @@ Goal: an empty but working system is live on Render and Vercel before any real f
 
 Manual steps for Sowan (secrets go into dashboards only, never into chat or files):
 
-- [ ] Create the private GitHub repository and connect it to Claude Code
-- [ ] Create a Gemini API key in Google AI Studio and note the current Flash, vision and embedding model names
+- [x] Create the private GitHub repository and connect it to Claude Code
+- [x] Create a Gemini API key in Google AI Studio and note the current Flash, vision and embedding model names (D31)
 - [x] Create a Supabase project in the Singapore region, enable the `vector` extension, create a private storage bucket named `documents` (done by Sowan; `pg_trgm` also enabled, Data API disabled)
-- [ ] Create a Render web service from the repo (Docker runtime, Singapore region, free instance) and add the environment variables from `.env.example`
-- [ ] Create a Vercel project for the `frontend` folder and add its environment variables
-- [ ] Add `GEMINI_API_KEY` as a GitHub Actions secret (used only by the evaluation workflow)
+- [x] Create a Render web service from the repo (Docker runtime, Singapore region, free instance) and add the environment variables from `.env.example` (Blueprint, `docintel-api`)
+- [x] Create a Vercel project for the `frontend` folder and add its environment variables (`docintel`)
+- [ ] Add `GEMINI_API_KEY` as a GitHub Actions secret (used only by the evaluation workflow; not confirmed yet, needed by Phase 6)
 
 Claude Code checklist:
 
@@ -30,6 +30,8 @@ Claude Code checklist:
 - [x] `docs/BRIEF.md` with the full assignment text
 
 Exit test: the Vercel page shows "API healthy, database connected" from the live Render service.
+
+**Exit test passed on 4 Nov 2026.** Sowan reported the live page working. Render logs show migrations ran, the worker started, and every `/api/health` call after the CORS update returned 200 (the endpoint returns 503 when the database is down).
 
 ---
 

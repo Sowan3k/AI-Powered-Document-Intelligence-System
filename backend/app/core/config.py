@@ -6,13 +6,18 @@ Every name here matches `.env.example` at the repository root. Secrets use
 Phase 0 needs only `DATABASE_URL`. The other secrets are optional until the
 feature that uses them exists, so a missing Gemini key cannot stop the API
 from starting.
+
+In production, `DATABASE_URL` and `CORS_ORIGINS` must be set explicitly. Their
+defaults point at localhost, which would fail later with a confusing error, so
+startup stops at once and names the missing variable. Validation errors never
+echo input values, because those can hold secrets.
 """
 
 from decimal import Decimal
 from functools import lru_cache
-from typing import Literal
+from typing import ClassVar, Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,7 +27,12 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        # Never print input values in errors: DATABASE_URL holds a password.
+        hide_input_in_errors=True,
     )
+
+    # Must be set explicitly when APP_ENV=production (their defaults are for local use).
+    REQUIRED_IN_PRODUCTION: ClassVar[tuple[str, ...]] = ("database_url", "cors_origins")
 
     app_env: Literal["development", "test", "production"] = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
@@ -71,6 +81,15 @@ class Settings(BaseSettings):
     @classmethod
     def _strip_origins(cls, value: str) -> str:
         return ",".join(part.strip().rstrip("/") for part in value.split(",") if part.strip())
+
+    @model_validator(mode="after")
+    def _require_production_settings(self) -> "Settings":
+        if self.is_production:
+            missing = [n for n in self.REQUIRED_IN_PRODUCTION if n not in self.model_fields_set]
+            if missing:
+                names = ", ".join(name.upper() for name in missing)
+                raise ValueError(f"{names} must be set when APP_ENV=production")
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:

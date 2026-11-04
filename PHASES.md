@@ -117,28 +117,30 @@ Goal: the full pipeline runs in the background behind a documented REST API.
 
 Job queue:
 
-- [ ] `jobs` table and a worker loop that claims one job at a time with `FOR UPDATE SKIP LOCKED`
-- [ ] Heartbeat while running; on worker start, re-queue jobs whose heartbeat is stale
-- [ ] Retry with backoff up to `max_attempts`, then status `failed` with the last error
-- [ ] A `processing_events` row for every state change
+- [x] `jobs` table and a worker loop that claims one job at a time with `FOR UPDATE SKIP LOCKED`
+- [x] Heartbeat while running; on worker start, re-queue jobs whose heartbeat is stale
+- [x] Retry with backoff up to `max_attempts`, then status `failed` with the last error
+- [x] A `processing_events` row for every state change
 
 Endpoints (all under `/api`, JWT bearer auth except `health` and `auth/login`):
 
-- [ ] `POST /auth/login` for the single demo account defined in environment variables
-- [ ] `POST /documents` multipart upload of several files, returns `202` with document and job IDs
-- [ ] `GET /documents` list with status filter and pagination
-- [ ] `GET /documents/{id}` metadata, status and processing history
-- [ ] `GET /documents/{id}/results` invoices, line items and validation issues
-- [ ] `GET /jobs/{id}` job status and progress (pages done out of total)
-- [ ] `POST /documents/{id}/reprocess` and `POST /jobs/{id}/retry` for failed jobs
-- [ ] `PATCH /invoices/{id}` manual correction: writes `corrections` rows, re-runs validation, updates search fields
-- [ ] `GET /review-queue` invoices with status `needs_review`
-- [ ] `GET /search` keyword mode (full-text plus filters for supplier, date range, amount range, currency, status) and semantic mode (pgvector similarity on invoice embeddings)
-- [ ] `POST /reconcile` compares two documents and stores the result
-- [ ] Rate limits on login and upload, CORS restricted to the frontend origin
-- [ ] Integration tests for every endpoint, including auth failures and a failed job that is retried
+- [x] `POST /auth/login` for the single demo account defined in environment variables
+- [x] `POST /documents` multipart upload of several files, returns `202` with document and job IDs
+- [x] `GET /documents` list with status filter and pagination
+- [x] `GET /documents/{id}` metadata, status and processing history
+- [x] `GET /documents/{id}/results` invoices, line items and validation issues
+- [x] `GET /jobs/{id}` job status and progress (pages done out of total)
+- [x] `POST /documents/{id}/reprocess` and `POST /jobs/{id}/retry` for failed jobs
+- [x] `PATCH /invoices/{id}` manual correction: writes `corrections` rows, re-runs validation, updates search fields
+- [x] `GET /review-queue` invoices with status `needs_review`
+- [x] `GET /search` keyword mode (full-text plus filters for supplier, date range, amount range, currency, status) and semantic mode (pgvector similarity on invoice embeddings)
+- [x] `POST /reconcile` compares two documents and stores the result
+- [x] Rate limits on login and upload, CORS restricted to the frontend origin
+- [x] Integration tests for every endpoint, including auth failures and a failed job that is retried
 
 Exit test: a mixed batch uploaded to the live Render service is processed in the background and its results are searchable by keyword and by meaning.
+
+**Checklist done on 4 Nov 2026** (CI run 19, all jobs green; the Docker job uploads a CSV through the API, waits for the worker and finds it by search). The exit test itself needs the branch on `main` and a live run on Render; not done yet.
 
 ---
 

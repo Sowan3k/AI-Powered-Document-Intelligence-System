@@ -244,3 +244,50 @@ def test_quota_error_waits_as_the_server_asks(monkeypatch: pytest.MonkeyPatch) -
     waits = [x for x in slept if x >= 1]  # the fake SDK itself sleeps 0.01 s per call
     assert waits == [21.0, 15.0]  # the server's hint, then at least the quota delay
     assert llm_module.retry_delay(api_error(500)) is None
+
+
+def test_embed_sends_one_request_per_text_through_the_real_sdk() -> None:
+    """Runs the real google-genai SDK against a fake transport and checks the request.
+
+    A list of plain strings becomes one multi-part content and one embedding;
+    evaluation run 3 failed every multi-invoice document on that.
+    """
+    from google import genai
+    from google.genai import types as genai_types
+
+    bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        bodies.append(body)
+        return httpx.Response(
+            200, json={"embeddings": [{"values": [0.5] * 4} for _ in body["requests"]]}
+        )
+
+    sdk = genai.Client(
+        api_key="fake-key",
+        http_options=genai_types.HttpOptions(
+            httpx_client=httpx.Client(transport=httpx.MockTransport(handler))
+        ),
+    )
+    c = GeminiClient(SecretStr("fake-key"), sdk=sdk, backoff_s=0)
+    vectors, usage = c.embed(model="gemini-embedding-2", texts=["a", "b", "c"], dim=4)
+    assert len(vectors) == 3 and all(len(v) == 4 for v in vectors)
+    [body] = bodies
+    assert [r["content"]["parts"] for r in body["requests"]] == [
+        [{"text": "a"}],
+        [{"text": "b"}],
+        [{"text": "c"}],
+    ]
+    assert all(r["outputDimensionality"] == 4 for r in body["requests"])
+    assert usage.purpose == "embed"
+
+
+def test_embed_rejects_a_reply_of_the_wrong_shape() -> None:
+    class OneVector:
+        def embed_content(self, **kwargs):  # type: ignore[no-untyped-def]
+            return SimpleNamespace(embeddings=[SimpleNamespace(values=[0.1] * 4)])
+
+    c = GeminiClient(SecretStr("k"), sdk=SimpleNamespace(models=OneVector()), backoff_s=0)  # type: ignore[arg-type]
+    with pytest.raises(LlmError, match="wrong shape"):
+        c.embed(model="m", texts=["a", "b"], dim=4)

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
-from app.extract.llm import LlmClient, LlmError
+from app.extract.llm import LlmClient, LlmError, LlmOutputError
 from app.storage import FileStorage, StorageError
 from app.worker import queue
 from app.worker.pipeline import process_document, reindex
@@ -42,7 +42,10 @@ def describe(exc: Exception) -> str:
 
 
 def is_retryable(exc: Exception) -> bool:
-    """Network, storage, quota and database errors pass; missing settings never do."""
+    """Network, storage, quota and database errors pass; missing settings and a model
+    reply of the wrong shape never do, because a retry would fail the same way."""
+    if isinstance(exc, LlmOutputError):
+        return False
     if isinstance(exc, LlmError | StorageError | OperationalError):
         return True
     return not isinstance(exc, RuntimeError | ValueError)

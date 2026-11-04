@@ -1,4 +1,4 @@
 # Changing this file and pushing runs the Evaluation workflow with the real
 # Gemini API (it spends tokens). Keep a short note of why each run was asked for.
 scale=2
-reason=run 3 with call pacing (D53), damaged-PDF rule (D52), the long statement and the merge fix (D39); run 2 was cancelled to include them, 4 Nov 2026
+reason=run 4 after the embedding request fix (D54); run 3 failed every multi-invoice document at the embedding step, 4 Nov 2026

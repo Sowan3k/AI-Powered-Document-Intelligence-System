@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.db.enums import JobStatus
 from app.db.models import Document, Job, ProcessingEvent
-from app.extract.llm import LlmError
+from app.extract.llm import LlmError, LlmOutputError
 from app.storage import StorageError
 from app.worker import queue
 from app.worker.main import Worker, describe, is_retryable
@@ -140,6 +140,7 @@ def test_unknown_job_type_fails_for_good(db: Session) -> None:
     ("exc", "retryable"),
     [
         (LlmError("Gemini call failed with HTTP 503"), True),
+        (LlmOutputError("embedding reply had the wrong shape"), False),
         (StorageError("storage download failed with HTTP 500"), True),
         (OperationalError("SELECT", {}, Exception("gone")), True),
         (RuntimeError("GEMINI_API_KEY must be set"), False),

@@ -263,14 +263,19 @@ class GeminiClient:
         self, *, model: str, texts: list[str], dim: int
     ) -> tuple[list[list[float]], LlmUsage]:
         config = types.EmbedContentConfig(output_dimensionality=dim)
+        # One Content per text. A plain list of strings is sent as ONE content with
+        # several parts, which returns a single embedding (found in evaluation run 3).
+        contents = [types.Content(parts=[types.Part.from_text(text=t)]) for t in texts]
         started = time.monotonic()
         response, attempts = self._with_retries(
             "embed",
-            lambda: self._sdk.models.embed_content(model=model, contents=texts, config=config),
+            lambda: self._sdk.models.embed_content(model=model, contents=contents, config=config),
         )
         vectors = [list(e.values or []) for e in (response.embeddings or [])]
         if len(vectors) != len(texts) or any(len(v) != dim for v in vectors):
-            raise LlmError(f"embedding reply had the wrong shape for {len(texts)} texts of {dim}")
+            raise LlmOutputError(
+                f"embedding reply had the wrong shape for {len(texts)} texts of {dim}"
+            )
         usage = LlmUsage(
             purpose="embed",
             model=model,

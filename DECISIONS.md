@@ -719,3 +719,17 @@ MuPDF's own stderr messages are switched off and read through `mupdf_warnings()`
 **Trade-off:** A busy batch is slower by design: 12 calls a minute means about 12 single-page documents a minute. On a paid tier, raising the setting is a configuration change. The limit is per process, which with one worker is the whole deployment.
 
 **In one sentence:** Pace the calls to fit the quota instead of retrying into it.
+
+---
+
+## D54: One embedding request per text, and a wrong-shaped reply is final
+
+**Alternatives:** One embedding call per invoice, or pass the texts as a list of strings (the first design).
+
+**Why:** Evaluation run 3 (4 November) failed every document that holds more than one invoice, with "embedding reply had the wrong shape". Running the real google-genai SDK against a fake transport showed why: a list of plain strings is sent as one content with several parts, and `gemini-embedding-2` returns one embedding for it. A list of `Content` objects, one per text, is sent as separate requests in one batch call and returns one embedding each. The client now sends that. A unit test runs the real SDK and checks the request body, so an SDK change that brings the old behaviour back fails CI.
+
+A reply with the wrong number or size of vectors now raises `LlmOutputError`, which the queue treats as final, like a schema failure. Run 3 retried each such document three times for nothing.
+
+**Trade-off:** None beyond the one batch call per document it already made.
+
+**In one sentence:** Each text is its own embedding request, and a reply that cannot be right is not retried.

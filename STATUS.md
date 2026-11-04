@@ -38,6 +38,11 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 4 Nov 2026, evaluation run 3 and the embedding fix (Claude Code)
+
+Run 3 (15 minutes, down from 26): the truncated PDF now gets `CORRUPTED_FILE` and all 9 broken files get the right code; no rate-limit failures. Completed documents again 100% on every field and line item, all planted errors caught, no false flags. But all 10 documents with more than one invoice failed at the embedding step. The SDK sends a list of plain strings as one multi-part content, and `gemini-embedding-2` returns one vector for it. Fixed by sending one `Content` per text, proven with the real SDK against a fake transport (D54). A wrong-shaped reply is now final, not retried. Run 4 requested. 350 tests pass.
+
+
 ### 4 Nov 2026, first real evaluation run (Claude Code)
 
 Evaluation run 1 (GitHub Actions, real Gemini, scale 2, 35 files, 26 minutes). Every document that completed was read perfectly: 16 of 16 invoices, all eight fields 100%, line items 55 of 55, every planted error caught, no false flags on clean invoices, about 1,400 tokens per document. But 9 documents failed with `JOB_FAILED` after three attempts each, and `truncated.pdf` got `JOB_FAILED` instead of `CORRUPTED_FILE`.

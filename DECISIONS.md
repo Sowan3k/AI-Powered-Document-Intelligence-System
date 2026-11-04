@@ -577,3 +577,15 @@ Duplicates are flagged against everything stored at validation time, across all 
 **Trade-off:** Line items are not reconciled, only invoice-level fields. Two invoices with the same supplier, date and total but no numbers can pair the wrong way round; the totals still agree, so the report stays correct in amount.
 
 **In one sentence:** Exact keys first, a strict three-part fallback second, and every difference shown with both values.
+
+---
+
+## D44: A vision outage degrades to the text model, then to Tesseract text
+
+**Alternatives:** Fail the document (or its job) when the vision model is down.
+
+**Why:** The first real smoke test run (4 Nov) read all four digital invoices correctly with `gemini-3.5-flash-lite`, but `gemini-3.8-flash` answered HTTP 503 (overloaded) on five tries in a row, and that one busy model failed the run. A vision call is an improvement step, not a requirement: the page already has Tesseract text. So a page whose vision call fails after its retries gets one try with `GEMINI_MODEL`, which also reads images. If that fails too, the page keeps its Tesseract text and method `ocr`, a `vision_failed` event records both errors, and extraction goes on. The low OCR confidence, and any value the model cannot prove, still send the invoice to review (R09, R10).
+
+**Trade-off:** During an outage, poor scans are extracted from weaker text, so more of them go to review. A busy vision model costs up to two retry cycles of waiting per weak page.
+
+**In one sentence:** A busy vision model makes a weak page go to review, not make the whole document fail.

@@ -96,6 +96,12 @@ class LlmClient(Protocol):
         schema: type[BaseModel] | None = None,
     ) -> LlmReply: ...
 
+    def embed(
+        self, *, model: str, texts: list[str], dim: int
+    ) -> tuple[list[list[float]], LlmUsage]:
+        """One vector per text, each `dim` long."""
+        ...
+
 
 class GeminiClient:
     def __init__(
@@ -130,6 +136,40 @@ class GeminiClient:
         ]
         return types.Content(role=turn.role, parts=parts)
 
+    def _with_retries(self, purpose: str, call):  # type: ignore[no-untyped-def]
+        """Run `call()` under the semaphore, retrying 408, 429, 5xx and timeouts."""
+        for attempt in range(1, self._max_retries + 2):
+            try:
+                with self._semaphore:
+                    return call(), attempt
+            except genai_errors.APIError as exc:
+                if exc.code not in RETRY_STATUS or attempt > self._max_retries:
+                    logger.warning("llm %s failed: HTTP %s", purpose, exc.code)
+                    raise LlmError(f"Gemini call failed with HTTP {exc.code}") from None
+                reason = f"HTTP {exc.code}"
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                if attempt > self._max_retries:
+                    logger.warning("llm %s failed: %s", purpose, type(exc).__name__)
+                    raise LlmError("Gemini call failed: network error or timeout") from None
+                reason = type(exc).__name__
+            delay = self._backoff_s * 2 ** (attempt - 1) * (1 + random.random() / 4)  # noqa: S311
+            logger.info("llm %s attempt %d: %s, retry in %.1fs", purpose, attempt, reason, delay)
+            time.sleep(delay)
+        raise AssertionError("unreachable")
+
+    @staticmethod
+    def _log(usage: LlmUsage) -> None:
+        logger.info(
+            "llm call purpose=%s model=%s prompt_tokens=%d output_tokens=%d "
+            "latency_ms=%d attempts=%d",
+            usage.purpose,
+            usage.model,
+            usage.prompt_tokens,
+            usage.output_tokens,
+            usage.latency_ms,
+            usage.attempts,
+        )
+
     def generate(
         self,
         *,
@@ -147,47 +187,45 @@ class GeminiClient:
         )
         contents = [self._content(t) for t in turns]
         started = time.monotonic()
-        for attempt in range(1, self._max_retries + 2):
-            try:
-                with self._semaphore:
-                    response = self._sdk.models.generate_content(
-                        model=model, contents=contents, config=config
-                    )
-            except genai_errors.APIError as exc:
-                if exc.code not in RETRY_STATUS or attempt > self._max_retries:
-                    logger.warning("llm %s failed: HTTP %s", purpose, exc.code)
-                    raise LlmError(f"Gemini call failed with HTTP {exc.code}") from None
-                reason = f"HTTP {exc.code}"
-            except (httpx.TimeoutException, httpx.TransportError) as exc:
-                if attempt > self._max_retries:
-                    logger.warning("llm %s failed: %s", purpose, type(exc).__name__)
-                    raise LlmError("Gemini call failed: network error or timeout") from None
-                reason = type(exc).__name__
-            else:
-                meta = response.usage_metadata
-                usage = LlmUsage(
-                    purpose=purpose,
-                    model=model,
-                    prompt_tokens=(meta.prompt_token_count or 0) if meta else 0,
-                    output_tokens=(meta.candidates_token_count or 0) if meta else 0,
-                    latency_ms=int((time.monotonic() - started) * 1000),
-                    attempts=attempt,
-                )
-                logger.info(
-                    "llm call purpose=%s model=%s prompt_tokens=%d output_tokens=%d "
-                    "latency_ms=%d attempts=%d",
-                    usage.purpose,
-                    usage.model,
-                    usage.prompt_tokens,
-                    usage.output_tokens,
-                    usage.latency_ms,
-                    usage.attempts,
-                )
-                return LlmReply(text=response.text or "", usage=usage)
-            delay = self._backoff_s * 2 ** (attempt - 1) * (1 + random.random() / 4)  # noqa: S311
-            logger.info("llm %s attempt %d: %s, retry in %.1fs", purpose, attempt, reason, delay)
-            time.sleep(delay)
-        raise AssertionError("unreachable")
+        response, attempts = self._with_retries(
+            purpose,
+            lambda: self._sdk.models.generate_content(
+                model=model, contents=contents, config=config
+            ),
+        )
+        meta = response.usage_metadata
+        usage = LlmUsage(
+            purpose=purpose,
+            model=model,
+            prompt_tokens=(meta.prompt_token_count or 0) if meta else 0,
+            output_tokens=(meta.candidates_token_count or 0) if meta else 0,
+            latency_ms=int((time.monotonic() - started) * 1000),
+            attempts=attempts,
+        )
+        self._log(usage)
+        return LlmReply(text=response.text or "", usage=usage)
+
+    def embed(
+        self, *, model: str, texts: list[str], dim: int
+    ) -> tuple[list[list[float]], LlmUsage]:
+        config = types.EmbedContentConfig(output_dimensionality=dim)
+        started = time.monotonic()
+        response, attempts = self._with_retries(
+            "embed",
+            lambda: self._sdk.models.embed_content(model=model, contents=texts, config=config),
+        )
+        vectors = [list(e.values or []) for e in (response.embeddings or [])]
+        if len(vectors) != len(texts) or any(len(v) != dim for v in vectors):
+            raise LlmError(f"embedding reply had the wrong shape for {len(texts)} texts of {dim}")
+        usage = LlmUsage(
+            purpose="embed",
+            model=model,
+            prompt_tokens=sum(len(t) // 4 for t in texts),  # estimate; embed replies carry no count
+            latency_ms=int((time.monotonic() - started) * 1000),
+            attempts=attempts,
+        )
+        self._log(usage)
+        return vectors, usage
 
 
 def _error_summary(exc: Exception) -> str:

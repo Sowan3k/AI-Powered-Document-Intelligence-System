@@ -26,7 +26,7 @@ from app.extract.build import build_invoice
 from app.extract.llm import LlmError, get_llm_client, require_model
 from app.extract.normalise import norm_supplier
 from app.extract.service import extract_pages
-from app.extract.vision import page_images, transcribe
+from app.extract.vision import page_images, transcribe_with_fallback
 from app.ingest.reader import read_document
 from synth.dataset import build
 
@@ -71,12 +71,18 @@ def main() -> int:
             texts = {p.page_number: p.text for p in doc.pages}
             try:
                 if name.startswith("scanned"):
-                    for n, png in page_images(
-                        out / name, doc.kind, set(texts), settings.vision_dpi
-                    ):
-                        texts[n], usage = transcribe(llm, vision_model, png)
-                        tokens[0] += usage.prompt_tokens
-                        tokens[1] += usage.output_tokens
+                    pages = page_images(out / name, doc.kind, set(texts), settings.vision_dpi)
+                    for n, png in pages:
+                        result = transcribe_with_fallback(llm, [vision_model, model], png)
+                        for error in result.errors:
+                            print(f"  vision page {n}: {error}")
+                        if result.text is None or result.usage is None:
+                            print(f"  vision page {n}: every model failed, kept Tesseract text")
+                            continue
+                        print(f"  vision page {n}: read by {result.model}")
+                        texts[n] = result.text
+                        tokens[0] += result.usage.prompt_tokens
+                        tokens[1] += result.usage.output_tokens
                 found, usages = extract_pages(llm, model, sorted(texts.items()), settings)
             except LlmError as exc:
                 print(f"FAIL {name}: {exc}")

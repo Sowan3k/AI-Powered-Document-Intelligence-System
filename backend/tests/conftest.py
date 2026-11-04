@@ -73,6 +73,20 @@ class FakeCall:
 Responder = Callable[[FakeCall], str | dict | BaseModel]
 
 
+def fake_vector(text: str, dim: int) -> list[float]:
+    import hashlib
+    import math
+    import re
+
+    vector = [0.0] * dim
+    for word in re.findall(r"[a-z0-9]+", text.lower()):
+        if len(word) > 2:  # skip the "|" prefixes and tiny words
+            index = int(hashlib.sha256(word.encode()).hexdigest(), 16) % dim
+            vector[index] += 1.0
+    norm = math.sqrt(sum(v * v for v in vector)) or 1.0
+    return [v / norm for v in vector]
+
+
 @dataclass
 class FakeLlmClient:
     """Answers like Gemini without the network.
@@ -84,6 +98,7 @@ class FakeLlmClient:
     replies: list[str | dict | BaseModel] | Responder = field(default_factory=list)
     calls: list[FakeCall] = field(default_factory=list)
     tokens: tuple[int, int] = (100, 20)
+    embedded: list[str] = field(default_factory=list)
 
     def generate(
         self,
@@ -108,6 +123,13 @@ class FakeLlmClient:
             reply = json.dumps(reply)
         usage = LlmUsage(purpose, model, prompt_tokens=self.tokens[0], output_tokens=self.tokens[1])
         return LlmReply(text=reply, usage=usage)
+
+    def embed(
+        self, *, model: str, texts: list[str], dim: int
+    ) -> tuple[list[list[float]], LlmUsage]:
+        """Bag-of-words vectors: texts that share words point the same way."""
+        self.embedded.extend(texts)
+        return [fake_vector(t, dim) for t in texts], LlmUsage("embed", model, len(texts), 0)
 
 
 @pytest.fixture

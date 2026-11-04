@@ -105,6 +105,8 @@ pydantic-core==2.50.2
     # via pydantic
 pydantic-settings==2.16.2
     # via -r requirements.in
+pyjwt==2.15.1
+    # via -r requirements.in
 pymupdf==1.28.2
     # via -r requirements.in
 pytesseract==0.3.13
@@ -113,6 +115,8 @@ python-dotenv==1.2.4
     # via
     #   pydantic-settings
     #   uvicorn
+python-multipart==0.0.33
+    # via -r requirements.in
 pyyaml==6.0.3
     # via uvicorn
 requests==2.34.2

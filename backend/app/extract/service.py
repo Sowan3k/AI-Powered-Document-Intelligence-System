@@ -194,16 +194,22 @@ def _vision_fallback(
     if not settings.gemini_vision_model:
         logger.warning("document %s: %d weak OCR pages, no vision model", document.id, len(weak))
         return
+    models = [settings.gemini_vision_model, settings.gemini_model]
     with tempfile.TemporaryDirectory(prefix="docintel-") as tmp:
         local, kind = _download(storage, document, tmp)
         for number, png in vision.page_images(local, kind, set(weak), settings.vision_dpi):
-            text, usage = vision.transcribe(llm, settings.gemini_vision_model, png)
-            outcome.usages.append(usage)
+            result = vision.transcribe_with_fallback(llm, models, png)
+            if result.text is None:
+                # Keep the Tesseract text; its low confidence still sends the invoice to review.
+                _event(session, document, job, "vision_failed", page=number, errors=result.errors)
+                continue
+            if result.usage is not None:
+                outcome.usages.append(result.usage)
             page = weak[number]
-            page.text = text
+            page.text = result.text
             page.method = PageMethod.VISION  # ocr_confidence keeps the Tesseract score
             outcome.vision_pages += 1
-            _event(session, document, job, "vision_page", page=number)
+            _event(session, document, job, "vision_page", page=number, model=result.model)
     session.commit()
 
 

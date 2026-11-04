@@ -13,7 +13,8 @@ from app.db.enums import DocumentStatus, PageMethod, ReviewStatus
 from app.db.models import Document, Invoice, LineItem, Page, ProcessingEvent, Sheet
 from app.extract.llm import LlmError
 from app.extract.service import EXTRACTION_FAILED, extract_document
-from app.ingest.service import ingest_document, register_upload
+from app.ingest.service import ingest_document
+from app.ingest.upload import register_upload
 from app.storage.local import LocalStorage
 from tests.conftest import FakeCall, FakeLlmClient
 from tests.unit.extract.helpers import fld, llm_invoice
@@ -174,3 +175,24 @@ def test_odd_amounts_are_flagged_when_stored(
     [inv] = invoices_of(db, doc)
     assert inv.total == Decimal("12.35") and "rounded" in inv.field_meta["total"]["flags"]
     assert inv.subtotal is None and "out_of_range" in inv.field_meta["subtotal"]["flags"]
+
+
+@pytest.mark.tesseract
+def test_vision_outage_keeps_the_ocr_text(
+    db: Session, storage: LocalStorage, settings: Settings, synthetic_dir: Path
+) -> None:
+    doc = ingested(db, storage, synthetic_dir / "scan_heavy.jpg", settings)
+    [page] = db.scalars(select(Page).where(Page.document_id == doc.id))
+    ocr_text = page.text
+
+    def reply(call: FakeCall):  # type: ignore[no-untyped-def]
+        if call.purpose == "vision_transcribe":
+            raise LlmError("Gemini call failed with HTTP 503")
+        return {"invoices": []}
+
+    outcome = extract_document(db, storage, FakeLlmClient(reply), doc.id, settings)
+    assert outcome is not None and outcome.vision_pages == 0
+    db.refresh(page)
+    assert page.method is PageMethod.OCR and page.text == ocr_text
+    [failed] = events(db, doc, "vision_failed")
+    assert len(failed.detail["errors"]) == 2  # vision model, then the text model

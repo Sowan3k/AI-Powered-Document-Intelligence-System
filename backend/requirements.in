@@ -21,3 +21,6 @@ httpx2==2.16.0  # Supabase Storage API calls; also used by the FastAPI test clie
 # Phase 2: Gemini (structured output, vision). httpx is the SDK's own HTTP client.
 google-genai==2.34.0
 httpx==0.28.1  # imported for timeout errors raised through the SDK
+# Phase 4: API auth and uploads.
+pyjwt==2.15.1
+python-multipart==0.0.33

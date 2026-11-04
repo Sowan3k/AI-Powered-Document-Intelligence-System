@@ -4,9 +4,16 @@ The vision model transcribes the page image to text. The transcription then
 goes through the same text extraction and evidence check as every other page,
 so there is one extraction path, and evidence is checked against what the
 vision model read.
+
+If the vision model stays unavailable after its retries, the text model,
+which also reads images, gets one try. If both fail, the page keeps its
+Tesseract text: the document still goes through, and its low confidence sends
+it to review (D44).
 """
 
+import logging
 from collections.abc import Iterator
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import cv2
@@ -14,9 +21,11 @@ import pymupdf
 from PIL import Image, ImageOps, ImageSequence
 
 from app.extract import prompts
-from app.extract.llm import ImagePart, LlmClient, LlmUsage, Turn
+from app.extract.llm import ImagePart, LlmClient, LlmError, LlmUsage, Turn
 from app.ingest.pdf import render_gray
 from app.ingest.schemas import FileKind
+
+logger = logging.getLogger(__name__)
 
 MAX_SIDE = 3000  # keeps image tokens and upload size bounded
 
@@ -58,3 +67,25 @@ def transcribe(llm: LlmClient, model: str, png: bytes) -> tuple[str, LlmUsage]:
         turns=[Turn("user", [ImagePart(png), prompts.VISION_USER])],
     )
     return reply.text.strip(), reply.usage
+
+
+@dataclass
+class VisionResult:
+    text: str | None  # None when every model failed
+    model: str | None
+    usage: LlmUsage | None
+    errors: list[str] = field(default_factory=list)
+
+
+def transcribe_with_fallback(llm: LlmClient, models: list[str | None], png: bytes) -> VisionResult:
+    """Try each configured model once (each call has its own retries), in order."""
+    errors: list[str] = []
+    for model in dict.fromkeys(m for m in models if m):  # unique, in order
+        try:
+            text, usage = transcribe(llm, model, png)
+        except LlmError as exc:
+            logger.warning("vision transcription with %s failed: %s", model, exc)
+            errors.append(f"{model}: {exc}")
+            continue
+        return VisionResult(text, model, usage, errors)
+    return VisionResult(None, None, None, errors)

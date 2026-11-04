@@ -22,7 +22,8 @@ from app.db.models import (
 )
 from app.extract.normalise import norm_invoice_number, norm_supplier
 from app.extract.service import extract_document
-from app.ingest.service import ingest_document, register_upload
+from app.ingest.service import ingest_document
+from app.ingest.upload import register_upload
 from app.storage.local import LocalStorage
 from app.validate.reconcile import reconcile_documents
 from app.validate.service import validate_document, validate_invoice

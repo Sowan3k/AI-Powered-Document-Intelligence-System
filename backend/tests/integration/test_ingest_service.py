@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.db.enums import DocumentStatus, JobStatus, PageMethod, SourceKind
 from app.db.models import Document, Job, Page, ProcessingEvent, Sheet
-from app.ingest.service import ingest_document, register_upload
+from app.ingest.service import ingest_document
+from app.ingest.upload import register_upload
 from app.storage.local import LocalStorage
 
 

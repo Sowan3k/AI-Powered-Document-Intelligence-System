@@ -43,3 +43,32 @@ def test_transcribe_sends_image_then_instruction() -> None:
     [call] = fake.calls
     assert call.schema is None and call.model == "vision-model"
     assert call.turns[0].parts[0].data == b"\x89PNGdata"
+
+
+def test_second_model_takes_over_when_the_first_is_down() -> None:
+    from app.extract.llm import LlmError
+    from tests.conftest import FakeCall
+
+    def reply(call: FakeCall) -> str:
+        if call.model == "vision-model":
+            raise LlmError("Gemini call failed with HTTP 503")
+        return "Invoice INV-1"
+
+    result = vision.transcribe_with_fallback(
+        FakeLlmClient(reply), ["vision-model", "text-model"], b"png"
+    )
+    assert (result.text, result.model) == ("Invoice INV-1", "text-model")
+    assert result.errors == ["vision-model: Gemini call failed with HTTP 503"]
+
+
+def test_all_models_down_gives_no_text() -> None:
+    from app.extract.llm import LlmError
+    from tests.conftest import FakeCall
+
+    def down(call: FakeCall) -> str:
+        raise LlmError("Gemini call failed with HTTP 503")
+
+    fake = FakeLlmClient(down)
+    result = vision.transcribe_with_fallback(fake, ["v", "t", "v", None], b"png")
+    assert result.text is None and len(result.errors) == 2
+    assert [c.model for c in fake.calls] == ["v", "t"]  # each model tried once

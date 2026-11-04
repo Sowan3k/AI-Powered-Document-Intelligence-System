@@ -67,8 +67,11 @@ class Settings(BaseSettings):
 
     # Auth for the single demo account (Phase 4).
     jwt_secret: SecretStr | None = None
+    jwt_ttl_minutes: int = Field(default=120, ge=5, le=1440)
     demo_username: str = "reviewer"
     demo_password: SecretStr | None = None
+    login_rate_per_minute: int = Field(default=5, ge=1)  # per client IP
+    upload_rate_per_minute: int = Field(default=10, ge=1)  # upload requests per client IP
 
     # Comma-separated list of allowed browser origins.
     cors_origins: str = "http://localhost:3000"
@@ -97,8 +100,12 @@ class Settings(BaseSettings):
     vision_dpi: int = Field(default=200, ge=72, le=400)
     date_day_first: bool = True  # 03/04/2026 is 3 April unless the day is over 12
 
-    # Worker loop.
+    # Worker loop and job queue (Phase 4).
     worker_poll_interval_s: float = Field(default=2.0, gt=0)
+    job_max_attempts: int = Field(default=3, ge=1, le=10)
+    job_backoff_s: float = Field(default=30, ge=0)  # first retry delay; doubles each time
+    heartbeat_interval_s: float = Field(default=10, gt=0)
+    stale_job_s: float = Field(default=120, gt=0)  # a running job silent this long is re-queued
 
     @field_validator("cors_origins")
     @classmethod

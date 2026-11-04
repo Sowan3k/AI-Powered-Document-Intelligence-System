@@ -128,7 +128,18 @@ def review_queue(
     rows = db.execute(query.order_by(Invoice.created_at).limit(limit).offset(offset)).all()
     ids = [r[0].id for r in rows]
     counts: dict[tuple[uuid.UUID, Severity], int] = {}
+    top: dict[uuid.UUID, str] = {}
     if ids:
+        for issue in db.scalars(
+            select(ValidationIssue)
+            .where(
+                ValidationIssue.invoice_id.in_(ids),
+                ValidationIssue.resolved.is_(False),
+                ValidationIssue.severity == Severity.ERROR,
+            )
+            .order_by(ValidationIssue.id)
+        ):
+            top.setdefault(issue.invoice_id, issue.message)
         for inv_id, severity, n in db.execute(
             select(ValidationIssue.invoice_id, ValidationIssue.severity, func.count())
             .where(ValidationIssue.invoice_id.in_(ids), ValidationIssue.resolved.is_(False))
@@ -141,6 +152,7 @@ def review_queue(
             filename=filename,
             error_count=counts.get((inv.id, Severity.ERROR), 0),
             warning_count=counts.get((inv.id, Severity.WARNING), 0),
+            top_issue=top.get(inv.id),
         )
         for inv, filename in rows
     ]

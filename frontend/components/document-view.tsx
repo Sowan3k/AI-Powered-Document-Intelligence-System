@@ -3,8 +3,10 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { useActivity } from "@/components/activity";
 import { InvoiceCard } from "@/components/invoice-card";
 import { JobProgress } from "@/components/job-progress";
+import { ProcessFlow } from "@/components/process-flow";
 import { Badge, Button, Card, Empty, ErrorBox, Loading, PageTitle, StatusBadge } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { bytes, dateText, EVENT_LABELS } from "@/lib/format";
@@ -15,6 +17,7 @@ const ACTIVE = new Set(["queued", "processing"]);
 
 export function DocumentView() {
   const { id } = useParams<{ id: string }>();
+  const { activity, refresh } = useActivity();
   const doc = useApi<DocumentDetail>(`/api/documents/${id}`, {
     pollMs: 2500,
     keepPolling: (d) => ACTIVE.has(d.status) || d.jobs.some((j) => j.status === "queued" || j.status === "running"),
@@ -36,6 +39,7 @@ export function DocumentView() {
     if (done) reloadResults();
   }, [done, updatedAt, reloadResults]);
 
+  const live = activity?.active.find((a) => a.document_id === id) ?? null;
   if (doc.error && !doc.data) return <ErrorBox message={doc.error} onRetry={doc.reload} />;
   if (!doc.data) return <Loading slow={doc.slow} what="Loading document" />;
   const d = doc.data;
@@ -46,6 +50,7 @@ export function DocumentView() {
     try {
       await api(path, { method: "POST" });
       doc.reload();
+      refresh();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "That did not work.");
     }
@@ -63,7 +68,12 @@ export function DocumentView() {
       </p>
 
       {d.error_code && <ErrorBox message={`${d.error_code}: ${d.error_message ?? ""}`} />}
-      {job && (job.status !== "succeeded" || ACTIVE.has(d.status)) && <JobProgress job={job} />}
+      {live && (
+        <Card>
+          <ProcessFlow item={live} />
+        </Card>
+      )}
+      {!live && job && job.status === "failed" && <JobProgress job={job} />}
       {actionError && <ErrorBox message={actionError} />}
 
       <div className="flex flex-wrap gap-2">
@@ -77,7 +87,7 @@ export function DocumentView() {
         )}
       </div>
 
-      {ACTIVE.has(d.status) && <Loading what="Processing. This page updates by itself" />}
+      {ACTIVE.has(d.status) && !live && <Loading what="Processing. This page updates by itself" />}
 
       {done && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

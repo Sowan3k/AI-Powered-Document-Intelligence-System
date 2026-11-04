@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.routes import auth, documents, health, invoices, jobs, reconcile, search
+from app.api.routes import activity, auth, documents, health, invoices, jobs, reconcile, search
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
@@ -12,3 +12,4 @@ api_router.include_router(jobs.router)
 api_router.include_router(invoices.router)
 api_router.include_router(search.router)
 api_router.include_router(reconcile.router)
+api_router.include_router(activity.router)

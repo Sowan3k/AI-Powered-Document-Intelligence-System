@@ -1,94 +1,170 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
 
-import { JobProgress } from "@/components/job-progress";
-import { Button, Card, Empty, ErrorBox, Loading, PageTitle, StatusBadge, inputClass } from "@/components/ui";
+import { useActivity } from "@/components/activity";
+import { ApproveButton } from "@/components/approve-button";
+import { DropZone } from "@/components/drop-zone";
+import { SearchIcon } from "@/components/icons";
+import { ProcessFlow } from "@/components/process-flow";
+import { Button, Card, Empty, ErrorBox, Loading, StatusBadge, inputClass } from "@/components/ui";
 import { query } from "@/lib/api";
-import { bytes, dateText } from "@/lib/format";
-import type { DocumentSummary, Page } from "@/lib/types";
+import { bytes, dateText, money } from "@/lib/format";
+import type { DocumentSummary, Page, ReviewItem } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 const PAGE_SIZE = 20;
-const ACTIVE = new Set(["queued", "processing"]);
+const FILTERS = [
+  { value: "", label: "All" },
+  { value: "processing", label: "Processing" },
+  { value: "completed", label: "Done" },
+  { value: "failed", label: "Failed" },
+];
 
-export default function DocumentsPage() {
+export default function HomePage() {
+  const { activity } = useActivity();
+  const active = activity?.active ?? [];
+  return (
+    <>
+      <QuickSearch />
+      <DropZone />
+      {active.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-semibold">Processing now</h2>
+          {active.map((item) => (
+            <Link key={item.document_id} href={`/documents/${item.document_id}`} className="block">
+              <Card className="hover:border-sky-400">
+                <p className="mb-2 truncate text-sm font-medium">{item.filename}</p>
+                <ProcessFlow item={item} />
+              </Card>
+            </Link>
+          ))}
+        </section>
+      )}
+      <NeedsAttention />
+      <RecentDocuments />
+    </>
+  );
+}
+
+function QuickSearch() {
+  const router = useRouter();
+  function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const q = String(new FormData(e.currentTarget).get("q") ?? "").trim();
+    router.push(`/search${query({ q })}`);
+  }
+  return (
+    <form onSubmit={submit} role="search" className="relative">
+      <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-neutral-400" />
+      <input name="q" placeholder="Search invoices: number, supplier, item…" className={`${inputClass} min-h-12 rounded-xl pl-10`} aria-label="Search invoices" />
+    </form>
+  );
+}
+
+function NeedsAttention() {
+  const { activity } = useActivity();
+  const reviewCount = activity?.review_count;
+  const { data, reload } = useApi<Page<ReviewItem>>("/api/review-queue?limit=3");
+  const [hidden, setHidden] = useState<string[]>([]);
+  useEffect(() => {
+    // New results or approvals change the queue; fetch it again.
+    if (reviewCount !== undefined) reload();
+  }, [reviewCount, reload]);
+  const items = (data?.items ?? []).filter((i) => !hidden.includes(i.id));
+  if (!data || items.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between">
+        <h2 className="font-semibold">Needs your attention</h2>
+        {data.total > items.length && (
+          <Link href="/review" className="text-sm font-medium text-sky-700 dark:text-sky-400">
+            See all {data.total}
+          </Link>
+        )}
+      </div>
+      {items.map((inv) => (
+        <Card key={inv.id}>
+          <Link href={`/documents/${inv.document_id}`} className="block">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="font-medium">{inv.invoice_number ?? "No invoice number"}</p>
+              <p className="shrink-0 text-sm font-medium tabular-nums">{money(inv.total, inv.currency)}</p>
+            </div>
+            <p className="truncate text-sm text-neutral-600 dark:text-neutral-400">{inv.supplier_name ?? "Unknown supplier"}</p>
+            {inv.top_issue && (
+              <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300">
+                {inv.top_issue}
+                {inv.error_count > 1 && <span className="text-red-600"> (+{inv.error_count - 1} more)</span>}
+              </p>
+            )}
+          </Link>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+            <Link href={`/documents/${inv.document_id}`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-black/15 px-4 text-sm font-medium dark:border-white/20">
+              Fix
+            </Link>
+            <ApproveButton invoiceId={inv.id} onDone={() => setHidden((h) => [...h, inv.id])} />
+          </div>
+        </Card>
+      ))}
+    </section>
+  );
+}
+
+function RecentDocuments() {
+  const { activity } = useActivity();
   const [status, setStatus] = useState("");
   const [offset, setOffset] = useState(0);
   const { data, error, loading, slow, reload } = useApi<Page<DocumentSummary>>(
     `/api/documents${query({ status, limit: PAGE_SIZE, offset })}`,
-    // Poll while anything is still being processed.
-    { pollMs: 3000, keepPolling: (page) => page.items.some((d) => ACTIVE.has(d.status)) },
   );
+  const changes = `${activity?.active.length ?? 0}:${activity?.recent.length ?? 0}:${activity?.recent[0]?.updated_at ?? ""}`;
+  useEffect(() => {
+    reload(); // a file started or finished: refresh the list
+  }, [changes, reload]);
 
   return (
-    <>
-      <PageTitle title="Documents">
-        <Link href="/upload" className="inline-flex min-h-10 items-center rounded-lg bg-neutral-900 px-4 text-sm font-medium text-white dark:bg-white dark:text-neutral-900">
-          Upload files
-        </Link>
-      </PageTitle>
-      <div className="flex items-center gap-2">
-        <label htmlFor="status" className="text-sm font-medium">
-          Status
-        </label>
-        <select
-          id="status"
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setOffset(0);
-          }}
-          className={`${inputClass} max-w-48`}
-        >
-          <option value="">All</option>
-          <option value="queued">Queued</option>
-          <option value="processing">Processing</option>
-          <option value="completed">Completed</option>
-          <option value="failed">Failed</option>
-        </select>
+    <section className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold">Your documents</h2>
+        <div className="flex gap-1" role="tablist" aria-label="Filter documents">
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              role="tab"
+              aria-selected={status === f.value}
+              onClick={() => {
+                setStatus(f.value);
+                setOffset(0);
+              }}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium ${status === f.value ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"}`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
-
       {error && <ErrorBox message={error} onRetry={reload} />}
       {loading && !data && <Loading slow={slow} what="Loading documents" />}
-      {data && data.items.length === 0 && <Empty>No documents yet. Upload a few files to start.</Empty>}
-
-      <ul className="flex flex-col gap-3">
+      {data && data.items.length === 0 && <Empty>{status ? "Nothing here." : "No documents yet. Add a few files above."}</Empty>}
+      <ul className="flex flex-col divide-y divide-black/5 overflow-hidden rounded-xl border border-black/10 bg-white dark:divide-white/10 dark:border-white/15 dark:bg-neutral-900">
         {data?.items.map((doc) => (
           <li key={doc.id}>
-            <Card>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <Link href={`/documents/${doc.id}`} className="break-all font-medium text-sky-700 hover:underline dark:text-sky-400">
-                    {doc.filename}
-                  </Link>
-                  <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-                    {[doc.source_kind, doc.page_count ? `${doc.page_count} pages` : null, bytes(doc.size_bytes), dateText(doc.created_at)]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                  {doc.error_code && (
-                    <p className="mt-1 text-sm text-red-700 dark:text-red-400">
-                      {doc.error_code}: {doc.error_message}
-                    </p>
-                  )}
-                </div>
-                <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
-                  <StatusBadge status={doc.status} />
-                  {doc.status === "completed" && <span className="text-xs">{doc.invoice_count} invoices</span>}
-                </div>
-              </div>
-              {doc.latest_job && ACTIVE.has(doc.status) && (
-                <div className="mt-2">
-                  <JobProgress job={doc.latest_job} />
-                </div>
-              )}
-            </Card>
+            <Link href={`/documents/${doc.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800">
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">{doc.filename}</span>
+                <span className="block text-xs text-neutral-500">
+                  {doc.status === "completed" ? `${doc.invoice_count} invoice${doc.invoice_count === 1 ? "" : "s"} · ` : ""}
+                  {doc.error_code ? `${doc.error_code} · ` : ""}
+                  {bytes(doc.size_bytes)} · {dateText(doc.created_at)}
+                </span>
+              </span>
+              <StatusBadge status={doc.status} />
+            </Link>
           </li>
         ))}
       </ul>
-
       {data && data.total > PAGE_SIZE && (
         <div className="flex items-center justify-between text-sm">
           <Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
@@ -102,6 +178,6 @@ export default function DocumentsPage() {
           </Button>
         </div>
       )}
-    </>
+    </section>
   );
 }

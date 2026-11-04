@@ -1,32 +1,35 @@
-import Link from "next/link";
+"use client";
 
-import { HealthStatus } from "@/components/health-status";
+import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
-export default function Home() {
+import { LoginForm } from "@/components/login-form";
+import { ServerStatus } from "@/components/server-status";
+import { readToken } from "@/lib/api";
+
+/** Signed in: straight to Home. Otherwise: sign in right here, no extra page. */
+export default function Start() {
+  const router = useRouter();
+  const [checked, setChecked] = useState(false);
+  useEffect(() => {
+    if (readToken()) router.replace("/documents");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    else setChecked(true);
+  }, [router]);
+  if (!checked) return null;
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-10">
+    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-4 py-10">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">DocIntel</h1>
-        <p className="mt-1 text-neutral-600 dark:text-neutral-400">
-          AI-powered document intelligence: upload invoices, extract and validate the numbers,
-          and search everything.
+        <h1 className="text-3xl font-semibold tracking-tight">DocIntel</h1>
+        <p className="mt-2 text-neutral-600 dark:text-neutral-400">
+          Drop invoices, receipts, scans or spreadsheets. DocIntel reads them, checks the numbers
+          and tells you what needs a look.
         </p>
       </header>
-      <HealthStatus />
-      <div className="flex flex-wrap gap-3">
-        <Link
-          href="/documents"
-          className="inline-flex min-h-10 items-center rounded-lg bg-neutral-900 px-4 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900"
-        >
-          Open the app
-        </Link>
-        <Link
-          href="/login"
-          className="inline-flex min-h-10 items-center rounded-lg border border-black/15 px-4 text-sm font-medium hover:bg-neutral-50 dark:border-white/20 dark:hover:bg-neutral-800"
-        >
-          Sign in
-        </Link>
-      </div>
+      <ServerStatus />
+      <Suspense>
+        <LoginForm />
+      </Suspense>
     </main>
   );
 }

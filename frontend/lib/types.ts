@@ -128,7 +128,12 @@ export type UploadResult = {
 
 export type UploadResponse = { documents: UploadResult[]; accepted: number; rejected: number };
 
-export type ReviewItem = Invoice & { filename: string; error_count: number; warning_count: number };
+export type ReviewItem = Invoice & {
+  filename: string;
+  error_count: number;
+  warning_count: number;
+  top_issue: string | null;
+};
 
 export type SearchHit = Invoice & { filename: string; score: number | null; line_items: LineItem[] };
 
@@ -182,3 +187,23 @@ export const EDITABLE_FIELDS = [
   "currency",
 ] as const;
 export type EditableField = (typeof EDITABLE_FIELDS)[number];
+
+export type Stage = "queued" | "reading" | "extracting" | "checking" | "indexing" | "done" | "failed";
+
+export type ActivityItem = {
+  document_id: string;
+  filename: string;
+  status: DocumentStatus;
+  stage: Stage;
+  stage_label: string;
+  progress_done: number;
+  progress_total: number | null;
+  progress_unit: "pages" | "windows" | null;
+  attempts: number;
+  invoice_count: number;
+  needs_review: number;
+  error_code: string | null;
+  updated_at: string;
+};
+
+export type Activity = { active: ActivityItem[]; recent: ActivityItem[]; review_count: number };

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
 
 import { Badge, Button, Card, Empty, ErrorBox, Field, Loading, PageTitle, StatusBadge, inputClass } from "@/components/ui";
 import { query } from "@/lib/api";
@@ -12,8 +13,19 @@ import { useApi } from "@/lib/use-api";
 type Form = Record<string, string>;
 
 export default function SearchPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <SearchView />
+    </Suspense>
+  );
+}
+
+function SearchView() {
+  const params = useSearchParams();
+  const initial = params.get("q") ?? "";
   const [mode, setMode] = useState<"keyword" | "semantic">("keyword");
-  const [path, setPath] = useState<string | null>(null);
+  // A search typed on Home runs at once.
+  const [path, setPath] = useState<string | null>(initial ? `/api/search${query({ mode: "keyword", limit: 50, q: initial })}` : null);
   const { data, error, loading, slow } = useApi<SearchResponse>(path);
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -37,13 +49,14 @@ export default function SearchPage() {
                 onClick={() => setMode(m)}
                 className={`flex-1 rounded-md px-3 py-2 ${mode === m ? "bg-white font-medium shadow-sm dark:bg-neutral-950" : ""}`}
               >
-                {m === "keyword" ? "Keyword" : "By meaning"}
+                {m === "keyword" ? "Exact words" : "By meaning"}
               </button>
             ))}
           </div>
           <Field label={mode === "keyword" ? "Words, numbers or names" : "Describe what you are looking for"}>
             <input
               name="q"
+              defaultValue={initial}
               className={inputClass}
               required={mode === "semantic"}
               placeholder={mode === "keyword" ? 'INV-2026-00007, "toner cartridge", acme -delivery' : "printer supplies bought in spring"}

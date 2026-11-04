@@ -14,6 +14,7 @@ document's invoices.
 import logging
 import tempfile
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -140,15 +141,26 @@ def _store(
 
 
 def extract_pages(
-    llm: LlmClient, model: str, pages: list[tuple[int, str]], settings: Settings
+    llm: LlmClient,
+    model: str,
+    pages: list[tuple[int, str]],
+    settings: Settings,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> tuple[list[LlmInvoice], list[LlmUsage]]:
-    """Run the windows and merge. `pages` is (page number, text) in order."""
+    """Run the windows and merge. `pages` is (page number, text) in order.
+
+    `on_progress(done, total)` is called after each window, so a long PDF can
+    show "window 12 of 143" while it runs.
+    """
     texts = dict(pages)
     results: list[tuple[list[int], list[LlmInvoice]]] = []
     usages: list[LlmUsage] = []
-    for window in segment.windows(
+    all_windows = segment.windows(
         [n for n, _ in pages], settings.segment_window_pages, settings.segment_overlap_pages
-    ):
+    )
+    for done, window in enumerate(all_windows, start=1):
+        if on_progress is not None:
+            on_progress(done - 1, len(all_windows))
         if not any(texts[n].strip() for n in window):
             continue  # blank pages: nothing to read, no call
         found, used = generate_structured(
@@ -162,6 +174,8 @@ def extract_pages(
         )
         usages += used
         results.append((window, found.invoices))
+    if on_progress is not None:
+        on_progress(len(all_windows), len(all_windows))
     return segment.merge_windows(results), usages
 
 
@@ -290,7 +304,16 @@ def _extract_paged(
     _vision_fallback(session, storage, llm, document, job, pages, settings, outcome)
     texts = [(p.page_number, p.text) for p in pages]
     by_number = dict(texts)
-    found, usages = extract_pages(llm, model, texts, settings)
+
+    def progress(done: int, total: int) -> None:
+        # The job's progress switches from pages read to windows extracted.
+        if job is not None:
+            job.progress_done, job.progress_total = done, total
+            session.commit()
+
+    _event(session, document, job, "extract_windows", pages=len(texts))
+    session.commit()
+    found, usages = extract_pages(llm, model, texts, settings, on_progress=progress)
     outcome.usages += usages
     for inv in found:
         source = "\n".join(by_number.get(n, "") for n in range(inv.page_start, inv.page_end + 1))

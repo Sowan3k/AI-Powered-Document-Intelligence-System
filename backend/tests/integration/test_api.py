@@ -200,8 +200,9 @@ def test_full_pipeline_then_search_and_correct(env: Env) -> None:
     multi = body["documents"][0]
 
     job = env.get(f"/api/jobs/{multi['job_id']}").json()
+    # Progress counts pages while reading, then extraction windows (4 pages, windows of 3).
     assert (job["status"], job["attempts"], job["progress_done"], job["progress_total"]) == (
-        "succeeded", 1, 4, 4,
+        "succeeded", 1, 2, 2,
     )  # fmt: skip
 
     doc = env.get(f"/api/documents/{multi['document_id']}").json()
@@ -254,6 +255,7 @@ def test_full_pipeline_then_search_and_correct(env: Env) -> None:
     queue = env.get("/api/review-queue").json()
     [item] = queue["items"]
     assert item["filename"] == "planted_wrong_total.pdf" and item["error_count"] == 1
+    assert item["top_issue"].startswith("subtotal plus tax is")
 
     # Correct it: the issue goes, the correction is recorded, an index job re-embeds it.
     wrong = env.truth("planted_wrong_total.pdf")["invoices"][0]
@@ -380,3 +382,35 @@ def test_spreadsheet_needs_no_model_but_a_pdf_does(env: Env) -> None:
     assert pdf["status"] == "failed"
     assert "GEMINI_API_KEY" in pdf["latest_job"]["last_error"]
     assert pdf["latest_job"]["attempts"] == 1  # missing settings are not retried
+
+
+def test_activity_shows_stages_and_counts(env: Env) -> None:
+    env.login()
+    names = ["digital_classic_0.pdf", "planted_wrong_total.pdf", "encrypted.pdf"]
+    env.fake.replies = reader_for_truths([env.truth(n) for n in names[:2]])
+    env.upload(*names)
+    before = env.get("/api/activity").json()
+    assert {i["stage"] for i in before["active"]} == {"queued"}
+    assert len(before["active"]) == 3 and before["review_count"] == 0
+    assert before["active"][0]["stage_label"] == "Waiting in line"
+
+    env.work()
+    after = env.get("/api/activity").json()
+    assert after["active"] == []
+    by_name = {i["filename"]: i for i in after["recent"]}
+    assert by_name["digital_classic_0.pdf"]["stage"] == "done"
+    assert by_name["digital_classic_0.pdf"]["invoice_count"] == 1
+    assert by_name["planted_wrong_total.pdf"]["needs_review"] == 1
+    failed = by_name["encrypted.pdf"]
+    assert (failed["stage"], failed["error_code"]) == ("failed", "ENCRYPTED_PDF")
+    assert after["review_count"] == 1
+    assert env.client.get("/api/activity").status_code == 401  # needs a token
+
+
+def test_activity_stage_mapping() -> None:
+    from app.api.routes.activity import STAGE_LABELS, STAGE_OF_EVENT
+
+    order = ["queued", "reading", "extracting", "checking", "indexing", "done"]
+    assert set(STAGE_OF_EVENT.values()) <= set(order) | {"failed"}
+    assert set(STAGE_LABELS) == set(order) | {"failed"}
+    assert STAGE_OF_EVENT["extract_windows"] == "extracting"

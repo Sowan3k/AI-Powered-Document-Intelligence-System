@@ -24,3 +24,22 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* The moving bar between pipeline steps (respects reduced motion via Tailwind's motion-reduce). */
+@keyframes flow-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+.flow-slide {
+  animation: flow-slide 1.2s ease-in-out infinite;
+}
+@keyframes dock-in {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.dock-in {
+  animation: dock-in 0.25s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-slide, .dock-in { animation: none; }
+}

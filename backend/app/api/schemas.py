@@ -185,6 +185,7 @@ class ReviewItem(InvoiceOut):
     filename: str
     error_count: int
     warning_count: int
+    top_issue: str | None = None  # the first error, so a person can decide without opening it
 
 
 class ReviewPage(BaseModel):

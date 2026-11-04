@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { ApproveButton } from "@/components/approve-button";
 import { Badge, Button, Card, ErrorBox, Field, StatusBadge, inputClass, type Tone } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { dateText, label, money, percent, trimmed, where } from "@/lib/format";
@@ -32,6 +33,11 @@ function display(inv: InvoiceDetail, field: EditableField): string {
 
 export function InvoiceCard({ invoice, onSaved }: { invoice: InvoiceDetail; onSaved: (inv: InvoiceDetail) => void }) {
   const [editing, setEditing] = useState(false);
+  const [focus, setFocus] = useState<string | null>(null);
+  const fix = (field: string | null) => {
+    setFocus(field && (EDITABLE_FIELDS as readonly string[]).includes(field) ? field : null);
+    setEditing(true);
+  };
   const errors = invoice.issues.filter((i) => i.severity === "error");
   const warnings = invoice.issues.filter((i) => i.severity !== "error");
 
@@ -50,17 +56,22 @@ export function InvoiceCard({ invoice, onSaved }: { invoice: InvoiceDetail; onSa
           {[...errors, ...warnings].map((issue, i) => (
             <li key={i} className="flex gap-2">
               <Badge tone={issue.severity === "error" ? "red" : "amber"}>{issue.rule_code}</Badge>
-              <span className="min-w-0">
+              <span className="min-w-0 flex-1">
                 {issue.field && <span className="font-medium">{label(issue.field)}: </span>}
                 {issue.message}
               </span>
+              {!editing && issue.field && (EDITABLE_FIELDS as readonly string[]).includes(issue.field) && (
+                <button onClick={() => fix(issue.field)} className="shrink-0 text-xs font-medium text-sky-700 underline dark:text-sky-400">
+                  Fix
+                </button>
+              )}
             </li>
           ))}
         </ul>
       )}
 
       {editing ? (
-        <EditForm invoice={invoice} onCancel={() => setEditing(false)} onSaved={(inv) => {
+        <EditForm invoice={invoice} focus={focus} onCancel={() => setEditing(false)} onSaved={(inv) => {
           setEditing(false);
           onSaved(inv);
         }} />
@@ -92,9 +103,14 @@ export function InvoiceCard({ invoice, onSaved }: { invoice: InvoiceDetail; onSa
               );
             })}
           </dl>
-          <Button variant="secondary" className="mt-4" onClick={() => setEditing(true)}>
-            Correct fields
-          </Button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {invoice.review_status === "needs_review" && (
+              <ApproveButton invoiceId={invoice.id} onDone={onSaved} label="Looks right, approve" />
+            )}
+            <Button variant="secondary" onClick={() => fix(null)}>
+              Correct fields
+            </Button>
+          </div>
         </>
       )}
 
@@ -144,7 +160,17 @@ export function InvoiceCard({ invoice, onSaved }: { invoice: InvoiceDetail; onSa
   );
 }
 
-function EditForm({ invoice, onCancel, onSaved }: { invoice: InvoiceDetail; onCancel: () => void; onSaved: (inv: InvoiceDetail) => void }) {
+function EditForm({
+  invoice,
+  focus,
+  onCancel,
+  onSaved,
+}: {
+  invoice: InvoiceDetail;
+  focus: string | null;
+  onCancel: () => void;
+  onSaved: (inv: InvoiceDetail) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -181,6 +207,7 @@ function EditForm({ invoice, onCancel, onSaved }: { invoice: InvoiceDetail; onCa
             <input
               name={field}
               defaultValue={invoice[field] ?? ""}
+              autoFocus={focus === field}
               type={field === "invoice_date" ? "date" : "text"}
               inputMode={MONEY.includes(field) ? "decimal" : undefined}
               placeholder={MONEY.includes(field) ? "0.00" : field === "currency" ? "USD" : ""}

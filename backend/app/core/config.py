@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     ocr_confidence_threshold: float = Field(default=60, ge=0, le=100)
     field_confidence_threshold: float = Field(default=0.7, ge=0, le=1)
     money_tolerance: Decimal = Field(default=Decimal("0.01"), ge=0)
+    # Validation (Phase 3).
+    supplier_similarity: float = Field(default=0.5, gt=0, le=1)  # pg_trgm score for "same"
+    max_invoice_age_years: int = Field(default=10, ge=1)  # older dates get a warning
 
     # Ingestion (Phase 1).
     max_unzipped_mb: int = Field(default=200, ge=1)  # guard against .xlsx zip bombs

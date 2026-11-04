@@ -4,8 +4,10 @@ The manifest says what ingestion must produce for each file: a kind with page
 or sheet facts and strings that must appear in the text, or a failure code.
 """
 
+import copy
 import json
 import random
+from decimal import Decimal
 from pathlib import Path
 
 import cv2
@@ -43,9 +45,11 @@ def build(out: Path, seed: int = 7, scale: int = 1) -> list[dict]:
 
     # Digital PDFs, one per layout, plus planted errors.
     layout_names = list(layouts.LAYOUTS)
+    originals: dict[str, Invoice] = {}
     for n in range(scale):
         for layout in layout_names:
             inv = new()
+            originals.setdefault(layout, inv)
             path = add(
                 f"digital_{layout}_{n}.pdf",
                 {
@@ -165,6 +169,63 @@ def build(out: Path, seed: int = 7, scale: int = 1) -> list[dict]:
     broken.docx_like(add("letter.xlsx", {"error": "UNSUPPORTED_TYPE"}))
     broken.corrupted_xlsx(add("corrupted.xlsx", {"error": "CORRUPTED_FILE"}))
     broken.truncated_png(png_bytes, add("truncated.png", {"error": "CORRUPTED_FILE"}))
+
+    # Phase 3 cases. They come last, so the random draws above stay the same.
+    def digital(name: str, inv: Invoice, layout: str) -> None:
+        expect = {
+            "kind": "pdf",
+            "pages": 1,
+            "methods": ["digital"],
+            "contains": [inv.invoice_number],
+        }
+        path = add(name, expect, [inv], layout=layout)
+        layouts.invoice_pdf([(inv, layout)]).save(path)
+
+    for error in ("wrong_line_amount", "future_date"):
+        digital(f"planted_{error}.pdf", plant(new(), error), "classic")
+
+    # The classic invoice again, in another layout, supplier spelled another way (R06).
+    dup = copy.deepcopy(originals["classic"])
+    dup.supplier_name = dup.supplier_name.replace(" Ltd", " Limited").upper()
+    dup.planted = ["duplicate"]
+    digital("duplicate_of_classic.pdf", dup, "modern")
+    # Same supplier, date and total as the modern invoice, under a new number (R07).
+    near = copy.deepcopy(originals["modern"])
+    near.invoice_number = f"INV-2026-{next(counter):05d}"
+    near.planted = ["near_duplicate"]
+    digital("near_duplicate.pdf", near, "classic")
+
+    # Reconciliation: a PDF statement against a workbook export.
+    recon = [new("USD") for _ in range(4)]
+    path = add(
+        "recon_statement.pdf",
+        {"kind": "pdf", "pages": 4, "methods": ["digital"], "contains": [recon[0].invoice_number]},
+        recon,
+        pages=[[i + 1, i + 1] for i in range(4)],
+        layouts=["classic"] * 4,
+    )
+    layouts.invoice_pdf([(inv, "classic") for inv in recon]).save(path)
+    changed = copy.deepcopy(recon[1])
+    changed.total += Decimal("25.00")
+    unnumbered = copy.deepcopy(recon[3])
+    unnumbered.invoice_number = ""  # matched by supplier, date and total instead
+    extra = new("USD")
+    sheet_rows = [copy.deepcopy(recon[0]), changed, unnumbered, extra]
+    path = add(
+        "recon_register.xlsx",
+        {"kind": "xlsx", "sheets": [{"name": "Export", "rows": 4, "header_row": 3}],
+         "contains": [recon[0].invoice_number]},
+        sheet_rows,
+        reconcile_with="recon_statement.pdf",
+        expected={
+            "matched": [[recon[0].invoice_number, "invoice_number"],
+                        [recon[3].invoice_number, "supplier_date_total"]],
+            "mismatched": [[recon[1].invoice_number, ["total"]]],
+            "only_in_a": [recon[2].invoice_number],
+            "only_in_b": [extra.invoice_number],
+        },
+    )  # fmt: skip
+    sheets.write_xlsx(path, {"Export": sheet_rows})
 
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     return manifest

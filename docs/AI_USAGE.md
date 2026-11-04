@@ -75,3 +75,11 @@ AI-generated: the extraction package (`backend/app/extract`), all prompts, the f
 
 How it was verified: 260 tests including an exit test where a fake "perfect reader" model copies the generator's printed values, so every code step after the model is checked against ground truth. Tests also cover invalid replies, invented values, window page checks, the vision path and retry behaviour. A test caught a real issue: Alembic's logging setup silenced existing loggers. The live Gemini API was not called from the sandbox; the manual smoke workflow does that with the GitHub secret.
 
+### 4 Nov 2026, Phase 3 build (Claude Code)
+
+Prompt: "if phase 2 is done, go for phase 3". Claude Code confirmed Phase 2 in CI (run 12, all jobs green), ticked it, then built Phase 3.
+
+AI-generated: the validation package (`backend/app/validate`), the new generator cases, all Phase 3 tests, and decisions D41 to D43. No model call is involved in validation or reconciliation; all checks are deterministic Python (D09).
+
+How it was verified: 300 tests. The exit test runs every digital fixture through the whole pipeline and checks that each planted error gives exactly its rule and that clean invoices give none. The tests caught two real issues during the build: reconciliation reported a number difference for a pair matched on the normalised number, and a blank number on one side counted as a conflict. Both were fixed. The supplier similarity threshold was set from measured scores, not assumed.
+

@@ -521,3 +521,59 @@ The LLM-facing schemas avoid `extra="forbid"`: the SDK would send it as `additio
 **Trade-off:** The semaphore limits one process, not the whole deployment; with one worker that is the same thing. A long free-tier rate limit can exhaust the retries, and the job then waits for the queue's own backoff.
 
 **In one sentence:** One door to the model, which counts, limits and logs every call, and tells a bad answer apart from a busy server.
+
+---
+
+## D41: Rule severities: errors block, warnings inform
+
+**Alternatives:** Every issue sends the invoice to review, or a numeric risk score.
+
+**Why:** A reviewer's time is the scarce resource. An `error` means the numbers cannot be trusted as stored, so the invoice goes to `needs_review`. A `warning` is shown but does not block. The split, in plain words:
+
+| Rule | Error when | Warning when |
+|---|---|---|
+| R01 | invoice number, date, supplier or total is missing | customer or tax is not shown (tax-exempt and cash receipts exist) |
+| R02 | a value could not be parsed, is too large, or a total, subtotal, tax or quantity is negative | |
+| R03 | line amounts do not add up to the subtotal (or to the total when neither subtotal nor tax is printed) | |
+| R04 | quantity times unit price, rounded half up to cents, differs from the line amount | |
+| R05 | subtotal plus tax (0 when absent) differs from the total | |
+| R06 | same normalised number from the same supplier is already stored | |
+| R07 | | same supplier, date and total under another number |
+| R08 | the date is after today | the date is more than `MAX_INVOICE_AGE_YEARS` old |
+| R09 | a required field was read below `FIELD_CONFIDENCE_THRESHOLD` | any other field was |
+| R10 | the invoice number or total has no evidence in the source text | any other field has none |
+| R11 | more than one currency appears on one invoice | the currency is missing |
+
+All comparisons use `Decimal` and `MONEY_TOLERANCE` (one cent by default). A field that was present but unreadable is reported once, by R02, not again as missing by R01. Negative line amounts are allowed, since discount lines are common. Every message names the numbers involved, for example "subtotal plus tax is 136.50, but the total is 146.50", and `details` holds them as data for the interface.
+
+Validating again replaces the invoice's open issues, so a correction can re-run it. An invoice a person has marked `reviewed` keeps that status; its new issues are still stored.
+
+**Trade-off:** The split is a judgement call. A business that never accepts invoices without tax would make that an error; the table lives in one file and each rule is a small function.
+
+**In one sentence:** Only problems that make the numbers untrustworthy block an invoice; everything else is visible but does not waste a reviewer's time.
+
+---
+
+## D42: Duplicate search narrows by an index, then compares suppliers with pg_trgm at 0.5
+
+**Alternatives:** Exact supplier match, a higher similarity threshold, or comparing in Python against every stored invoice.
+
+**Why:** R06 first finds stored invoices with the same normalised number (indexed), and R07 the same date (indexed) and the same total. Only then does `similarity()` compare supplier names, so the trigram work is done on a handful of rows. Measured scores: "acme traders" against "acme tradres" (an OCR slip) is 0.53, a suffix change disappears in normalisation, and unrelated names score near 0. A threshold of 0.6 missed the OCR slip. 0.5 is safe because the name is never the only evidence: R06 also needs the same number, R07 the same date and total. `SUPPLIER_SIMILARITY` sets it.
+
+Duplicates are flagged against everything stored at validation time, across all documents. The later invoice is flagged when it arrives; the earlier one is flagged too if it is validated again.
+
+**Trade-off:** Two different suppliers with similar names and the same invoice number would be flagged as a duplicate; a reviewer clears it in one look. Very short supplier names give unstable trigram scores (D30).
+
+**In one sentence:** Cheap exact filters find the candidates, fuzzy names confirm them, and no rule trusts the name alone.
+
+---
+
+## D43: Reconciliation matches by number, then by supplier, date and total
+
+**Alternatives:** Match by number only, or let the model pair records.
+
+**Why:** Pass one pairs invoices with the same normalised number. Pass two pairs what is left by a similar supplier name (the same trigram formula as pg_trgm, computed in Python because both documents are already loaded), the same date and the same total within tolerance. Each pair is compared field by field with `Decimal`, and the report lists matched pairs, mismatched pairs with the differing fields, and invoices only in A or only in B. A pair found in pass two with different numbers is reported as a mismatch on `invoice_number`: that is how a misread or re-numbered invoice shows up. A number blank on one side is not a difference, since it is the reason pass two exists. Supplier names compare after normalisation, so "ACME TRADERS LIMITED" equals "Acme Traders Ltd". Results are stored in `reconciliations` as JSON.
+
+**Trade-off:** Line items are not reconciled, only invoice-level fields. Two invoices with the same supplier, date and total but no numbers can pair the wrong way round; the totals still agree, so the report stays correct in amount.
+
+**In one sentence:** Exact keys first, a strict three-part fallback second, and every difference shown with both values.

@@ -4,7 +4,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) in progress.
+**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) built on 4 Nov, waiting on CI. Next: Phase 4 (API, job queue, search).
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -22,7 +22,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 **Next:**
 
 1. Sowan: run the "Gemini smoke test" workflow once (GitHub, Actions tab, Gemini smoke test, Run workflow). It calls the real API on 5 synthetic files and prints fields correct and tokens used. Nothing has called the live Gemini API yet, so this is the first proof that the schema and prompts work. Paste the last 15 lines of the log into the next session.
-2. Claude Code builds Phase 3 (validation and reconciliation).
+2. Claude Code ticks Phase 3 once CI is green, then starts Phase 4.
 3. Sowan: merge the session branch into `main` when ready.
 
 **Blockers:** None.
@@ -35,6 +35,15 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Whether a few real public invoice samples can be added to the evaluation set.
 
 ## Session log
+
+### 4 Nov 2026, Phase 3 build (Claude Code)
+
+Built `app/validate`: rules R01 to R11 as small pure functions with `Decimal` and the money tolerance, duplicate rules R06 and R07 on Postgres with `pg_trgm` similarity, a service that stores issues and sets `needs_review` on any error, and reconciliation (number first, then supplier, date and total) stored in `reconciliations`. The generator gained planted cases for R04, R08, R06 and R07, and a PDF and workbook pair for reconciliation. They are added at the end of the build, so the existing fixtures did not change. Decisions D41 to D43.
+
+Tested in the sandbox: ruff clean, 300 tests pass (40 new), coverage 96%, `alembic check` clean. Exit test: 15 digital PDFs go through ingest, extraction with the fake model and validation. Every planted error gives exactly its rule (R05, R03, R04, R01 warnings for missing tax and customer, R08, R06, R07), and the clean invoices give no issues at all. The reconciliation of the PDF against the workbook finds the expected matched, mismatched, only-in-A and only-in-B invoices.
+
+Measured on the way: a one-letter OCR slip in a supplier name scores 0.53, so the supplier similarity default is 0.5, not 0.6 (D42).
+
 
 ### 4 Nov 2026, Phase 2 build (Claude Code)
 

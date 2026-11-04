@@ -84,7 +84,7 @@ Goal: the system checks every invoice like an auditor and flags what a human mus
 
 Validation rules (all in plain Python with `Decimal` and a configurable tolerance):
 
-- [ ] `R01` required field missing (invoice number, date, supplier, total)
+- [ ] `R01` required field missing (invoice number, date, supplier, total); customer and tax only warn (D41)
 - [ ] `R02` value cannot be parsed or is negative where it must not be
 - [ ] `R03` sum of line item amounts does not equal subtotal
 - [ ] `R04` line item quantity times unit price does not equal its amount

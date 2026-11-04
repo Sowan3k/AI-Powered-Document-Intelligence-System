@@ -104,6 +104,13 @@ def plant(invoice: Invoice, error: str) -> Invoice:
         invoice.total = invoice.subtotal
     elif error == "missing_customer":
         invoice.customer_name = None
+    elif error == "wrong_line_amount":
+        # One line's amount is off; subtotal and total follow it, so only R04 fires.
+        invoice.line_items[0].amount += Decimal("1.00")
+        invoice.subtotal += Decimal("1.00")
+        invoice.total += Decimal("1.00")
+    elif error == "future_date":
+        invoice.invoice_date = date(2099, 1, 15)
     else:
         raise ValueError(error)
     invoice.planted.append(error)

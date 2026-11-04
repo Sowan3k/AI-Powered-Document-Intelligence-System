@@ -83,6 +83,12 @@ jobs:
           if [ -z "$scale" ]; then
             scale=$(grep -oE '^scale=[0-9]+' ../eval/eval-request.txt | cut -d= -f2 || true)
           fi
+          # Optional "thinking=low" (minimal, low, medium, high) compares thinking levels (D62).
+          thinking=$(grep -oE '^thinking=(minimal|low|medium|high)$' ../eval/eval-request.txt | cut -d= -f2 || true)
+          if [ -n "$thinking" ]; then
+            export GEMINI_THINKING_LEVEL="$thinking"
+            echo "thinking level: $thinking"
+          fi
           python ../eval/run_eval.py --scale "${scale:-1}" --out ../eval/reports
 
       - name: Upload the report

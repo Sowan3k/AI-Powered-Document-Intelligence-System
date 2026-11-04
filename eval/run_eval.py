@@ -328,6 +328,7 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
             "text": settings.gemini_model,
             "vision": settings.gemini_vision_model,
             "embedding": settings.gemini_embed_model,
+            "thinking_level": settings.gemini_thinking_level or "model default",
         },
         "dataset": {"scale": scale, "files": len(manifest), "invoices_expected": expected_invoices},
         "wall_seconds": round(wall_s, 1),
@@ -397,7 +398,7 @@ def pct(x: float | None) -> str:
 def markdown(r: dict) -> str:
     lines = [
         f"Run: {r['run_at']}. Models: text `{r['models']['text']}`, vision `{r['models']['vision']}`, "
-        f"embedding `{r['models']['embedding']}`."
+        f"embedding `{r['models']['embedding']}`, thinking {r['models']['thinking_level']}."
         + (" **Fake model: numbers are not real.**" if r["fake_model"] else ""),
         f"Dataset: {r['dataset']['files']} files (scale {r['dataset']['scale']}), "
         f"{r['dataset']['invoices_expected']} labelled invoices. Wall time {r['wall_seconds']} s.",

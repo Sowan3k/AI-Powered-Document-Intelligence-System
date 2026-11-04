@@ -4,7 +4,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 1 done on 4 Nov 2026. Phase 2 (AI extraction) built on 4 Nov, waiting on CI. Next: Phase 3 (validation).
+**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) in progress.
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -21,10 +21,9 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next:**
 
-1. Claude Code ticks the Phase 2 checklist once CI is green.
-2. Sowan: run the "Gemini smoke test" workflow once (GitHub, Actions tab, Gemini smoke test, Run workflow). It calls the real API on 5 synthetic files and prints fields correct and tokens used. Nothing has called the live Gemini API yet, so this is the first proof that the schema and prompts work. Paste the last 15 lines of the log into the next session.
-3. Claude Code starts Phase 3 (validation and reconciliation).
-4. Sowan: merge the session branch into `main` when ready.
+1. Sowan: run the "Gemini smoke test" workflow once (GitHub, Actions tab, Gemini smoke test, Run workflow). It calls the real API on 5 synthetic files and prints fields correct and tokens used. Nothing has called the live Gemini API yet, so this is the first proof that the schema and prompts work. Paste the last 15 lines of the log into the next session.
+2. Claude Code builds Phase 3 (validation and reconciliation).
+3. Sowan: merge the session branch into `main` when ready.
 
 **Blockers:** None.
 
@@ -46,6 +45,8 @@ Tested in the sandbox: ruff clean, 260 tests pass (113 new), coverage 96%, `alem
 Fixed on the way: Alembic's logging setup disabled every existing logger when migrations ran in the same process. It now keeps them (`disable_existing_loggers=False`). Production was not affected, since `start.sh` runs Alembic as its own process.
 
 Not tested: any call to the live Gemini API (no key in the sandbox). The smoke test workflow covers it.
+
+CI run 12: all four jobs green, including the Docker build with the Gemini SDK. Phase 2 checklist ticked.
 
 
 ### 4 Nov 2026, Phase 1 build (Claude Code)

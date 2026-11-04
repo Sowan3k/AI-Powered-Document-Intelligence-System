@@ -62,17 +62,19 @@ Exit test: every fixture file produces either the expected text structure or the
 
 Goal: page text and spreadsheet rows become validated invoice JSON with no invented values.
 
-- [ ] Pydantic schema for an invoice: invoice number, invoice date, supplier name, customer name, subtotal, tax, total, currency, line items. Each field holds a value, a confidence score and an evidence snippet
-- [ ] Gemini client module: structured JSON output, semaphore, retry with backoff, timeout, token logging per call
-- [ ] Extraction prompt that requires `null` for missing or unclear values and forbids guessing
-- [ ] Invoice segmentation for multi-invoice PDFs: process pages in overlapping windows, ask the model for invoices with page ranges, merge invoices that cross a window boundary
-- [ ] Evidence check in code: the invoice number and total must appear in the source text, otherwise lower the confidence and flag the field
-- [ ] Gemini vision fallback for pages where OCR confidence is below the configured threshold
-- [ ] Spreadsheet column mapping: match known header names by rule first; call the LLM once per sheet only when the rule cannot map a column; convert rows in plain Python (D37, no pandas)
-- [ ] Normalise dates to ISO 8601 and amounts to `Decimal`; detect currency from symbols and codes
-- [ ] Unit tests with the fake LLM client, including a response that breaks the schema
+- [x] Pydantic schema for an invoice: invoice number, invoice date, supplier name, customer name, subtotal, tax, total, currency, line items. Each field holds a value, a confidence score and an evidence snippet
+- [x] Gemini client module: structured JSON output, semaphore, retry with backoff, timeout, token logging per call
+- [x] Extraction prompt that requires `null` for missing or unclear values and forbids guessing
+- [x] Invoice segmentation for multi-invoice PDFs: process pages in overlapping windows, ask the model for invoices with page ranges, merge invoices that cross a window boundary
+- [x] Evidence check in code: the invoice number and total must appear in the source text, otherwise lower the confidence and flag the field
+- [x] Gemini vision fallback for pages where OCR confidence is below the configured threshold
+- [x] Spreadsheet column mapping: match known header names by rule first; call the LLM once per sheet only when the rule cannot map a column; convert rows in plain Python (D37, no pandas)
+- [x] Normalise dates to ISO 8601 and amounts to `Decimal`; detect currency from symbols and codes
+- [x] Unit tests with the fake LLM client, including a response that breaks the schema
 
 Exit test: extraction on the synthetic fixtures returns schema-valid JSON, and missing fields come back as `null`.
+
+**Exit test passed on 4 Nov 2026** with the fake model (CI run 12, all jobs green). The live Gemini API is proven only once the manual "Gemini smoke test" workflow has run.
 
 ---
 

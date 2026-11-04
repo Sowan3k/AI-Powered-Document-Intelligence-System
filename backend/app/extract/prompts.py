@@ -39,6 +39,10 @@ Report the part you can see; leave fields you cannot see as null.
 invoice. An empty "invoices" list is a valid answer.
 11. Line items: one entry per printed line, with description, quantity, unit_price \
 and amount as printed, and the page the line is on.
+12. adjustments: every other printed line between the subtotal and the total, such \
+as a discount, delivery or service charge, a second tax or duty (for example SD), \
+or rounding. Copy the label and the amount as printed. The main VAT or tax line goes \
+in tax, not here. Use an empty list when there are none.
 """
 
 EXTRACTION_USER = """\

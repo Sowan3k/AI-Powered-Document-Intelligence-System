@@ -27,8 +27,10 @@ from app.extract.normalise import (
     parse_amount,
     parse_currency,
     parse_date,
+    signed_adjustment,
 )
 from app.extract.schemas import (
+    AdjustmentData,
     FieldValue,
     InvoiceData,
     LineItemData,
@@ -71,6 +73,12 @@ ALIASES = {
     "quantity": ["qty", "quantity", "units"],
     "unit_price": ["unit price", "price", "rate", "unit cost"],
     "amount": ["amount", "line total", "line amount", "value"],
+}  # fmt: skip
+# Discount and charge columns, by rule only. The header becomes the label.
+ADJUSTMENT_HEADERS = {
+    "discount", "discount amount", "less discount", "rebate", "delivery", "delivery charge",
+    "shipping", "shipping charge", "freight", "service charge", "other charges", "rounding",
+    "round off", "sd", "supplementary duty",
 }  # fmt: skip
 RULE_CONFIDENCE = 0.95
 LLM_CONFIDENCE = 0.85
@@ -184,6 +192,11 @@ def rows_to_invoices(
     else:
         groups = [[i] for i in range(len(rows))]
 
+    used = set(mapping.columns.values())
+    adjustment_headers = [
+        h for h in sheet.headers if h not in used and norm_header(h) in ADJUSTMENT_HEADERS
+    ]
+
     def date_value(text: str):  # type: ignore[no-untyped-def]
         return parse_date(text, day_first=day_first)[0]
 
@@ -222,6 +235,17 @@ def rows_to_invoices(
                 )
                 for n, i in enumerate(group, start=1)
             ]
+        for header in adjustment_headers:
+            raw = first.get(header)
+            if raw:
+                adj = AdjustmentData(
+                    label=header, raw=raw, evidence=f"row {number}, {header}: {raw}"
+                )
+                adj.amount = signed_adjustment(header, parse_amount(raw))
+                if adj.amount is None:
+                    adj.flags.append("unparsed")
+                if adj.amount != 0:
+                    inv.adjustments.append(adj)
         seen = [inv.currency.value] if inv.currency.value else []
         for name in ("subtotal", "tax", "total"):
             for code in currencies_in(inv.field(name).raw):

@@ -38,6 +38,12 @@ class LineView:
 
 
 @dataclass
+class AdjustmentView:
+    label: str
+    amount: Decimal | None  # discounts are negative; None when unreadable
+
+
+@dataclass
 class InvoiceView:
     """The values the rules need, independent of the ORM."""
 
@@ -50,7 +56,11 @@ class InvoiceView:
     total: Decimal | None = None
     currency: str | None = None
     line_items: list[LineView] = field(default_factory=list)
+    adjustments: list[AdjustmentView] = field(default_factory=list)
     field_meta: dict[str, Any] = field(default_factory=dict)
+
+    def adjustments_sum(self) -> Decimal:
+        return sum((a.amount for a in self.adjustments if a.amount is not None), Decimal(0))
 
     def meta(self, name: str) -> dict[str, Any]:
         value = self.field_meta.get(name)
@@ -120,7 +130,8 @@ def r03_line_sum(inv: InvoiceView, tolerance: Decimal) -> list[Issue]:
     if inv.subtotal is not None:
         target, name = inv.subtotal, "subtotal"
     elif inv.tax is None and inv.total is not None:
-        target, name = inv.total, "total"
+        # No subtotal: lines plus any discount or charge must reach the total.
+        target, name = inv.total - inv.adjustments_sum(), "total"
     else:
         return []
     lines = sum((li.amount for li in inv.line_items if li.amount is not None), Decimal(0))
@@ -169,11 +180,25 @@ def r04_line_math(inv: InvoiceView, tolerance: Decimal) -> list[Issue]:
 def r05_total(inv: InvoiceView, tolerance: Decimal) -> list[Issue]:
     if inv.subtotal is None or inv.total is None:
         return []
+    unreadable = [a.label for a in inv.adjustments if a.amount is None]
+    if unreadable:
+        return [
+            Issue(
+                "R05",
+                Severity.ERROR,
+                f'the amount of "{unreadable[0]}" could not be read, so the total is unchecked',
+                "total",
+                {"unreadable": unreadable},
+            )
+        ]
     tax = inv.tax or Decimal(0)
-    expected = inv.subtotal + tax
+    expected = inv.subtotal + tax + inv.adjustments_sum()
     if abs(expected - inv.total) <= tolerance:
         return []
     shown = "subtotal plus tax" if inv.tax is not None else "subtotal (no tax shown)"
+    if inv.adjustments:
+        parts = ", ".join(f"{a.label} {_money(a.amount)}" for a in inv.adjustments if a.amount)
+        shown += f" and {parts}"
     return [
         Issue(
             "R05",

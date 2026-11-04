@@ -101,6 +101,8 @@ def _store(
         for name in FIELDS
     }
     meta["currencies_seen"] = data.currencies_seen
+    if data.adjustments:
+        meta["adjustments"] = [a.model_dump(mode="json") for a in data.adjustments]
     invoice = Invoice(
         id=uuid.uuid4(),
         document_id=document.id,

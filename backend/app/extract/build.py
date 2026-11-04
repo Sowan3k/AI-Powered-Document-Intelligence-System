@@ -8,8 +8,16 @@ from app.extract.normalise import (
     parse_currency,
     parse_date,
     parse_quantity,
+    signed_adjustment,
 )
-from app.extract.schemas import FieldValue, InvoiceData, LineItemData, LlmField, LlmInvoice
+from app.extract.schemas import (
+    AdjustmentData,
+    FieldValue,
+    InvoiceData,
+    LineItemData,
+    LlmField,
+    LlmInvoice,
+)
 
 AMOUNT_FIELDS = ("subtotal", "tax", "total")
 TEXT_FIELDS = ("invoice_number", "supplier_name", "customer_name")
@@ -64,6 +72,20 @@ def build_invoice(inv: LlmInvoice, source: str, *, day_first: bool = True) -> In
             if code not in seen:
                 seen.append(code)
         setattr(data, name, out)
+
+    for adj in inv.adjustments:
+        out = AdjustmentData(label=clean_text(adj.label) or "Adjustment", raw=adj.amount,
+                             evidence=adj.evidence)  # fmt: skip
+        printed = LlmField(value=adj.amount, confidence=1.0, evidence=adj.evidence)
+        if not evidence.is_proven(printed, source, amount=True):
+            out.flags.append(evidence.FLAG)
+        out.amount = signed_adjustment(out.label, parse_amount(adj.amount))
+        if out.amount is None:
+            out.flags.append("unparsed")
+        for code in currencies_in(adj.amount):
+            if code not in seen:
+                seen.append(code)
+        data.adjustments.append(out)
 
     currency = _base(inv.currency, source)
     if inv.currency.value is not None:

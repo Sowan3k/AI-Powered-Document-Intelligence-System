@@ -139,6 +139,24 @@ def _well_grouped(groups: list[str], mark: str) -> bool:
     )
 
 
+# Labels of lines that lower the total. Every other adjustment adds to it.
+_LOWERS_TOTAL = re.compile(
+    unicodedata.normalize(
+        "NFC", r"discount|\bdisc\b|\bless\b|rebate|coupon|voucher|promo|deduct|ছাড়|ডিসকাউন্ট"
+    ),
+    re.IGNORECASE,
+)
+
+
+def signed_adjustment(label: str | None, amount: Decimal | None) -> Decimal | None:
+    """A discount lowers the total even when printed without a minus sign."""
+    if amount is None or amount < 0:
+        return amount
+    if label and _LOWERS_TOTAL.search(unicodedata.normalize("NFC", label)):
+        return -amount
+    return amount
+
+
 def parse_quantity(text: str | None) -> Decimal | None:
     return parse_amount(text)
 

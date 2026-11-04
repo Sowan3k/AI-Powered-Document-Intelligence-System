@@ -103,6 +103,21 @@ export function InvoiceCard({ invoice, onSaved }: { invoice: InvoiceDetail; onSa
               );
             })}
           </dl>
+          {invoice.adjustments.length > 0 && (
+            <div className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm dark:bg-neutral-800">
+              <p className="text-xs text-neutral-600 dark:text-neutral-400">Discounts and charges, counted in the total check</p>
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {invoice.adjustments.map((a, i) => (
+                  <li key={i} className="flex justify-between gap-3">
+                    <span className="min-w-0 break-words">{a.label}</span>
+                    <span className={`tabular-nums ${a.amount === null ? "text-amber-700 dark:text-amber-400" : ""}`}>
+                      {a.amount === null ? "unreadable" : money(a.amount)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             {invoice.review_status === "needs_review" && (
               <ApproveButton invoiceId={invoice.id} onDone={onSaved} label="Looks right, approve" />

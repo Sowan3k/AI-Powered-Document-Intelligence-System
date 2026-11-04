@@ -7,7 +7,7 @@ from decimal import Decimal
 import pytest
 
 from app.db.enums import Severity
-from app.validate.rules import InvoiceView, Issue, LineView, check_invoice
+from app.validate.rules import AdjustmentView, InvoiceView, Issue, LineView, check_invoice
 
 TODAY = date(2026, 11, 4)
 D = Decimal
@@ -123,6 +123,30 @@ def test_r05_total() -> None:
 def test_r05_without_tax() -> None:
     inv = replace(clean(), tax=None, total=D("140.00"))
     assert "R05" in codes(inv)
+
+
+def test_r05_counts_discounts_and_charges() -> None:
+    # 130.00 + 6.50 tax - 20.00 discount + 60.00 delivery = 176.50
+    inv = replace(clean(), total=D("176.50"))
+    inv.adjustments = [AdjustmentView("Discount", D("-20.00")), AdjustmentView("Delivery", D("60"))]
+    assert run(inv) == []
+    inv.total = D("136.50")  # the total ignores the lines: flagged, and the message names them
+    [issue] = run(inv)
+    assert issue.rule_code == "R05" and "Discount -20.00, Delivery 60.00" in issue.message
+
+
+def test_r05_flags_an_unreadable_adjustment() -> None:
+    inv = clean()
+    inv.adjustments = [AdjustmentView("Service charge", None)]
+    [issue] = run(inv)
+    assert issue.rule_code == "R05" and "Service charge" in issue.message
+
+
+def test_r03_without_subtotal_counts_adjustments() -> None:
+    # Lines 130.00, discount 10.00, no subtotal or tax printed, total 120.00.
+    inv = replace(clean(), subtotal=None, tax=None, total=D("120.00"))
+    inv.adjustments = [AdjustmentView("Discount", D("-10.00"))]
+    assert "R03" not in codes(inv)
 
 
 def test_r08_dates() -> None:

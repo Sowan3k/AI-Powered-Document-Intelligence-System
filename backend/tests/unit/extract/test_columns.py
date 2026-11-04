@@ -111,3 +111,15 @@ def test_without_the_model_a_sheet_needs_a_money_column() -> None:
     assert rows_to_invoices(sheet(*STAFF), staff) == []
     receipts = sheet(["Date", "Shop", "Amount"], [["2026-01-02", "Agora", "1,250.00"]])
     assert map_columns(receipts, None, None).lists_invoices
+
+
+def test_discount_and_delivery_columns_become_adjustments() -> None:
+    s = sheet(
+        ["Invoice No", "Supplier", "Subtotal", "Discount", "Delivery Charge", "Total"],
+        [["A-1", "Acme", "1,000.00", "50.00", "60.00", "1,010.00"]],
+    )
+    [inv] = rows_to_invoices(s, map_columns(s, None, None))
+    assert [(a.label, a.amount) for a in inv.adjustments] == [
+        ("Discount", Decimal("-50.00")),
+        ("Delivery Charge", Decimal("60.00")),
+    ]

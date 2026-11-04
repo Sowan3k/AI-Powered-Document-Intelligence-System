@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.schemas import InvoiceOut
 from app.core.config import Settings
 from app.db.enums import DocumentStatus, PageMethod, ReviewStatus
 from app.db.models import Document, Invoice, LineItem, Page, ProcessingEvent, Sheet
@@ -17,6 +18,7 @@ from app.extract.service import EXTRACTION_FAILED, extract_document
 from app.ingest.service import ingest_document
 from app.ingest.upload import register_upload
 from app.storage.local import LocalStorage
+from app.validate.service import validate_invoice
 from tests.conftest import FakeCall, FakeLlmClient
 from tests.unit.extract.helpers import fld, llm_invoice
 from tests.unit.extract.test_extract_fixtures import perfect_reader
@@ -168,6 +170,36 @@ def test_a_pdf_with_no_invoice_says_so(
     outcome = extract_document(db, storage, FakeLlmClient([{"invoices": []}]), doc.id, settings)
     assert outcome is not None and outcome.invoices == 0
     assert len(events(db, doc, "no_invoice_found")) == 1
+
+
+def test_discounts_and_charges_are_stored_and_counted(
+    db: Session, storage: LocalStorage, settings: Settings, synthetic_dir: Path
+) -> None:
+    doc = ingested(db, storage, synthetic_dir / "digital_modern_0.pdf", settings)
+    adjustments = [
+        {"label": "Discount", "amount": "10.00", "evidence": None},
+        {"label": "Delivery charge", "amount": "60.00", "evidence": None},
+    ]
+    reply = {
+        "invoices": [
+            llm_invoice(
+                1,
+                subtotal=fld("100.00"),
+                tax=fld("15.00"),
+                total=fld("165.00"),
+                adjustments=adjustments,
+            )  # fmt: skip
+        ]
+    }
+    extract_document(db, storage, FakeLlmClient([reply]), doc.id, settings)
+    [inv] = invoices_of(db, doc)
+    assert [a["amount"] for a in inv.field_meta["adjustments"]] == ["-10.00", "60.00"]
+    issues = validate_invoice(db, inv, settings)
+    assert "R05" not in {i.rule_code for i in issues}  # 100 + 15 - 10 + 60 = 165
+    out = InvoiceOut.model_validate(inv).model_dump(mode="json")
+    assert out["adjustments"][0] == {
+        "label": "Discount", "amount": "-10.00", "flags": ["evidence_not_found"]
+    }  # fmt: skip
 
 
 def test_two_bad_replies_fail_the_document(

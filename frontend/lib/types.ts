@@ -81,6 +81,12 @@ export type Correction = {
   created_at: string;
 };
 
+export type Adjustment = {
+  label: string;
+  amount: string | null; // discounts are negative
+  flags: string[];
+};
+
 export type Invoice = {
   id: string;
   document_id: string;
@@ -98,6 +104,7 @@ export type Invoice = {
   currency: string | null;
   review_status: ReviewStatus;
   field_meta: Record<string, FieldMeta | unknown>;
+  adjustments: Adjustment[];
   created_at: string;
   updated_at: string;
 };

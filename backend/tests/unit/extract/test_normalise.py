@@ -10,6 +10,7 @@ from app.extract.normalise import (
     parse_amount,
     parse_currency,
     parse_date,
+    signed_adjustment,
 )
 
 
@@ -114,3 +115,12 @@ def test_bengali_dates_and_numbers() -> None:
     assert parse_date("জানুয়ারি 3, 2026") == (date(2026, 1, 3), False)
     assert norm_invoice_number("চালান-১২৩") == "123"
     assert currencies_in("মোট ১২০০ টাকা") == ["BDT"]
+
+
+@pytest.mark.parametrize(
+    ("label", "amount", "signed"),
+    [("Discount", "50", "-50"), ("Less: rebate", "5", "-5"), ("ছাড়", "10", "-10"),
+     ("Delivery", "60", "60"), ("Rounding", "-0.30", "-0.30"), ("Discount", "-5", "-5")],
+)  # fmt: skip
+def test_signed_adjustment(label: str, amount: str, signed: str) -> None:
+    assert signed_adjustment(label, Decimal(amount)) == Decimal(signed)

@@ -5,7 +5,14 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, StringConstraints
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PlainSerializer,
+    StringConstraints,
+    computed_field,
+)
 
 from app.db.enums import DocumentStatus, JobStatus, PageMethod, ReviewStatus, Severity, SourceKind
 
@@ -126,6 +133,14 @@ class CorrectionOut(ORM):
     created_at: datetime
 
 
+class AdjustmentOut(BaseModel):
+    """A discount (negative), charge, extra duty or rounding line counted in the total."""
+
+    label: str
+    amount: Money | None
+    flags: list[str] = []
+
+
 class InvoiceOut(ORM):
     id: uuid.UUID
     document_id: uuid.UUID
@@ -145,6 +160,18 @@ class InvoiceOut(ORM):
     field_meta: dict[str, Any]
     created_at: datetime
     updated_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def adjustments(self) -> list[AdjustmentOut]:
+        return [
+            AdjustmentOut(
+                label=a.get("label") or "Adjustment",
+                amount=a.get("amount"),
+                flags=a.get("flags") or [],
+            )  # fmt: skip
+            for a in self.field_meta.get("adjustments") or []
+        ]
 
 
 class InvoiceDetail(InvoiceOut):

@@ -81,6 +81,7 @@ def printed(truth: dict, layout: str) -> dict[str, object]:
         "total": money("total"),
         "currency": cur,
         "line_items": items,
+        "adjustments": [],
     }
 
 
@@ -140,6 +141,7 @@ def perfect_reader(truth: dict, page_texts: dict[int, str]):  # type: ignore[no-
                 if page is not None:
                     items.append({**li, "page": page, "confidence": 0.9})
             entry["line_items"] = items
+            entry["adjustments"] = []
             out.append(entry)
         return {"invoices": out}
 

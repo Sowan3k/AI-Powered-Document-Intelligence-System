@@ -17,7 +17,7 @@ Manual steps for Sowan (secrets go into dashboards only, never into chat or file
 - [x] Create a Supabase project in the Singapore region, enable the `vector` extension, create a private storage bucket named `documents` (done by Sowan; `pg_trgm` also enabled, Data API disabled)
 - [x] Create a Render web service from the repo (Docker runtime, Singapore region, free instance) and add the environment variables from `.env.example` (Blueprint, `docintel-api`)
 - [x] Create a Vercel project for the `frontend` folder and add its environment variables (`docintel`)
-- [ ] Add `GEMINI_API_KEY` as a GitHub Actions secret (used only by the evaluation workflow; not confirmed yet, needed by Phase 6)
+- [x] Add `GEMINI_API_KEY` as a GitHub Actions secret (used only by the evaluation workflow; Sowan confirmed it on the repo's secrets page, 4 Nov)
 
 Claude Code checklist:
 
@@ -47,9 +47,10 @@ Goal: every accepted file type turns into one common internal structure (pages o
 - [ ] Tesseract OCR with a per-page mean confidence score
 - [ ] Multi-page TIFF support
 - [ ] Spreadsheet reader: every sheet, header row detection, empty row and merged cell handling, CSV encoding and delimiter detection
-- [ ] Clear failure codes: `UNSUPPORTED_TYPE`, `CORRUPTED_FILE`, `ENCRYPTED_PDF`, `EMPTY_FILE`, `TOO_LARGE`, `TOO_MANY_PAGES`
+- [ ] Clear failure codes: `UNSUPPORTED_TYPE`, `CORRUPTED_FILE`, `ENCRYPTED_PDF`, `EMPTY_FILE`, `TOO_LARGE`, `TOO_MANY_PAGES` (plus `ENCRYPTED_FILE` and `TOO_MANY_FILES`, D33)
 - [ ] Synthetic dataset generator in `eval/generate/` (see Phase 6), built now because the tests need fixtures
 - [ ] Unit tests for each reader, including a truncated PDF, an empty file and a renamed file
+- [ ] Storage interface: Supabase Storage in production, local disk for compose and tests (D32)
 
 Exit test: every fixture file produces either the expected text structure or the expected failure code.
 

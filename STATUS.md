@@ -4,7 +4,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 0 done on 4 Nov 2026. Next: Phase 1 (document ingestion).
+**Phase:** 1 (document ingestion) built on 4 Nov 2026, waiting on CI. Next: Phase 2 (AI extraction).
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -17,11 +17,13 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Gemini models (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` for text, `gemini-3.8-flash` for vision, `gemini-embedding-2` with `output_dimensionality=768`. The embedding model has no `task_type`: queries use the prefix `task: search result | query: ` and documents use `title: {title} | text: ` (D31). Phase 2 and Phase 4 must follow this.
 
+**Supabase key (confirmed by Sowan, 4 Nov):** `SUPABASE_SERVICE_ROLE_KEY` holds a new-style `sb_secret_...` key. The Storage client sends it only in the `apikey` header, never as a Bearer token (D32).
+
 **Next:**
 
-1. Claude Code starts Phase 1 (document ingestion).
-2. Sowan: tell Claude Code which kind of Supabase key is in `SUPABASE_SERVICE_ROLE_KEY` (the new `sb_secret_...` key or the legacy `service_role` key). Only the kind, never the value. Phase 1 needs it for Storage uploads.
-3. Sowan: add the `GEMINI_API_KEY` GitHub Actions secret before Phase 6, if not done yet.
+1. Claude Code ticks the Phase 1 checklist once CI run 9 (or later) is green.
+2. Claude Code starts Phase 2 (AI extraction).
+3. Sowan: merge the session branch into `main` when ready. After the deploy, check Render logs show no error at startup. Storage is first used by the Phase 4 upload endpoint, so the first real Supabase Storage call happens then.
 
 **Blockers:** None.
 
@@ -31,9 +33,19 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 1. Repository access at submission: invite the reviewers, or make the repo public after a full secret scan.
 2. Whether a few real public invoice samples can be added to the evaluation set.
-3. Local file storage: docker-compose has no Supabase Storage. Phase 1 needs a storage interface with a local-disk backend for compose and tests, and Supabase in production.
 
 ## Session log
+
+### 4 Nov 2026, Phase 1 build (Claude Code)
+
+Sowan confirmed three things: the Supabase key is an `sb_secret_` key, the `GEMINI_API_KEY` Actions secret exists (ticked in PHASES.md), and the live page shows "API healthy, database connected".
+
+Built Phase 1. `app/ingest`: detection by magic bytes, size, batch and page limits, PDF reader in page batches, scanned page detection, OpenCV cleanup and Tesseract OCR with a confidence per page, JPEG, PNG and multi-page TIFF, `.xlsx`, `.xls` and CSV readers (header detection, merged cells, empty rows, encoding and delimiter), and a service that stores uploads and writes `pages` and `sheets` rows. `app/storage`: one interface with Supabase and local disk backends, closing open question 3. `eval/generate/synth`: seeded generator for 26 fixture files with ground truth and a manifest. Compose now keeps files on an `uploads` volume. CI installs Tesseract and fails if OCR tests would skip. Decisions D32 to D35.
+
+Tested in the sandbox (Tesseract and Postgres with pgvector could be installed this time): ruff clean on backend and generator, 147 tests pass (101 new), coverage 95%, `alembic check` clean. The exit test passes: all 26 fixtures give the expected structure or failure code. OCR confidence on the test scans: 87 to 95 for light noise, about 45 for heavy noise. A test caught a real bug: openpyxl refuses a file with no `.xlsx` extension, which is how the worker saves downloads. Fixed by opening files by handle.
+
+Not tested here: the Docker image build (CI does it) and a real call to Supabase Storage (only a fake transport).
+
 
 ### 4 Nov 2026, Phase 0 closed (Claude Code)
 

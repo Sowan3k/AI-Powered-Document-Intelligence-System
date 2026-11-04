@@ -50,3 +50,12 @@ Prompt (summary): Sowan shared the list of Render environment variables to add. 
 ### 4 Nov 2026, Phase 0 closed (Claude Code)
 
 Prompt: "Phase 0 should be done". Claude Code verified the deploy with the Render, Vercel and Supabase connectors (read only, no secret values read), found that the first Render deploy had failed on a missing `DATABASE_URL`, and added a fail-fast settings check so that failure now names the missing variable. Verified with 46 passing tests and a local reproduction of the failed start.
+
+### 4 Nov 2026, Phase 1 build (Claude Code)
+
+Prompt: "Read CLAUDE.md, STATUS.md, PHASES.md and DECISIONS.md. Answers to the last session's open items: SUPABASE_SERVICE_ROLE_KEY holds a new-style sb_secret_ key, not a JWT; send it the way Supabase documents for secret keys. The GEMINI_API_KEY GitHub Actions secret is added. The live frontend shows 'API healthy, database connected'. Then start Phase 1 (document ingestion) as written in PHASES.md, including the storage interface from open question 3: Supabase Storage in production, local disk for compose and tests. Update STATUS.md and docs/AI_USAGE.md, then commit and push."
+
+AI-generated: the ingestion package (`backend/app/ingest`), the storage package (`backend/app/storage`), the synthetic dataset generator (`eval/generate/synth`), all new tests, config, compose, Render and CI changes, and decisions D32 to D35. Claude Code checked the header rule for `sb_secret_` keys against Supabase's own documentation (through the Supabase docs connector) instead of relying on memory: the key goes in the `apikey` header only.
+
+How it was verified: ruff, 147 pytest tests including OCR with a real Tesseract and integration tests on Postgres with pgvector, a manifest-driven exit test over 26 generated files, and `alembic check`. The OCR numbers were measured, not assumed. A test caught one real bug (openpyxl rejecting a file without an extension), which was fixed. The Docker build and a real Supabase Storage call were not run in the sandbox.
+

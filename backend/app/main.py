@@ -46,6 +46,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return JSONResponse({"detail": "the upload is too large"}, status_code=413)
         return await call_next(request)
 
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):  # type: ignore[no-untyped-def]
+        """Responses are data, never pages to frame or sniff, and never cached (D63)."""
+        response = await call_next(request)
+        headers = response.headers
+        headers.setdefault("X-Content-Type-Options", "nosniff")
+        headers.setdefault("X-Frame-Options", "DENY")
+        headers.setdefault("Referrer-Policy", "no-referrer")
+        headers.setdefault("Cache-Control", "no-store")
+        if not request.url.path.startswith("/api/docs"):  # Swagger UI loads its own scripts
+            headers.setdefault(
+                "Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'"
+            )
+        if settings.is_production:
+            headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        return response
+
     app.include_router(api_router)
     return app
 

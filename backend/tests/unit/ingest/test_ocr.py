@@ -98,3 +98,14 @@ def test_decompression_bomb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     with pytest.raises(IngestError) as info:
         image.count_frames(path, Settings())
     assert info.value.code is IngestErrorCode.TOO_LARGE
+
+
+@pytest.mark.tesseract
+def test_upside_down_page_is_read_the_right_way_up(synthetic_dir: Path) -> None:
+    upright = cv2.imread(str(synthetic_dir / "scan_clean.png"), cv2.IMREAD_GRAYSCALE)
+    flipped = ocr.ocr_image(cv2.rotate(upright, cv2.ROTATE_180))
+    assert flipped.confidence is not None and flipped.confidence > 80
+    assert "INVOICE" in flipped.text
+    assert abs(flipped.skew_degrees - 180) < ocr.MAX_SKEW
+    straight = ocr.ocr_image(upright)
+    assert abs(straight.skew_degrees) < ocr.MAX_SKEW  # a good page is never flipped

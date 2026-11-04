@@ -74,3 +74,16 @@ def test_openapi_docs_are_served_under_api() -> None:
     client = make_client(FakeSession())
     assert client.get("/api/openapi.json").status_code == 200
     assert client.get("/api/docs").status_code == 200
+
+
+def test_every_response_carries_security_headers() -> None:
+    client = make_client(FakeSession())
+    for path in ("/api/health/live", "/api/documents"):  # an answer and a 401
+        headers = client.get(path).headers
+        assert headers["x-content-type-options"] == "nosniff"
+        assert headers["x-frame-options"] == "DENY"
+        assert headers["cache-control"] == "no-store"
+        assert headers["content-security-policy"] == "default-src 'none'; frame-ancestors 'none'"
+        assert "strict-transport-security" not in headers  # only in production
+    docs = client.get("/api/docs").headers
+    assert "content-security-policy" not in docs  # Swagger UI needs its scripts

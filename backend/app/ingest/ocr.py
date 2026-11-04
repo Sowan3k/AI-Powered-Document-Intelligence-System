@@ -22,6 +22,10 @@ TESSERACT_CONFIG = "--oem 1 --psm 3"
 
 
 BLANK_INK = 0.002  # under 0.2% dark pixels after cleanup: nothing printed on the page
+# Below this confidence the page may be upside down (a phone photo taken the
+# wrong way up). One more Tesseract pass on the flipped image is cheaper than a
+# vision call; the better reading wins (D64).
+FLIP_BELOW = 70.0
 
 
 @dataclass(frozen=True)
@@ -150,4 +154,13 @@ def ocr_image(image: np.ndarray, timeout_s: int = 120) -> OcrResult:
         # A blank page is not a hard page: no OCR, and no vision fallback either.
         return OcrResult(text="", confidence=None, skew_degrees=angle)
     text, confidence = run_tesseract(binary, timeout_s)
+    if confidence < FLIP_BELOW:
+        flipped_text, flipped_confidence = run_tesseract(
+            cv2.rotate(binary, cv2.ROTATE_180), timeout_s
+        )
+        if flipped_confidence > confidence:
+            logger.info(
+                "page read upside down: confidence %.0f -> %.0f", confidence, flipped_confidence
+            )
+            return OcrResult(flipped_text, flipped_confidence, skew_degrees=angle + 180.0)
     return OcrResult(text=text, confidence=confidence, skew_degrees=angle)

@@ -331,5 +331,14 @@ def build(out: Path, seed: int = 7, scale: int = 1) -> list[dict]:
         path, "Staff", ["Employee", "Department", "Joining Date", "Monthly Salary (Tk)"], staff_rows
     )
 
+    # A phone photo taken upside down: OCR must flip it, not send it to vision (D64).
+    path = add(
+        "photo_upside_down.jpg",
+        {"kind": "jpeg", "pages": 1, "methods": ["ocr"], "contains": [scan_invs[1].invoice_number],
+         "min_confidence": 60},
+        scan_invs[1:],
+    )  # fmt: skip
+    cv2.imwrite(str(path), cv2.rotate(scans.degrade(clean[1], rng, "light"), cv2.ROTATE_180))
+
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     return manifest

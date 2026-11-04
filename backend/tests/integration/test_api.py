@@ -13,12 +13,14 @@ from pathlib import Path
 import jwt
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_llm, get_storage
 from app.core.config import Settings, get_settings
 from app.core.pricing import PRICES_USD_PER_M
 from app.core.ratelimit import login_limiter, upload_limiter
+from app.db.models import Document, Invoice
 from app.db.session import get_db
 from app.extract.llm import LlmError
 from app.extract.normalise import norm_supplier
@@ -56,6 +58,7 @@ class Env:
     ):  # type: ignore[no-untyped-def]
         self.client, self.db, self.worker, self.fake, self.dir = client, db, worker, fake, dir
         self.headers: dict[str, str] = {}
+        self.storage: LocalStorage = worker.storage  # type: ignore[assignment]
 
     def login(self) -> None:
         r = self.client.post("/api/auth/login", json={"username": "reviewer", "password": PASSWORD})
@@ -70,6 +73,9 @@ class Env:
 
     def patch(self, url: str, **kw):  # type: ignore[no-untyped-def]
         return self.client.patch(url, headers=self.headers, **kw)
+
+    def delete(self, url: str, **kw):  # type: ignore[no-untyped-def]
+        return self.client.delete(url, headers=self.headers, **kw)
 
     def upload(self, *names: str) -> dict:
         files = [
@@ -469,3 +475,31 @@ def test_stats_report_outcomes_tokens_and_cost(env: Env, monkeypatch: pytest.Mon
     expected = (100 * 1.0 + 20 * 2.0 + embed["input_tokens"] * 1.0) / 1_000_000
     assert s["cost_usd"] == pytest.approx(expected)
     assert s["cost_per_completed_document_usd"] == pytest.approx(expected)
+
+
+def test_original_file_and_delete(env: Env, db: Session) -> None:
+    env.login()
+    env.fake.replies = reader_for_truths([env.truth("digital_classic_0.pdf")])
+    body = env.upload("digital_classic_0.pdf", "register.csv")
+    pdf_id, csv_id = (d["document_id"] for d in body["documents"])
+    assert env.delete(f"/api/documents/{pdf_id}").status_code == 409  # still queued
+    env.work()
+
+    assert env.client.get(f"/api/documents/{pdf_id}/file").status_code == 401
+    pdf = env.get(f"/api/documents/{pdf_id}/file")
+    assert pdf.status_code == 200 and pdf.headers["content-type"] == "application/pdf"
+    assert pdf.headers["content-disposition"].startswith("inline")
+    assert pdf.content == (env.dir / "digital_classic_0.pdf").read_bytes()
+    sheet = env.get(f"/api/documents/{csv_id}/file")
+    assert sheet.headers["content-disposition"].startswith("attachment")  # never shown inline
+
+    doc = db.get(Document, uuid.UUID(pdf_id))
+    assert doc is not None and doc.storage_path
+    stored = env.storage.root / doc.storage_path
+    assert stored.exists()
+    assert env.delete(f"/api/documents/{pdf_id}").status_code == 204
+    db.expire_all()
+    assert not stored.exists()
+    assert env.get(f"/api/documents/{pdf_id}").status_code == 404
+    assert db.scalars(select(Invoice).where(Invoice.document_id == uuid.UUID(pdf_id))).all() == []
+    assert env.get(f"/api/documents/{csv_id}").status_code == 200  # the other file stays

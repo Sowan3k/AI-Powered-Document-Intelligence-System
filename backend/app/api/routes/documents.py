@@ -1,4 +1,5 @@
-"""Documents: upload a batch, list, details with history, results, reprocess."""
+"""Documents: upload a batch, list, details with history, results, reprocess, the
+original file, delete."""
 
 import logging
 import shutil
@@ -6,9 +7,12 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import FileResponse
+from sqlalchemy import delete as sql_delete
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
+from starlette.background import BackgroundTask
 
 from app.api.deps import current_user, get_storage, limit_upload
 from app.api.schemas import (
@@ -32,6 +36,7 @@ from app.ingest.errors import IngestError
 from app.ingest.limits import check_batch
 from app.ingest.upload import register_upload
 from app.storage import FileStorage
+from app.storage.base import StorageError
 from app.worker import queue
 
 logger = logging.getLogger(__name__)
@@ -212,3 +217,70 @@ def reprocess(
     job = queue.enqueue(db, doc.id, queue.JOB_PROCESS, settings)
     db.commit()
     return JobOut.model_validate(job)
+
+
+# Types a browser can show safely inside the page; anything else downloads (D65).
+INLINE_TYPES = {"application/pdf", "image/png", "image/jpeg"}
+
+
+@router.get(
+    "/{document_id}/file",
+    response_class=FileResponse,
+    responses={200: {"description": "The original file"}, 404: {}, 502: {}},
+)
+def original_file(
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    storage: FileStorage = Depends(get_storage),
+) -> FileResponse:
+    """The uploaded file itself, so a reviewer can compare it with the extracted values."""
+    doc = _get(db, document_id)
+    if doc.storage_path is None or doc.mime_type is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "this file was rejected at upload")
+    tmp = tempfile.mkdtemp(prefix="docintel-file-")
+    local = Path(tmp) / "original"
+    try:
+        storage.download(doc.storage_path, local)
+    except StorageError:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "the file store did not answer") from None
+    inline = doc.mime_type in INLINE_TYPES
+    # The stored name is user input: keep plain characters only in the header.
+    safe_name = "".join(c for c in doc.filename if c.isascii() and (c.isalnum() or c in "._- "))
+    return FileResponse(
+        local,
+        media_type=doc.mime_type,
+        filename=safe_name.strip() or f"{doc.id}",
+        content_disposition_type="inline" if inline else "attachment",
+        background=BackgroundTask(shutil.rmtree, tmp, ignore_errors=True),
+    )
+
+
+@router.delete(
+    "/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={404: {}, 409: {"description": "Still being processed"}, 502: {}},
+)
+def delete_document(
+    document_id: uuid.UUID,
+    user: str = Depends(current_user),
+    db: Session = Depends(get_db),
+    storage: FileStorage = Depends(get_storage),
+) -> Response:
+    """Remove a document everywhere: the stored file, its pages, invoices, issues,
+    corrections, jobs and history (the database cascades from the document row)."""
+    doc = _get(db, document_id)
+    if any(queue.active_job(db, doc.id, t) for t in (queue.JOB_PROCESS, queue.JOB_INDEX)):
+        raise HTTPException(status.HTTP_409_CONFLICT, "wait until processing finishes")
+    if doc.storage_path is not None:
+        try:
+            storage.delete(doc.storage_path)
+        except StorageError:
+            # Keep the row, so the delete can be tried again; nothing is half removed.
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY, "the file store did not answer"
+            ) from None
+    db.execute(sql_delete(Document).where(Document.id == doc.id))
+    db.commit()
+    logger.info("document %s deleted by %s", doc.id, user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,11 +1,12 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useActivity } from "@/components/activity";
 import { InvoiceCard } from "@/components/invoice-card";
 import { JobProgress } from "@/components/job-progress";
+import { OriginalFile } from "@/components/original-file";
 import { ProcessFlow } from "@/components/process-flow";
 import { Badge, Button, Card, Empty, ErrorBox, Loading, PageTitle, StatusBadge } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -17,6 +18,7 @@ const ACTIVE = new Set(["queued", "processing"]);
 
 export function DocumentView() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { activity, refresh } = useActivity();
   const doc = useApi<DocumentDetail>(`/api/documents/${id}`, {
     pollMs: 2500,
@@ -56,6 +58,18 @@ export function DocumentView() {
     }
   }
 
+  async function remove() {
+    if (!window.confirm(`Delete ${d.filename} and everything extracted from it? This cannot be undone.`)) return;
+    setActionError(null);
+    try {
+      await api(`/api/documents/${d.id}`, { method: "DELETE" });
+      refresh();
+      router.push("/documents");
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "That did not work.");
+    }
+  }
+
   return (
     <>
       <PageTitle title={d.filename}>
@@ -85,7 +99,15 @@ export function DocumentView() {
             Process again
           </Button>
         )}
+        {!ACTIVE.has(d.status) && (
+          <Button variant="ghost" onClick={remove} className="text-red-700 dark:text-red-400">
+            Delete
+          </Button>
+        )}
       </div>
+      {d.mime_type && d.status !== "failed" && (
+        <OriginalFile documentId={d.id} mimeType={d.mime_type} filename={d.filename} />
+      )}
 
       {ACTIVE.has(d.status) && !live && <Loading what="Processing. This page updates by itself" />}
 

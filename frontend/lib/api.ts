@@ -132,6 +132,28 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
+// A file from the API (it needs the token, so a plain link cannot fetch it).
+export async function apiBlob(path: string): Promise<Blob> {
+  const headers = new Headers();
+  const token = readToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { headers, cache: "no-store" });
+  } catch {
+    throw new ApiError(0, "The API could not be reached. It may be waking up; try again.");
+  }
+  if (response.status === 401) {
+    clearToken();
+    if (typeof window !== "undefined") window.dispatchEvent(new Event(SIGNED_OUT_EVENT));
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(response.status, detailOf(text ? safeJson(text) : null, response.status));
+  }
+  return response.blob();
+}
+
 function safeJson(text: string): unknown {
   try {
     return JSON.parse(text);

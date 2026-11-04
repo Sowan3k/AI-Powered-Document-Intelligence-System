@@ -4,39 +4,45 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) done on 4 Nov (CI run 14). Phase 4 (API, job queue, search) checklist done on 4 Nov (CI run 19); its exit test waits for the merge to `main`. Phase 5 (frontend) checklist done on 4 Nov (CI run 21). Exit tests for Phases 4 and 5 need the merge to `main`. Phase 6 (evaluation): first real run done, fixes in, second run next.
+**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the exit tests on the live site for Phases 4 and 5 (they need the merge to `main`), and the Phase 7 items only Sowan can do.
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
 
 - Web app: https://docintel-tan-two.vercel.app (Vercel project `docintel`)
 - API: https://docintel-api-y25b.onrender.com (Render service `docintel-api`, Singapore, free plan). Docs at `/api/docs`, health at `/api/health`.
-- Render and Vercel deploy automatically from `main`. Work happens on the session branch; merging into `main` deploys it.
+- Render and Vercel deploy automatically from `main`. All work so far is on the session branch `sowan/admiring-gates-y0oyrm`; **nothing since Phase 0 is live yet.**
 
-**Supabase (set up by Sowan):** project created, `vector` and `pg_trgm` enabled in the `extensions` schema (on the search_path), private bucket `documents` with a 50 MB limit, Data API disabled. The backend uses SQLAlchemy over the pooler for the database and the Storage API only for files (D17). Code never creates buckets.
+**Supabase (set up by Sowan):** `vector` and `pg_trgm` in the `extensions` schema, private bucket `documents` (50 MB), Data API disabled. `SUPABASE_SERVICE_ROLE_KEY` holds an `sb_secret_` key, sent only in the `apikey` header (D32).
 
-**Gemini models (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` for text, `gemini-3.8-flash` for vision, `gemini-embedding-2` with `output_dimensionality=768`. The embedding model has no `task_type`: queries use the prefix `task: search result | query: ` and documents use `title: {title} | text: ` (D31). Phase 2 and Phase 4 must follow this.
+**Gemini (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` (text), `gemini-3.8-flash` (vision), `gemini-embedding-2` at 768 dimensions. The vision model answered HTTP 503 (overloaded) in every real run; the fallback to the text model read those pages (D44).
 
-**Supabase key (confirmed by Sowan, 4 Nov):** `SUPABASE_SERVICE_ROLE_KEY` holds a new-style `sb_secret_...` key. The Storage client sends it only in the `apikey` header, never as a Bearer token (D32).
+**Evaluation (run 4, real Gemini):** 87 of 87 invoices, all 8 fields 100%, line items 211 of 211, planted errors 10 of 10, 1 false flag in 77 clean invoices, all 9 broken files rejected correctly, no failed documents. See `docs/EVALUATION.md`.
 
-**Next:**
+**Next, for Sowan (in order):**
 
-1. Sowan: decide on the vision model. In two smoke runs about 10 minutes apart, `gemini-3.8-flash` answered 503 (overloaded) on every try, and the fallback to `gemini-3.5-flash-lite` read both scanned pages correctly. Each weak page waits about 2.5 minutes on the busy model first. Option: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` in Render (and `render.yaml`) until Flash recovers. It is a config change, not a code change.
-2. Phase 4 exit test: after the merge, upload a mixed batch on the live site and search it. Claude Code can run it once the backend is live.
-3. Sowan: merge the session branch into `main`, then in Render check that `DEMO_PASSWORD` is set (Render generates `JWT_SECRET` itself). Then log in through `/api/docs` with user `reviewer`.
-4. After the merge: check the live site on a phone (sign in, upload, review, search, reconcile).
-5. Claude Code runs the evaluation again after the fixes (D52, D53) and writes `docs/EVALUATION.md` from it.
+1. Merge `sowan/admiring-gates-y0oyrm` into `main`. Render and Vercel deploy by themselves.
+2. In Render, check these environment variables: `DEMO_PASSWORD` is set (pick one and put it in the submission email); `STORAGE_BACKEND=supabase` and the new defaults come from `render.yaml` (sync the Blueprint if Render asks). Optional: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` while `gemini-3.8-flash` stays overloaded; weak scans then skip a wait of about a minute.
+3. After the deploy: open the web app on your phone, sign in, upload a few files from the dataset (or your own), and check results, review, a correction, both searches and reconcile. Tell Claude Code what you see, and it will tick the exit tests for Phases 4 and 5.
+4. Record the walkthrough video (3 to 5 minutes) following the Phase 7 list.
+5. Decide repository access (invite the reviewers, or make it public; gitleaks scans the full history on every push and has been green).
+6. Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio.
 
 **Blockers:** None.
 
-**Note:** Render's free instance hours are shared across the workspace with BahasaBot and grab-realtime-demo. Idle services sleep and use no hours, but busy demos elsewhere eat into the same allowance during the review period.
+**Note:** Render's free instance hours are shared across the workspace with BahasaBot and grab-realtime-demo.
 
 **Open questions:**
 
 1. Repository access at submission: invite the reviewers, or make the repo public after a full secret scan.
-2. Whether a few real public invoice samples can be added to the evaluation set.
+2. Real public invoice samples were not added to the evaluation (licensing and personal data). The report says so.
 
 ## Session log
+
+### 4 Nov 2026, evaluation run 4 and Phase 6 closed (Claude Code)
+
+Run 4 (real Gemini, 15 minutes): 27 documents completed, 9 broken files correctly rejected, 0 failures, every job on its first attempt. 87 of 87 invoices with all fields 100% correct (including the 37-page statement), line items 211 of 211, planted errors 10 of 10, 1 false flag (R04) in 77 clean invoices, 75,048 tokens in total. Wrote the results into `docs/EVALUATION.md` with the weak spots and what runs 1 to 3 found, and the summary into the README. Phase 6 checklist and exit test ticked (the optional real samples were not added). Phase 7 documents ticked: README, architecture, schema, security, AI usage, design decisions. CI run 32 green: 351 tests, coverage 96%.
+
 
 ### 4 Nov 2026, evaluation run 3 and the embedding fix (Claude Code)
 

@@ -181,27 +181,29 @@ Labelled dataset (`eval/data/`, ground truth JSON beside each file):
 
 Metrics in `eval/run_eval.py`, results in `eval/reports/` and `docs/EVALUATION.md`:
 
-- [ ] Field-level accuracy per field, after normalisation
-- [ ] Line item precision, recall and F1
-- [ ] Document success rate and failure rate, with failures grouped by cause
-- [ ] Processing time per page and per document (mean and 95th percentile), split by digital, OCR and vision paths
-- [ ] Validation detection rate on planted errors, and the false flag rate on clean invoices
-- [ ] Tokens per document from the call logs, with an indicative cost labelled as indicative
-- [ ] Evaluation workflow in GitHub Actions (manual trigger) using the `GEMINI_API_KEY` secret
-- [ ] Test results report from CI saved in `docs/`
+- [x] Field-level accuracy per field, after normalisation
+- [x] Line item precision, recall and F1
+- [x] Document success rate and failure rate, with failures grouped by cause
+- [x] Processing time per page and per document (mean and 95th percentile), split by digital, OCR and vision paths
+- [x] Validation detection rate on planted errors, and the false flag rate on clean invoices
+- [x] Tokens per document from the call logs, with an indicative cost labelled as indicative (tokens measured; cost given as tokens times the current price, because the model prices were not confirmed)
+- [x] Evaluation workflow in GitHub Actions (manual trigger) using the `GEMINI_API_KEY` secret (manual, or when `eval/eval-request.txt` changes)
+- [x] Test results report from CI saved in `docs/` (`docs/TEST_REPORT.md`)
 
 Exit test: `docs/EVALUATION.md` reports every metric from a real run, including the weak results.
+
+**Exit test passed on 4 Nov 2026** with evaluation run 4 (real Gemini, 36 files, 87 invoices). The report includes the weak spots and what runs 1 to 3 found. The optional real samples were not added.
 
 ---
 
 ## Phase 7: Documentation, walkthrough and submission (7 Nov)
 
-- [ ] `README.md`: what it is, live links, one-command local setup, environment variables, how to run tests and evaluation, known limitations
-- [ ] `docs/ARCHITECTURE.md` with a Mermaid architecture diagram and the data flow
-- [ ] `docs/SCHEMA.md` with a Mermaid ER diagram
-- [ ] `docs/SECURITY.md`: what is protected and what production would add
-- [ ] `docs/AI_USAGE.md`: tools used, prompts, what was AI-generated, how it was verified
-- [ ] Design decisions section in the README, drawn from `DECISIONS.md`
+- [x] `README.md`: what it is, live links, one-command local setup, environment variables, how to run tests and evaluation, known limitations
+- [x] `docs/ARCHITECTURE.md` with a Mermaid architecture diagram and the data flow
+- [x] `docs/SCHEMA.md` with a Mermaid ER diagram
+- [x] `docs/SECURITY.md`: what is protected and what production would add
+- [x] `docs/AI_USAGE.md`: tools used, prompts, what was AI-generated, how it was verified
+- [x] Design decisions section in the README, drawn from `DECISIONS.md`
 - [ ] Walkthrough video (3 to 5 minutes, phone screen recording): mixed upload, progress, results, a validation flag, a correction, keyword and semantic search, reconciliation, a failed file and its retry, API docs, CI, evaluation report
 - [ ] Final secret scan of the full Git history
 - [ ] Repository access for reviewers decided (invite them, or make it public after the scan)

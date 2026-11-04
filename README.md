@@ -46,7 +46,7 @@ The API never waits on slow work: it stores and queues, and the worker claims jo
 
 ## Evaluation
 
-The first full evaluation run with the real Gemini API is in progress; its numbers go here.
+From evaluation run 4 with the real Gemini models, on 36 synthetic files holding 87 labelled invoices: **all 8 fields 100% correct on 87 of 87 invoices**, line items 211 of 211, every planted validation error caught (10 of 10) with 1 false flag in 77 clean invoices, all 9 broken files rejected with the right code, and no failed documents. About 2,780 tokens per document. The data is synthetic and cleaner than real invoices, so real accuracy will be lower; the weak spots are listed in the report.
 
 Full method and results, including the weak spots: [docs/EVALUATION.md](docs/EVALUATION.md).
 
@@ -105,11 +105,11 @@ cd backend
 PYTHONPATH=.:../eval/generate python ../eval/run_eval.py --scale 2
 ```
 
-CI runs ruff, 337 tests on Postgres with Tesseract, the frontend build, a gitleaks scan, and a Docker Compose test that uploads a file and finds it by search ([docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Two workflows use the real Gemini key: "Gemini smoke test" and "Evaluation".
+CI runs ruff, 351 tests on Postgres with Tesseract, the frontend build, a gitleaks scan, and a Docker Compose test that uploads a file and finds it by search ([docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Two workflows use the real Gemini key: "Gemini smoke test" and "Evaluation".
 
 ## Design decisions
 
-All 51 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
+All 54 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
 
 1. **One Python service, not a Node.js API plus a Python worker** (D01). Every heavy library is Python; one language means one deployment and no network hop.
 2. **The queue is a PostgreSQL table** (D02, D45). Jobs survive a restart of the free instance, live in the same transaction as the data they change, and need no extra service.

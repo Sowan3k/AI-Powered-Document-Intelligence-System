@@ -109,3 +109,7 @@ AI-generated: the evaluation runner (`eval/run_eval.py`), the Evaluation workflo
 
 The first real run measured perfect extraction on every completed document, and exposed two real problems the fake-model tests could not: free-tier rate limits, and a truncated PDF that MuPDF repairs into empty pages. Claude Code traced both from the run's log and a local reproduction, then wrote the fixes (D52, D53) and their tests. The numbers in `docs/EVALUATION.md` come from runs in GitHub Actions, not from the sandbox.
 
+### 4 Nov 2026, evaluation runs 3 and 4 (Claude Code)
+
+Run 3 failed every multi-invoice document at the embedding step. Claude Code ran the real google-genai SDK against a fake HTTP transport to see the exact request it builds, found that a list of strings becomes one multi-part content, and changed the client to send one `Content` per text (D54), with a test that checks the request body. Run 4 then completed every document. The numbers in `docs/EVALUATION.md` are copied from that run's log, not estimated; the interpretation of the single R04 flag is labelled as the most likely cause, since the run does not record which value was misread.
+

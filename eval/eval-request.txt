@@ -1,4 +1,4 @@
 # Changing this file and pushing runs the Evaluation workflow with the real
 # Gemini API (it spends tokens). Keep a short note of why each run was asked for.
 scale=2
-reason=run 5: Bangladeshi VAT invoices (lakh, Tk, /-), discounts and charges (D57), files that are not invoices (D56), a prompt-injection invoice, token split for cost, 5 Nov 2026
+reason=run 6: measure thinking tokens and per-call latency, parallel page windows and the fallback model (D61, D62), 5 Nov 2026

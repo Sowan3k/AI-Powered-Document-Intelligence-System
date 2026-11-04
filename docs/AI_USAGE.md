@@ -42,3 +42,7 @@ Prompt (summary): Sowan gave the model names confirmed against Google's model li
 
 AI-generated: decision D31 and the config edits in `.env.example` and `render.yaml`. The model names and the prefix format came from Sowan, not from the AI. Verified with the unit tests that parse `.env.example`.
 
+
+### 4 Nov 2026, Render setup check (Claude Code)
+
+Prompt (summary): Sowan shared the list of Render environment variables to add. Claude Code did not handle any secret values. It used the Render and Supabase connectors read only to check the setup, found that the Render service did not exist yet, and corrected the setup steps in `STATUS.md`.

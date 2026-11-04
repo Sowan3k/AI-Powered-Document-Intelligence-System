@@ -15,14 +15,21 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next:**
 
-1. Sowan merges branch `ccr-406a2a1e-uip46r` into `main`. Render and Vercel deploy from `main`.
-2. Sowan does the manual steps below, then runs the Phase 0 exit test.
-3. Claude Code starts Phase 1 (document ingestion).
+1. Sowan does the manual steps below, starting with the merge, then runs the Phase 0 exit test.
+2. Claude Code starts Phase 1 (document ingestion).
 
 **Manual steps for Sowan (phone, in this order):**
 
-1. Supabase: done, except one step. Connect > Session pooler: copy the string and change `postgresql://` to `postgresql+psycopg://`. That is the `DATABASE_URL` for Render.
-2. Render: New > Blueprint > this repo. Paste the values it asks for (the model names are already filled in). Set `CORS_ORIGINS` to `http://localhost:3000` for now. Wait for the deploy, then copy the service URL.
+1. Merge `ccr-406a2a1e-uip46r` into `main` first. The `docintel-api` service does not exist on Render yet (checked 4 Nov), and the Blueprint reads `render.yaml` from `main`.
+2. Render: New > Blueprint > this repo. This creates `docintel-api` and asks for these values. Type them straight into Render, never into chat:
+   - `DATABASE_URL`: Supabase > Connect > Session pooler (port 5432). Change `postgresql://` to `postgresql+psycopg://`. Replace `[YOUR-PASSWORD]`, brackets included, with the database password. If the password has `@ : / # ? %`, reset it in Supabase to letters and digits only, or the URL breaks.
+   - `SUPABASE_URL`: `https://kleyclkciegatavmatlc.supabase.co` (not a secret).
+   - `SUPABASE_SERVICE_ROLE_KEY`: Supabase > API keys, the secret key (`sb_secret_...`) or the legacy `service_role` key. Never the publishable or anon key. Tell Claude Code which kind you used, not the value, so Phase 1 sends it the right way.
+   - `GEMINI_API_KEY`: from your notes.
+   - `DEMO_PASSWORD`: your choice. It goes to the reviewers in the submission email, so use it nowhere else.
+   - `CORS_ORIGINS`: `http://localhost:3000` for now.
+   - `JWT_SECRET`: do not add it. The Blueprint generates it.
+   Wait for the deploy, then copy the service URL. `/api/health` should report the database as connected.
 3. Vercel: import the repo with Root Directory `frontend`. Add `NEXT_PUBLIC_API_BASE_URL` = the Render URL, no trailing slash. Deploy and copy the Vercel URL.
 4. Render: set `CORS_ORIGINS` to the Vercel URL, no trailing slash. Render redeploys.
 5. Exit test: open the Vercel URL. Within a minute it should say "API healthy, database connected".
@@ -30,16 +37,22 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 `NEXT_PUBLIC_API_BASE_URL` is baked in at build time. After changing it on Vercel, redeploy.
 
-**Blockers:** None in code. Waiting on accounts: Render, Vercel, Gemini key.
+**Blockers:** None in code. Waiting on the merge to `main`, then Render and Vercel.
+
+**Note:** Render's free instance hours are shared across the workspace with BahasaBot and grab-realtime-demo. Idle services sleep and use no hours, so this should be fine, but busy demos elsewhere eat into the same allowance during the review period.
 
 **Open questions:**
 
 1. Repository access at submission: invite the reviewers, or make the repo public after a full secret scan.
 2. Whether a few real public invoice samples can be added to the evaluation set.
 3. Local file storage: docker-compose has no Supabase Storage. Phase 1 needs a storage interface with a local-disk backend for compose and tests, and Supabase in production.
-4. Confirm in the Supabase dashboard that the project runs Postgres 17. CI and compose use 17.
+4. Resolved: Supabase runs Postgres 17.11 in ap-southeast-1 (checked through the Supabase connector on 4 Nov). CI and compose use `pgvector/pgvector:0.8.7-pg17`, also Postgres 17.11.
 
 ## Session log
+
+### 4 Nov 2026, Render setup check (Claude Code)
+
+Checked with the Render and Supabase connectors (read only, no secrets touched). No `docintel-api` service exists yet, and `main` holds only the planning files, so the branch must be merged before the Blueprint can create the service. Rewrote the Render step: where each value comes from, the `[YOUR-PASSWORD]` placeholder in the pooler string, the Supabase project URL, and that the Blueprint generates `JWT_SECRET`. Closed the Postgres 17 question.
 
 ### 4 Nov 2026, Gemini model config (Claude Code)
 

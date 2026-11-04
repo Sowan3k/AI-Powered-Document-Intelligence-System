@@ -452,6 +452,11 @@ def test_export_csv_for_excel(env: Env, tmp_path: Path) -> None:
     assert got["Review status"] in {"ok", "needs_review"}
     only = env.get("/api/export/invoices.csv", params={"review_status": "reviewed"})
     assert len(list(csv.reader(io.StringIO(only.content.decode("utf-8-sig"))))) == 1
+    marked = env.get("/api/export/invoices.csv", params={"document_id": [str(uuid.uuid4())]})
+    assert len(list(csv.reader(io.StringIO(marked.content.decode("utf-8-sig"))))) == 1  # header
+    [doc] = env.get("/api/documents").json()["items"]
+    mine = env.get("/api/export/invoices.csv", params={"document_id": [doc["id"]]})
+    assert len(list(csv.reader(io.StringIO(mine.content.decode("utf-8-sig"))))) == 2
 
 
 def test_stats_report_outcomes_tokens_and_cost(env: Env, monkeypatch: pytest.MonkeyPatch) -> None:

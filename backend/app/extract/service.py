@@ -27,6 +27,7 @@ from app.core.config import Settings
 from app.db.enums import DocumentStatus, PageMethod, ReviewStatus, SourceKind
 from app.db.models import Document, Invoice, Job, LineItem, Page, ProcessingEvent, Sheet
 from app.extract import prompts, segment, vision
+from app.extract.breaker import BREAKER
 from app.extract.build import build_invoice
 from app.extract.columns import map_columns, rows_to_invoices
 from app.extract.llm import (
@@ -185,15 +186,20 @@ def extract_pages(
                 check=segment.page_range_check(window),
             )
 
+        if fallback and BREAKER.is_open(model):
+            return call(fallback)  # the text model failed minutes ago: skip its retries (D67)
         try:
-            return call(model)
+            answer = call(model)
         except LlmOutputError:
             raise  # a bad reply is final (D40)
         except LlmError as exc:
             if not fallback:
                 raise
+            BREAKER.failed(model)
             logger.warning("window %s: %s failed (%s), trying %s", window[0], model, exc, fallback)
             return call(fallback)
+        BREAKER.succeeded(model)
+        return answer
 
     done = len(all_windows) - len(todo)
     if on_progress is not None:

@@ -102,9 +102,23 @@ What that means at volume, at the same rates:
 | The same through Google's Batch API (half price, results within hours) | about half |
 
 - **Output tokens are 92% of the cost.** The model writes every value with a confidence and an evidence snippet, and output costs about eight times as much as input. Shorter evidence or fewer fields per call would cut cost; the evidence is kept because it proves each value (D10).
-- **Thinking tokens are not in these figures.** Google bills thinking as output, and run 5 did not record it. The client now records `thinking_tokens` (D62), and run 6 measures them; this section will be updated with that run.
+- **No thinking tokens.** Google bills thinking as output, so run 6 recorded it: 0 thinking tokens in 36 text-model calls. `gemini-3.5-flash-lite` does not think by default, so these figures are the full cost. `GEMINI_THINKING_LEVEL` stays available for models that do think (D62).
 - **The free tier costs nothing**, but Google may use free-tier content to improve its products, so real documents need the paid tier (docs/SECURITY.md).
 - The live system shows the same calculation for its own traffic at `GET /api/stats` and on the Home screen (D62).
+
+### Run 6: latency per call and a repeat of run 5
+
+Run 6 ([GitHub Actions run 41891540199](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/actions/runs/41891540199)) ran the same 44 files after the parallel windows and the fallback model (D61), and recorded thinking tokens and latency (D62). Accuracy repeated run 5 exactly: 91 of 91 invoices, all fields 100%, line items 224 of 224, 12 of 12 planted errors, 1 false flag (R04) in 80, 4 of 4 non-invoice files empty, the injection ignored, 0 failures, and every one of the 40 jobs finished on its first attempt. Tokens: 37,549 input, 48,478 output, 0 thinking; cost $0.132, the same $0.0015 per invoice.
+
+| Call | Calls | Mean latency | p95 latency |
+|---|---|---|---|
+| Extraction (`gemini-3.5-flash-lite`) | 34 | 21.4 s | 40.1 s |
+| Vision transcription (read by the text model) | 1 | 14.8 s | |
+| Column mapping | 1 | 10.3 s | |
+| Embedding | 31 | 1.1 s (one slow call; most under 0.4 s) | |
+
+- **Output length sets the latency.** An extraction call writes about 1,350 tokens (every value with its confidence and evidence), at roughly 65 tokens a second. Fewer fields per call or shorter evidence would make calls faster and cheaper; the evidence stays because it proves each value (D10).
+- **The overloaded vision model cost time.** The one weak scan took 235 s, most of it retrying `gemini-3.8-flash` (HTTP 503) before the text model read it. A model that keeps failing is now skipped for a few minutes (D67), so the next page goes straight to the fallback.
 
 ## What the earlier runs found
 
@@ -117,6 +131,7 @@ The first real runs were not clean, and each one led to a fix that later runs me
 | 3 | No rate-limit failures, all broken files correct, but all 10 multi-invoice documents failed | The SDK sent a list of strings as one multi-part content, and the embedding model returned one vector. One request per text now, checked with the real SDK in a unit test (D54). |
 | 4 | 87 of 87 invoices, all fields 100%, 10 of 10 planted errors, 1 false flag, 0 failures; 75,048 tokens | The first clean run. |
 | 5 | This report | Adds Bangladeshi VAT invoices, discounts and charges, files that are not invoices, a prompt-injection invoice, and the input and output token split for cost. |
+| 6 | Same results as run 5; 0 thinking tokens; latency per call | After parallel windows and the fallback model (D61). Every job on its first attempt. |
 
 Before these runs, the manual smoke test had also found the vision model overloaded, which led to the fallback chain in D44.
 

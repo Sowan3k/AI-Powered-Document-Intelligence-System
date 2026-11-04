@@ -72,3 +72,21 @@ def test_all_models_down_gives_no_text() -> None:
     result = vision.transcribe_with_fallback(fake, ["v", "t", "v", None], b"png")
     assert result.text is None and len(result.errors) == 2
     assert [c.model for c in fake.calls] == ["v", "t"]  # each model tried once
+
+
+def test_a_vision_model_that_just_failed_is_skipped_on_the_next_page() -> None:
+    from app.extract.llm import LlmError
+    from tests.conftest import FakeCall
+
+    def reply(call: FakeCall) -> str:
+        if call.model == "vision-model":
+            raise LlmError("Gemini call failed with HTTP 503")
+        return "Invoice INV-1"
+
+    fake = FakeLlmClient(reply)
+    for _ in range(2):
+        result = vision.transcribe_with_fallback(fake, ["vision-model", "text-model"], b"png")
+        assert result.model == "text-model"
+    # The second page did not wait for the overloaded model again (D67).
+    assert [c.model for c in fake.calls] == ["vision-model", "text-model", "text-model"]
+    assert "skipped" in result.errors[0]

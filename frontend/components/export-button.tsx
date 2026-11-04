@@ -8,7 +8,7 @@ import { ApiError, api } from "@/lib/api";
 // Downloads every extracted invoice as a CSV that opens in Excel. The API
 // needs the bearer token, so the file is fetched and saved through a blob
 // instead of a plain link.
-export function ExportButton() {
+export function ExportButton({ documentIds, label = "Download invoices for Excel" }: { documentIds?: string[]; label?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,9 +16,10 @@ export function ExportButton() {
     setBusy(true);
     setError(null);
     try {
-      const text = await api<string>("/api/export/invoices.csv");
+      const only = (documentIds ?? []).map((id) => `document_id=${encodeURIComponent(id)}`).join("&");
+      const text = await api<string>(`/api/export/invoices.csv${only ? `?${only}` : ""}`);
       // response.text() drops the byte order mark; Excel needs it for Bengali text.
-      const blob = new Blob(["﻿", text], { type: "text/csv;charset=utf-8" });
+      const blob = new Blob(["\uFEFF", text], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -37,7 +38,7 @@ export function ExportButton() {
   return (
     <div className="flex flex-col items-start gap-1">
       <Button variant="secondary" onClick={download} disabled={busy}>
-        {busy ? "Preparing file…" : "Download invoices for Excel"}
+        {busy ? "Preparing file…" : label}
       </Button>
       {error && (
         <p role="alert" className="text-xs text-red-700 dark:text-red-400">

@@ -23,15 +23,19 @@ os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 from pydantic import BaseModel  # noqa: E402
 
 from app.core.config import get_settings  # noqa: E402
+from app.extract.breaker import BREAKER  # noqa: E402
 from app.extract.llm import LlmReply, LlmUsage, Turn  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def _fresh_settings() -> Iterator[None]:
-    """Each test reads settings from the environment it set up."""
+    """Each test reads settings from the environment it set up, and starts with
+    no model marked as failing (D67)."""
     get_settings.cache_clear()
+    BREAKER.reset()
     yield
     get_settings.cache_clear()
+    BREAKER.reset()
 
 
 HAVE_TESSERACT = shutil.which("tesseract") is not None

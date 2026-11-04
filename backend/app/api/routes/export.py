@@ -9,6 +9,7 @@ written by this code and never escaped.
 
 import csv
 import io
+import uuid
 from datetime import date
 from decimal import Decimal
 
@@ -61,9 +62,11 @@ def _where(inv: Invoice) -> str:
 )
 def export_invoices(
     review_status: ReviewStatus | None = Query(default=None),
+    document_id: list[uuid.UUID] | None = Query(default=None, max_length=200),
     db: Session = Depends(get_db),
 ) -> Response:
-    """Every extracted invoice (newest first, up to 20,000), optionally by review status."""
+    """Every extracted invoice (newest first, up to 20,000), optionally by review
+    status or for the marked documents only (repeat `document_id`)."""
     query = (
         select(Invoice, Document.filename)
         .join(Document, Document.id == Invoice.document_id)
@@ -73,6 +76,8 @@ def export_invoices(
     )
     if review_status is not None:
         query = query.where(Invoice.review_status == review_status)
+    if document_id:
+        query = query.where(Invoice.document_id.in_(document_id))
 
     out = io.StringIO()
     out.write("﻿")

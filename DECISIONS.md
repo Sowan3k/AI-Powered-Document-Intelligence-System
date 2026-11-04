@@ -852,3 +852,23 @@ The backend gained `GET /api/activity` (each document's stage from its latest hi
 **Trade-off:** Streaming through the API uses the free instance's bandwidth and memory for large files, where a signed URL would not. A hard delete cannot be undone; the page asks for confirmation first.
 
 **In one sentence:** Reviewers see the real page, and data can be removed completely when it must be.
+
+## D66: Mark files, then upload; mark documents, then act on them
+
+**Alternatives:** Keep the upload-on-pick drop zone (D55); add a separate bulk page.
+
+**Why:** Two needs from Sowan's review. First, on a phone, photos come from the gallery and PDFs or Excel files from the Files app, and one picker cannot reach both, so a mixed batch needs more than one pick. Picking now adds files to a list; each shows its type (PDF, Photo, TIFF, Excel, CSV), its size and a checkbox, and files the server would refuse (an unsupported type, an empty file, over 50 MB) are shown as such and cannot be marked. "Upload N files" sends the marked ones together; more than 20 go in batches of 20, the server's batch limit. The server still checks every file by its bytes (security rule 5). Second, the document list has a checkbox per row and "Mark all on this page", and the marked documents can be processed again, downloaded for Excel (the export takes `document_id` filters), compared (exactly two), or deleted. The Failed filter adds "Retry all failed".
+
+**Trade-off:** Uploading is now two taps (pick, then upload) instead of one; the second tap is what lets a person check and mix files before sending. Bulk actions call the existing endpoints once per document, which is simple and reuses their checks, but slower than a bulk endpoint for hundreds of files.
+
+**In one sentence:** Gather files of any type from anywhere, tick what to send, and act on many documents at once.
+
+## D67: A model that just failed is skipped for five minutes while a fallback exists
+
+**Alternatives:** Keep retrying every model on every page; a full circuit breaker in the client for every call.
+
+**Why:** In evaluation run 6 one weak scan took 235 seconds, nearly all of it retrying `gemini-3.8-flash` (HTTP 503) before the fallback read the page. When a model still fails after all its retries, `app/extract/breaker.py` now remembers it for five minutes, and the fallback chains (vision, D44; extraction windows, D61) go straight to the next model. The last model in a chain is always tried, so the breaker can shorten a wait but never turns a slow success into a failure; a success closes it at once. The state lives in the worker process.
+
+**Trade-off:** For five minutes the preferred model is not tried even if it recovers sooner, so a few pages may be read by the fallback model when the better one was available.
+
+**In one sentence:** Stop waiting on a model that is down; come back to it in five minutes.

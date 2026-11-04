@@ -6,6 +6,7 @@ import time
 import pytest
 
 from app.core.config import Settings
+from app.extract.breaker import ModelBreaker
 from app.extract.llm import LlmError, LlmOutputError
 from app.extract.schemas import LlmInvoice
 from app.extract.segment import merge_windows, windows
@@ -154,3 +155,39 @@ def test_fallback_defaults_to_the_vision_model_and_skips_bad_replies() -> None:
     with pytest.raises(LlmOutputError):
         extract_pages(fake, "a", pages(2), Settings(gemini_model="a", gemini_vision_model="b"))
     assert len(fake.calls) == 2
+
+
+def test_a_model_that_failed_is_skipped_for_the_next_windows() -> None:
+    def reply(call: FakeCall) -> dict:
+        if call.model == "text-model":
+            raise LlmError("Gemini call failed with HTTP 503")
+        window = window_of(call)
+        return {"invoices": [llm_invoice(window[0], invoice_number=f"INV-{window[0]}")]}
+
+    settings = Settings(
+        gemini_model="text-model", gemini_fallback_model="backup-model",
+        segment_window_pages=2, segment_overlap_pages=0, llm_max_concurrency=1,
+    )  # fmt: skip
+    fake = FakeLlmClient(reply)
+    found, _ = extract_pages(fake, "text-model", pages(6), settings)
+    # One failed try of the text model, then straight to the backup for every window.
+    assert [c.model for c in fake.calls] == [
+        "text-model",
+        "backup-model",
+        "backup-model",
+        "backup-model",
+    ]
+    assert [i.invoice_number.value for i in found] == ["INV-1", "INV-3", "INV-5"]
+
+
+def test_breaker_cools_down_and_never_drops_the_last_model() -> None:
+    breaker = ModelBreaker(cooldown_s=0.05)
+    breaker.failed("a")
+    assert breaker.is_open("a") and breaker.usable(["a", "b"]) == ["b"]
+    breaker.failed("b")
+    assert breaker.usable(["a", "b"]) == ["b"]  # the last model is always tried
+    time.sleep(0.06)
+    assert not breaker.is_open("a") and breaker.usable(["a", "b"]) == ["a", "b"]
+    breaker.failed("a")
+    breaker.succeeded("a")
+    assert not breaker.is_open("a")

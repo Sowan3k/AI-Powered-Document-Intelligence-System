@@ -9,7 +9,7 @@ The backend runs on a free Render instance that sleeps when idle; the first requ
 
 The web app is built for the shortest path: one Home screen where you drop files, watch each one move through Upload, Read, AI extract, Check and Done, and approve or fix whatever needs a look with one tap. The live processing view follows you to every screen.
 
-1. **Upload** several files at once. Each is checked by its bytes (never its name), stored privately under a random key, and queued. A bad file fails alone with a clear code (`ENCRYPTED_PDF`, `CORRUPTED_FILE`, `EMPTY_FILE`, `UNSUPPORTED_TYPE`, `TOO_LARGE`, `TOO_MANY_PAGES`); the rest of the batch goes on.
+1. **Upload** several files at once, of mixed types and from several places (gallery photos and PDFs on a phone): files go into a list where you mark the ones to send. Each is checked by its bytes (never its name), stored privately under a random key, and queued. A bad file fails alone with a clear code (`ENCRYPTED_PDF`, `CORRUPTED_FILE`, `EMPTY_FILE`, `UNSUPPORTED_TYPE`, `TOO_LARGE`, `TOO_MANY_PAGES`); the rest of the batch goes on.
 2. **Read** each file in a background worker. Digital PDF pages give their text directly. Scanned pages and images are cleaned with OpenCV and read by Tesseract, which reports a confidence per page; weak pages go to Gemini vision. Spreadsheets are read sheet by sheet, with header detection, merged cells and CSV encoding and delimiter detection.
 3. **Extract** invoice number, date, supplier, customer, subtotal, tax, total, currency and line items, plus any discount, delivery or service charge printed before the total. Gemini copies each value as printed, with a confidence and the text it came from. Code then parses dates and money (including Bangladeshi forms such as "Tk 1,25,000/-" and Bengali digits) and checks that the evidence really appears in the source. Missing values stay empty; nothing is guessed. A file that is not an invoice, such as a letter or a staff list, gives no invoice and says "No invoice found".
 4. **Validate** with eleven rules in exact decimal arithmetic: missing fields, line sums, quantity times price, subtotal plus tax plus discounts and charges, duplicates (with fuzzy supplier names), dates, low confidence, unproven values, mixed currencies. Any error sends the invoice to the review queue.
@@ -50,7 +50,7 @@ The API never waits on slow work: it stores and queues, and the worker claims jo
 
 ## Evaluation
 
-From evaluation run 5 with the real Gemini models, on 44 synthetic files holding 91 labelled invoices: **all 8 fields 100% correct on 91 of 91 invoices**, line items 224 of 224, every planted validation error caught (12 of 12) with 1 false flag in 80 clean invoices, all 9 broken files rejected with the right code, 4 of 4 files that are not invoices left empty, a prompt-injection invoice read correctly, and no failed documents. Tokens: 2,464 per document on average. **Cost at paid Gemini prices: about $0.0015 per invoice ($1.50 per 1,000), before thinking tokens**; output tokens are 92% of it. The data is synthetic and cleaner than real invoices, so real accuracy will be lower; the weak spots are listed in the report.
+From evaluation run 5 with the real Gemini models, on 44 synthetic files holding 91 labelled invoices: **all 8 fields 100% correct on 91 of 91 invoices**, line items 224 of 224, every planted validation error caught (12 of 12) with 1 false flag in 80 clean invoices, all 9 broken files rejected with the right code, 4 of 4 files that are not invoices left empty, a prompt-injection invoice read correctly, and no failed documents. Tokens: 2,464 per document on average. **Cost at paid Gemini prices: about $0.0015 per invoice ($1.50 per 1,000)**; output tokens are 92% of it, and the text model used no thinking tokens (run 6 repeated these results). The data is synthetic and cleaner than real invoices, so real accuracy will be lower; the weak spots are listed in the report.
 
 Full method and results, including the weak spots: [docs/EVALUATION.md](docs/EVALUATION.md).
 
@@ -113,7 +113,7 @@ CI runs ruff, 351 tests on Postgres with Tesseract, the frontend build, a gitlea
 
 ## Design decisions
 
-All 65 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
+All 67 decisions, each with the alternatives, the reason and the cost, are in [DECISIONS.md](DECISIONS.md). The ones that shape the system:
 
 1. **One Python service, not a Node.js API plus a Python worker** (D01). Every heavy library is Python; one language means one deployment and no network hop.
 2. **The queue is a PostgreSQL table** (D02, D45). Jobs survive a restart of the free instance, live in the same transaction as the data they change, and need no extra service.

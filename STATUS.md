@@ -4,7 +4,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) done on 4 Nov (CI run 14). Next: Phase 4 (API, job queue, search).
+**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) done on 4 Nov (CI run 14). Phase 4 (API, job queue, search) built on 4 Nov, waiting on CI. Next: Phase 5 (frontend).
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -21,9 +21,9 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next:**
 
-1. Sowan: run the "Gemini smoke test" workflow once (GitHub, Actions tab, Gemini smoke test, Run workflow). It calls the real API on 5 synthetic files and prints fields correct and tokens used. Nothing has called the live Gemini API yet, so this is the first proof that the schema and prompts work. Paste the last 15 lines of the log into the next session.
-2. Claude Code starts Phase 4 (API, job queue, search), planned for 6 Nov.
-3. Sowan: merge the session branch into `main` when ready.
+1. Claude Code ticks Phase 4 once CI is green. The exit test (a mixed batch processed on the live Render service and searched) needs the branch merged into `main`.
+2. Sowan: merge the session branch into `main`, then in Render check that `DEMO_PASSWORD` is set (Render generates `JWT_SECRET` itself). Then log in through `/api/docs` with user `reviewer`.
+3. Claude Code builds Phase 5 (frontend).
 
 **Blockers:** None.
 
@@ -35,6 +35,17 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Whether a few real public invoice samples can be added to the evaluation set.
 
 ## Session log
+
+### 4 Nov 2026, Phase 4 build and real Gemini check (Claude Code)
+
+Real Gemini, first run (smoke test workflow with Sowan's key): all 4 digital invoices extracted with every field right and no flags, about 650 prompt tokens each. The vision model `gemini-3.8-flash` answered HTTP 503 (overloaded) five times and failed the run. Fix (D44): a weak page now tries the vision model, then the text model, then keeps its Tesseract text. The smoke test now also runs on pushes that change extraction code, since a manual run needs the workflow on `main`.
+
+Built Phase 4: the job queue (`FOR UPDATE SKIP LOCKED`, heartbeats, stale recovery, backoff, final versus retryable failures), the pipeline (ingest, extract, validate, index), the worker, JWT login, per-IP rate limits, a request size cap, and every endpoint in PHASES.md, plus `GET /reconciliations/{id}`. Search: full text in two forms with weights, and semantic search on pgvector with the D31 query format. Upload code moved to `app/ingest/upload.py`, so the API process never loads OpenCV or PyMuPDF. Spreadsheets now process without a Gemini key, so `docker compose up` works for CSV and Excel with no keys at all. Decisions D44 to D48.
+
+Tested in the sandbox: ruff clean, 337 tests pass (77 new), coverage 95%, `alembic check` clean. Integration tests cover every endpoint, auth failures (missing, bad, forged and expired tokens), rate limits, a job that fails three times on HTTP 503 and then succeeds after `POST /jobs/{id}/retry`, an unreadable file that fails once without retries, two workers getting different jobs under `SKIP LOCKED`, and stale job recovery. Ran the API and worker as real processes on Postgres: upload a CSV, job succeeded, keyword search found it, the worker stopped cleanly on SIGTERM. CI's Docker job now runs the same flow inside the compose stack.
+
+Fixed on the way, found by tests: `setweight()` rejected the weight as a bound parameter (now an inline literal), and negated search words slipped through (D47).
+
 
 ### 4 Nov 2026, Phase 3 build (Claude Code)
 

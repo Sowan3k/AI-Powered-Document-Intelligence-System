@@ -589,3 +589,55 @@ Duplicates are flagged against everything stored at validation time, across all 
 **Trade-off:** During an outage, poor scans are extracted from weaker text, so more of them go to review. A busy vision model costs up to two retry cycles of waiting per weak page.
 
 **In one sentence:** A busy vision model makes a weak page go to review, not make the whole document fail.
+
+---
+
+## D45: Queue details: one job per document, final failures never retry
+
+**Alternatives:** A job per stage (ingest, extract, validate), or retrying every failure.
+
+**Why:** A `process` job runs every stage in order: ingest, extract, validate, index. Each stage already replaces its own output, so a retried job starts clean. A smaller `index` job refreshes search after a correction, so the API never waits for an embedding call. Failures split by cause. Network, storage, quota and database errors retry with exponential backoff (`JOB_BACKOFF_S`, then double) up to `JOB_MAX_ATTEMPTS`. A file that cannot be read (`ENCRYPTED_PDF`, `CORRUPTED_FILE`), a model reply that broke the schema twice (`EXTRACTION_FAILED`), and missing settings fail at once, because a retry would fail the same way. Unknown errors retry, capped by the attempt limit. A job's stored error holds the message only for DocIntel's own error types; for anything else it holds the type name, since a message could contain document data.
+
+A running job's heartbeat is touched every `HEARTBEAT_INTERVAL_S` by a thread with its own database session. On start, and every minute, the worker re-queues running jobs whose heartbeat is older than `STALE_JOB_S`, or fails them if they have used all attempts. `POST /jobs/{id}/retry` gives a failed job fresh attempts. Every move writes a `processing_events` row, which is the history shown for each document.
+
+**Trade-off:** A retry after a late failure (for example, during indexing) re-runs extraction and pays for those model calls again. Splitting stages into separate jobs would avoid that at the cost of more states to manage.
+
+**In one sentence:** One job carries a document through every stage, transient failures retry with backoff, and failures that would repeat stop at once.
+
+---
+
+## D46: JWT login, per-IP rate limits in memory, and a body size cap
+
+**Alternatives:** Sessions with cookies, an API gateway for rate limits, Redis-backed limits, or `slowapi`.
+
+**Why:** `POST /auth/login` checks the demo account with a constant-time comparison and returns an HS256 token (issuer, issue time, expiry after `JWT_TTL_MINUTES`). Every route except health and login needs it. Without `JWT_SECRET` or `DEMO_PASSWORD`, login answers 503 rather than letting anyone in. Login (`LOGIN_RATE_PER_MINUTE`) and upload (`UPLOAD_RATE_PER_MINUTE`) are limited per client IP with a sliding window kept in memory; uvicorn runs with proxy headers, so the IP is the caller's, not Render's proxy. A middleware refuses a request whose declared size exceeds a full batch at the file size limit, before the body is read. A file the checks reject is stored as a `failed` document with its code, and the rest of the batch goes on.
+
+**Trade-off:** In-memory limits reset when the service restarts and are not shared between instances. With one instance that is acceptable; several instances would need Redis or the platform's limiter. The token cannot be revoked before it expires; the short lifetime limits the damage.
+
+**In one sentence:** Simple, standard auth and limits that fit one instance, with each limitation stated.
+
+---
+
+## D47: Full-text search indexes every part in two forms; semantic search shares the filters
+
+**Alternatives:** One text configuration, a separate search engine, or semantic search without filters.
+
+**Why:** Names, numbers and line items are indexed with PostgreSQL's `simple` configuration (codes like "INV-2026-0007" stay whole) and its `english` one (so "cartridges" finds "cartridge"). Queries use `websearch_to_tsquery` in both configurations joined with OR, so people can type phrases, OR and -word. A test found that indexing each part in only one form let "toner -acme" still return the Acme invoice: the English half of the query negates the stemmed "acm", which was not in the index. Indexing both forms fixed it. Names and numbers rank above line items (weights A and B).
+
+Semantic search embeds the query with the D31 query format and orders by cosine distance on the pgvector column. Both modes use the same filters (supplier, date range, amount range, currency, review status, document), applied in SQL with bound parameters. The supplier filter accepts a typo through `pg_trgm`, and `LIKE` wildcards in it are escaped.
+
+**Trade-off:** The index is about twice as large as a single-form one, which does not matter at this size. Invoices without an embedding (no embedding model, or an embedding job not run yet) do not appear in semantic results.
+
+**In one sentence:** Exact codes and plain-language words both match, negation works, and one set of filters narrows both search modes.
+
+---
+
+## D48: Corrections are trusted values with an audit trail
+
+**Alternatives:** Overwrite the values silently, or re-run extraction after a correction.
+
+**Why:** `PATCH /invoices/{id}` accepts only the fields sent, validated by type (dates, decimals with at most two places, three-letter currency codes). Each changed field gets a `corrections` row with the old value, the new value and the user. Its `field_meta` entry becomes confidence 1.0 with the flag `corrected`, so R09 and R10 stop firing on it. The normalised number and supplier are rebuilt, validation runs again at once, and the search vector is refreshed in the same request. The embedding is cleared and an `index` job re-embeds it. `mark_reviewed` sets the status to `reviewed`, which later validation keeps.
+
+**Trade-off:** A corrected value is trusted completely; a wrong correction is caught only by the arithmetic rules (R03 to R05). The audit trail shows who made it.
+
+**In one sentence:** A person's correction wins, is checked by the same rules, and leaves a record.

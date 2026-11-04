@@ -1,8 +1,14 @@
-"""The /api router. Later phases add documents, jobs, invoices, search and auth."""
+"""The /api router."""
 
 from fastapi import APIRouter
 
-from app.api.routes import health
+from app.api.routes import auth, documents, health, invoices, jobs, reconcile, search
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
+api_router.include_router(auth.router)
+api_router.include_router(documents.router)
+api_router.include_router(jobs.router)
+api_router.include_router(invoices.router)
+api_router.include_router(search.router)
+api_router.include_router(reconcile.router)

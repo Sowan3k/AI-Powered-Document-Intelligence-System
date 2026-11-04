@@ -83,3 +83,13 @@ AI-generated: the validation package (`backend/app/validate`), the new generator
 
 How it was verified: 300 tests. The exit test runs every digital fixture through the whole pipeline and checks that each planted error gives exactly its rule and that clean invoices give none. The tests caught two real issues during the build: reconciliation reported a number difference for a pair matched on the normalised number, and a blank number on one side counted as a conflict. Both were fixed. The supplier similarity threshold was set from measured scores, not assumed.
 
+### 4 Nov 2026, real Gemini check and Phase 4 build (Claude Code)
+
+Prompts: "But instead of fake model. You can use that" (about the Gemini key in GitHub), then "It's ok. Then continue to next phase. I'll check once all done".
+
+The real key stays in GitHub Actions; the sandbox never sees it. Claude Code ran the smoke test workflow against the live API. Text extraction was correct on all 4 digital invoices. The vision model returned HTTP 503, which led to the fallback chain in D44.
+
+AI-generated: the job queue, pipeline and worker (`backend/app/worker`), auth, rate limiting, all routes and schemas (`backend/app/api`), search (`backend/app/search`), the CI end-to-end upload step, tests, and decisions D44 to D48.
+
+How it was verified: 337 tests, including API tests for every endpoint and a SKIP LOCKED test with two real database connections. A manual run of the API and worker as separate processes covered upload, processing and search. Tests caught two real bugs: a SQL type error in the search index, and negated search words that slipped through.
+

@@ -4,8 +4,9 @@ Run locally with: uvicorn app.main:app --reload
 Interactive API docs: /api/docs
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.api.router import api_router
@@ -34,6 +35,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Authorization", "Content-Type"],
         max_age=600,
     )
+    # Refuse an oversized upload before reading it: a full batch at the size limit,
+    # plus room for the multipart framing.
+    max_body = (settings.max_file_mb * settings.max_files_per_batch + 1) * 1024 * 1024
+
+    @app.middleware("http")
+    async def limit_body_size(request: Request, call_next):  # type: ignore[no-untyped-def]
+        length = request.headers.get("content-length")
+        if length and length.isdigit() and int(length) > max_body:
+            return JSONResponse({"detail": "the upload is too large"}, status_code=413)
+        return await call_next(request)
+
     app.include_router(api_router)
     return app
 

@@ -19,11 +19,12 @@ from app.db.models import Document, Job, ProcessingEvent
 from app.ingest.detect import detect_kind
 from app.ingest.errors import IngestError
 from app.ingest.limits import check_file_size
-from app.storage import FileStorage, object_key
+from app.storage import FileStorage, StorageError, object_key
 
 logger = logging.getLogger(__name__)
 
 MAX_FILENAME = 255
+STORAGE_ERROR = "STORAGE_ERROR"
 
 
 def sha256_of(path: Path) -> str:
@@ -78,7 +79,17 @@ def register_upload(
         return document
 
     key = object_key(document.id, kind.extension)
-    storage.upload(key, source, kind.mime_type)
+    try:
+        storage.upload(key, source, kind.mime_type)
+    except StorageError as exc:
+        # Storage is down: this file fails, the rest of the batch still gets a try.
+        document.status = DocumentStatus.FAILED
+        document.error_code = STORAGE_ERROR
+        document.error_message = "the file could not be stored; upload it again later"
+        session.add(document)
+        _event(session, document, "rejected", None, error_code=STORAGE_ERROR, error=str(exc))
+        logger.warning("upload %s not stored: %s", document.id, exc)
+        return document
     document.storage_path = key
     document.mime_type = kind.mime_type
     document.source_kind = kind.source_kind

@@ -189,3 +189,28 @@ def test_sheet_extraction_matches_ground_truth(synthetic_dir: Path, name: str) -
         assert inv.customer_name.value == want["customer_name"]
         assert inv.total.value == Decimal(want["total"])
         assert inv.currency.value == want["currency"]
+
+
+def prompt_pages(prompt: str) -> dict[int, str]:
+    """Page texts as the model sees them in an extraction prompt."""
+    body = prompt.split("<<<DOCUMENT_DATA>>>", 1)[1].rsplit("<<<END_DOCUMENT_DATA>>>", 1)[0]
+    pages = {}
+    for chunk in body.split("--- page ")[1:]:
+        number, _, text = chunk.partition(" ---\n")
+        pages[int(number)] = text
+    return pages
+
+
+def reader_for_truths(truths: list[dict]):  # type: ignore[no-untyped-def]
+    """A perfect reader for several files: picks the file whose invoices the prompt shows."""
+
+    def reply(call: FakeCall) -> dict:
+        if call.purpose != "extract_invoices":
+            raise AssertionError(f"unexpected call {call.purpose}")
+        prompt = call.turns[0].parts[0]
+        for truth in truths:
+            if any(inv["invoice_number"] in prompt for inv in truth["invoices"]):
+                return perfect_reader(truth, prompt_pages(prompt))(call)
+        return {"invoices": []}
+
+    return reply

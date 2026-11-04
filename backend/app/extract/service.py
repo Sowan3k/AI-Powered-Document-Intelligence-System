@@ -216,7 +216,7 @@ def _vision_fallback(
 def extract_document(
     session: Session,
     storage: FileStorage,
-    llm: LlmClient,
+    llm: LlmClient | None,
     document_id: uuid.UUID,
     settings: Settings,
     job: Job | None = None,
@@ -224,18 +224,23 @@ def extract_document(
     """Extract and store invoices. Returns None if the model's output failed twice.
 
     Network and quota errors (LlmError) propagate, so the job queue can retry.
+    PDFs and images need the model; spreadsheets whose columns map by rule do not.
     """
     document = session.get(Document, document_id)
     if document is None:
         raise ValueError(f"document {document_id} not found")
-    model = require_model(settings.gemini_model, "GEMINI_MODEL")
+    paged = document.source_kind in (SourceKind.PDF, SourceKind.IMAGE)
+    if paged and llm is None:
+        raise RuntimeError("GEMINI_API_KEY must be set to extract PDFs and images")
+    model = require_model(settings.gemini_model, "GEMINI_MODEL") if paged else settings.gemini_model
     outcome = ExtractionOutcome()
     session.execute(delete(Invoice).where(Invoice.document_id == document.id))
     _event(session, document, job, "extract_started")
     session.commit()
 
     try:
-        if document.source_kind in (SourceKind.PDF, SourceKind.IMAGE):
+        if paged:
+            assert llm is not None and model is not None  # noqa: S101 (checked above)
             _extract_paged(session, storage, llm, model, document, job, settings, outcome)
         else:
             _extract_sheets(session, storage, llm, model, document, settings, outcome)
@@ -297,8 +302,8 @@ def _extract_paged(
 def _extract_sheets(
     session: Session,
     storage: FileStorage,
-    llm: LlmClient,
-    model: str,
+    llm: LlmClient | None,
+    model: str | None,
     document: Document,
     settings: Settings,
     outcome: ExtractionOutcome,

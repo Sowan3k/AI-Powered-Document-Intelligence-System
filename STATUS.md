@@ -21,7 +21,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next, for Sowan (in order):**
 
-1. ~~Merge `sowan/admiring-gates-y0oyrm` into `main`.~~ Done 4 Nov 2026.
+1. ~~Merge `sowan/admiring-gates-y0oyrm` into `main`.~~ Done 4 Nov 2026. The 5 Nov fixes (D56 to D60) are on the branch and need a second merge.
 2. In Render, check these environment variables: `DEMO_PASSWORD` is set (pick one and put it in the submission email); `STORAGE_BACKEND=supabase` and the new defaults come from `render.yaml` (sync the Blueprint if Render asks). Optional: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` while `gemini-3.8-flash` stays overloaded; weak scans then skip a wait of about a minute.
 3. After the deploy: open the web app on your phone, sign in, upload a few files from the dataset (or your own), and check results, review, a correction, both searches and reconcile. Tell Claude Code what you see, and it will tick the exit tests for Phases 4 and 5.
 4. Record the walkthrough video (3 to 5 minutes) following the Phase 7 list.
@@ -38,6 +38,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Real public invoice samples were not added to the evaluation (licensing and personal data). The report says so.
 
 ## Session log
+
+### 5 Nov 2026, interview readiness fixes (Claude Code)
+
+Sowan asked whether a non-invoice file is reported, and asked for an interviewer's check of the whole project. Found and fixed, each with tests: Bangladeshi amounts ("Tk 1,25,000/-", lakh grouping, Bengali digits, টাকা) now parse (D56); discounts, delivery and service charges and SD count in the total check, so correct bills are no longer flagged (D57); a sheet that is not invoices gives no invoices, and every empty result says "No invoice found" (D58); a CSV export for Excel with a BOM and a formula-injection guard (D59); prompt version stored per document, and a scheduled ping keeps Supabase from pausing (D60). SECURITY.md now says what is sent to Gemini and why real documents need the paid tier. The dataset gained two Mushak-6.3 style VAT invoices, a restaurant bill, a prompt-injection invoice and four non-invoice files.
+
+Tested: 383 backend tests (coverage 96%), frontend lint, typecheck and build, a fake-model evaluation (4 of 4 non-invoices empty, 3 of 3 adjustment invoices right, 0 of 68 clean invoices flagged), and a phone-size browser walk-through: "No invoice found" on Home and the letter page, discount and delivery on the VAT invoice card with no total error, the CSV download with BOM, no console errors. Evaluation run 5 on real Gemini: see below once it finishes.
 
 ### 4 Nov 2026, merge to main and deploy (Claude Code)
 

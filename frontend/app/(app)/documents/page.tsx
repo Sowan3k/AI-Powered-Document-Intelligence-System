@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useActivity } from "@/components/activity";
 import { ApproveButton } from "@/components/approve-button";
 import { DropZone } from "@/components/drop-zone";
+import { ExportButton } from "@/components/export-button";
 import { SearchIcon } from "@/components/icons";
 import { ProcessFlow } from "@/components/process-flow";
 import { Button, Card, Empty, ErrorBox, Loading, StatusBadge, inputClass } from "@/components/ui";
@@ -181,6 +182,7 @@ function RecentDocuments() {
           </Button>
         </div>
       )}
+      {data && data.total > 0 && <ExportButton />}
     </section>
   );
 }

@@ -1,6 +1,8 @@
 """Every endpoint, end to end on Postgres, with the worker run in-process."""
 
 import contextlib
+import csv
+import io
 import json
 import uuid
 from collections.abc import Iterator
@@ -414,3 +416,32 @@ def test_activity_stage_mapping() -> None:
     assert set(STAGE_OF_EVENT.values()) <= set(order) | {"failed"}
     assert set(STAGE_LABELS) == set(order) | {"failed"}
     assert STAGE_OF_EVENT["extract_windows"] == "extracting"
+
+
+def test_export_csv_for_excel(env: Env, tmp_path: Path) -> None:
+    env.login()
+    env.worker.llm = None  # spreadsheets map by rule
+    bad = tmp_path / "evil.csv"
+    bad.write_text(
+        "Invoice No,Supplier,Customer,Subtotal,Discount,Total\n"
+        '=HYPERLINK("http://x"),Acme,রহিম ট্রেডার্স,"1,00,000.00",500.00,"99,500.00"\n'
+    )
+    env.dir = tmp_path
+    env.upload("evil.csv")
+    env.work()
+    assert env.client.get("/api/export/invoices.csv").status_code == 401
+    r = env.get("/api/export/invoices.csv")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+    assert "attachment" in r.headers["content-disposition"]
+    assert r.content.startswith(b"\xef\xbb\xbf")  # BOM, so Excel reads UTF-8
+    rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"))))
+    head, row = rows[0], rows[1]
+    got = dict(zip(head, row, strict=True))
+    assert got["Invoice number"].startswith("'=")  # no formula runs in Excel
+    assert got["Customer"] == "রহিম ট্রেডার্স"
+    assert (got["Subtotal"], got["Discounts and charges"], got["Total"]) == (
+        "100000.00", "-500.00", "99500.00"
+    )  # fmt: skip
+    assert got["Review status"] in {"ok", "needs_review"}
+    only = env.get("/api/export/invoices.csv", params={"review_status": "reviewed"})
+    assert len(list(csv.reader(io.StringIO(only.content.decode("utf-8-sig"))))) == 1

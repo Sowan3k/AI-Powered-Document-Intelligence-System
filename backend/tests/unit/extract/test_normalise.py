@@ -31,13 +31,23 @@ from app.extract.normalise import (
         ("1.234.567", "1234567"),
         ("1,234.5", "1234.5"),
         ("USD 99", "99"),
+        # Bangladesh: lakh grouping, Bengali digits, "/-" and "/=" endings, the word taka.
+        ("12,34,567.00", "1234567.00"),
+        ("Tk 1,25,000/-", "125000"),
+        ("৳ ১,২৫,০০০.৫০", "125000.50"),
+        ("১২৩৪.০০ টাকা", "1234.00"),
+        ("5,000/=", "5000"),
+        ("1,00,00,000.00", "10000000.00"),
     ],
 )
 def test_parse_amount(text: str, value: str) -> None:
     assert parse_amount(text) == Decimal(value)
 
 
-@pytest.mark.parametrize("text", [None, "", "abc", "1,2,3", "12.5.6", "12,34,567.00", "$", "1.2,3"])
+@pytest.mark.parametrize(
+    "text",
+    [None, "", "abc", "1,2,3", "12.5.6", "123,45,678", "1,234,56", "12.34.567", "$", "1.2,3"],
+)
 def test_parse_amount_refuses_unclear_text(text: str | None) -> None:
     assert parse_amount(text) is None
 
@@ -96,3 +106,11 @@ def test_normalised_keys() -> None:
         == norm_supplier("Acme Traders Ltd.")
         == ("acme traders")
     )
+
+
+def test_bengali_dates_and_numbers() -> None:
+    assert parse_date("১৩/১০/২০২৬") == (date(2026, 10, 13), False)
+    assert parse_date("৫ নভেম্বর ২০২৬") == (date(2026, 11, 5), False)
+    assert parse_date("জানুয়ারি 3, 2026") == (date(2026, 1, 3), False)
+    assert norm_invoice_number("চালান-১২৩") == "123"
+    assert currencies_in("মোট ১২০০ টাকা") == ["BDT"]

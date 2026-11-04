@@ -18,3 +18,6 @@ openpyxl==3.1.5
 xlrd==2.0.2
 charset-normalizer==3.5.2
 httpx2==2.16.0  # Supabase Storage API calls; also used by the FastAPI test client
+# Phase 2: Gemini (structured output, vision). httpx is the SDK's own HTTP client.
+google-genai==2.34.0
+httpx==0.28.1  # imported for timeout errors raised through the SDK

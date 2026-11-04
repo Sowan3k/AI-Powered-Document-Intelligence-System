@@ -68,7 +68,7 @@ Goal: page text and spreadsheet rows become validated invoice JSON with no inven
 - [ ] Invoice segmentation for multi-invoice PDFs: process pages in overlapping windows, ask the model for invoices with page ranges, merge invoices that cross a window boundary
 - [ ] Evidence check in code: the invoice number and total must appear in the source text, otherwise lower the confidence and flag the field
 - [ ] Gemini vision fallback for pages where OCR confidence is below the configured threshold
-- [ ] Spreadsheet column mapping: match known header names by rule first; call the LLM once per sheet only when the rule cannot map a column; convert rows with pandas
+- [ ] Spreadsheet column mapping: match known header names by rule first; call the LLM once per sheet only when the rule cannot map a column; convert rows in plain Python (D37, no pandas)
 - [ ] Normalise dates to ISO 8601 and amounts to `Decimal`; detect currency from symbols and codes
 - [ ] Unit tests with the fake LLM client, including a response that breaks the schema
 

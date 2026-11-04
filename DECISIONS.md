@@ -146,6 +146,8 @@ Every design choice in DocIntel, with the reason behind it. Each entry follows t
 
 **In one sentence:** Use the model to understand the layout once, then let pandas do the rows.
 
+**Update (D37):** the rows are converted in plain Python, not pandas. The rest of this decision stands.
+
 ---
 
 ## D13: A synthetic labelled dataset as the core of evaluation
@@ -451,3 +453,71 @@ PyMuPDF is pinned to 1.28.2, not 2.x. Version 2 pulls in `pymupdf4llm` and `pymu
 **Trade-off:** The generator is test infrastructure that must itself be correct; its ground truth is checked by the reader tests. Synthetic files are cleaner than real ones (D13). `xlwt` is a dev-only dependency, used just to write the `.xls` fixture.
 
 **In one sentence:** One seeded generator makes both the test fixtures and the evaluation set, so the repository holds code, not binary samples.
+
+---
+
+## D36: The model returns printed text; code turns it into dates, money and codes
+
+**Alternatives:** Ask the model for ISO dates, numbers and currency codes directly, or let it fill a typed schema.
+
+**Why:** Converting "1.234,50" or "03/10/2026" is where models slip quietly: a dropped separator or a swapped day and month gives a plausible wrong value. So the schema the model fills (`LlmExtraction`) holds every value as the string printed on the page, with a confidence from 0 to 1 and an evidence snippet. Code then parses it. `parse_amount` handles US and European separators, currency signs, brackets for negatives and "450,-", and rejects badly grouped digits like "1,2,3". `parse_date` handles ISO, numeric and month-name dates; day and month that could swap (03/10/2026) follow `DATE_DAY_FIRST` and get the flag `ambiguous_date` with lower confidence. Currency comes from codes and unambiguous signs; "$" alone becomes USD with the flag `symbol_only`. Anything that does not parse becomes null with the flag `unparsed` and confidence 0. Nothing is guessed (D10).
+
+The evidence check (AI rule 3) runs on every field with a value. A value is proven when its snippet appears in the source text and the value appears in the snippet, ignoring case and spacing. For amounts, a number in the snippet that parses to the same value also counts, so "130.20" is proven by "Total: $130.20". An unproven value is kept but loses half its confidence and gets `evidence_not_found`; Phase 3 rule R10 sends it to review.
+
+Each stored invoice keeps the parsed values in columns, and per field the confidence, evidence, raw text and flags in `field_meta`, plus the model's raw reply in `raw_extraction` for audit and evaluation. An amount with more than two decimals is rounded half up and flagged `rounded`; an amount too large for `NUMERIC(14,2)` is dropped and flagged `out_of_range`.
+
+**Trade-off:** More parsing code to own and test, and a few formats (Indian lakh grouping such as 12,34,567) are rejected rather than read. Rejected values go to review, which is the safe failure.
+
+**In one sentence:** The model copies what it sees, and deterministic code decides what the text means.
+
+---
+
+## D37: Spreadsheet rows converted in plain Python, without pandas
+
+**Alternatives:** pandas, as D12 first planned.
+
+**Why:** The Phase 1 readers already turn every cell into text and fix the headers. What is left is a loop: pick the mapped cells of each row and parse them with the same functions as PDF values. Rows that share an invoice number and carry line item columns form one invoice. pandas would add about 60 MB to the image and tens of MB of memory to the worker on a 512 MB instance, for no gain at this point. Column mapping still follows D12: rules first, and the model once per sheet only when a wanted field (invoice number, date, supplier, total) has no rule match and unused columns remain. The model's answer is checked: a header that does not exist, or one already used, is ignored. LLM-mapped columns get confidence 0.85 against 0.95 for rule matches.
+
+**Trade-off:** Analytics across sheets would be easier with a data frame. Nothing needs that yet; adding pandas later is a one-line change.
+
+**In one sentence:** The rows are already clean text, so a loop does the job without a heavy library.
+
+---
+
+## D38: Vision fallback transcribes the page; the text model still extracts
+
+**Alternatives:** Ask the vision model to return invoice JSON straight from the image.
+
+**Why:** Pages with Tesseract confidence below `OCR_CONFIDENCE_THRESHOLD` are rendered at `VISION_DPI` (largest side capped at 3,000 pixels) and sent to `GEMINI_VISION_MODEL`, which transcribes the text. The page row then holds that text with method `vision`, and keeps the Tesseract score for the record. Extraction runs the same way on every page. So there is one extraction prompt to test, segmentation still works across pages, and the evidence check compares values against what the vision model read. A direct image-to-JSON call would have no source text to check evidence against.
+
+**Trade-off:** Two calls for a weak page instead of one, and the transcription can itself be wrong. The evidence check cannot catch a misread that is consistent in both steps. Phase 6 reports accuracy on the vision path separately.
+
+**In one sentence:** The vision model only turns pixels into text, so every value still passes the same extraction and evidence check.
+
+---
+
+## D39: Windows of 8 pages with 1 page of overlap, merged by invoice number
+
+**Alternatives:** One call per page, one call for the whole document, or windows without overlap.
+
+**Why:** One call per page cannot see an invoice that spans pages, and a 1,000-page call exceeds any sensible prompt. Eight pages hold several invoices with room to spare, and a 1,000-page file needs about 143 calls instead of 1,000, which matters under free-tier rate limits. Each window's reply is checked: every page number it names must be one of the pages shown, or the reply is rejected and retried once with that error. Merging joins two results when they share a normalised invoice number and their page ranges touch, or when a result with no number starts on the window's first page inside the previous invoice (a continuation). The more confident value of each field wins. Line items are taken page by page so a line on the shared page is not counted twice; each line carries its page number for this. Windows whose pages are all blank make no call.
+
+**Trade-off:** An invoice longer than the window whose number is printed only on its first page relies on the continuation rule. Two invoices on one page that both lack numbers can merge wrongly. Both cases are rare in practice; the segmentation timing and accuracy are measured in Phase 6.
+
+**In one sentence:** Overlapping windows keep invoices whole at a fraction of the calls, and deterministic rules stitch the edges.
+
+---
+
+## D40: One Gemini client with its own retries; failures split into retryable and final
+
+**Alternatives:** The SDK's built-in retry options, or calling the SDK directly from each module.
+
+**Why:** Every call goes through `GeminiClient.generate` (AI rule 5). A `threading.BoundedSemaphore` of `LLM_MAX_CONCURRENCY` caps calls in flight per process. Retries on 408, 429, 5xx and timeouts back off exponentially with jitter, up to `LLM_MAX_RETRIES`. The SDK's own retries are turned off so attempts are counted once and logged. Each call logs purpose, model, prompt and output tokens, latency and attempts, never prompt or reply text, and the extraction service stores the same numbers as `llm_call` processing events, which Phase 6 sums for tokens per document. Temperature is 0 and the model gets no tools.
+
+`generate_structured` validates the reply with Pydantic. An invalid reply is sent back with a short error summary (field paths and messages only, never the rejected values, which hold document data) and retried once (AI rule 4). Two failures raise `LlmOutputError`, and the document fails with `EXTRACTION_FAILED`, because a retry would likely fail the same way. Network and quota failures raise `LlmError`, which propagates so the Phase 4 job queue can retry the job later.
+
+The LLM-facing schemas avoid `extra="forbid"`: the SDK would send it as `additionalProperties`, which the live API may refuse, and unknown keys are dropped on parsing anyway. A manual GitHub Actions workflow ("Gemini smoke test") runs real extraction on generated invoices, because the coding sandbox has no API key.
+
+**Trade-off:** The semaphore limits one process, not the whole deployment; with one worker that is the same thing. A long free-tier rate limit can exhaust the retries, and the job then waits for the queue's own backoff.
+
+**In one sentence:** One door to the model, which counts, limits and logs every call, and tells a bad answer apart from a busy server.

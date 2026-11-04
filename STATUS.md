@@ -4,7 +4,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 1 done on 4 Nov 2026 (CI run 10 green). Phase 2 (AI extraction) in progress.
+**Phase:** 1 done on 4 Nov 2026. Phase 2 (AI extraction) built on 4 Nov, waiting on CI. Next: Phase 3 (validation).
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -21,8 +21,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next:**
 
-1. Claude Code builds Phase 2 (AI extraction).
-2. Sowan: merge the session branch into `main` when ready. After the deploy, check Render logs show no error at startup. Storage is first used by the Phase 4 upload endpoint, so the first real Supabase Storage call happens then.
+1. Claude Code ticks the Phase 2 checklist once CI is green.
+2. Sowan: run the "Gemini smoke test" workflow once (GitHub, Actions tab, Gemini smoke test, Run workflow). It calls the real API on 5 synthetic files and prints fields correct and tokens used. Nothing has called the live Gemini API yet, so this is the first proof that the schema and prompts work. Paste the last 15 lines of the log into the next session.
+3. Claude Code starts Phase 3 (validation and reconciliation).
+4. Sowan: merge the session branch into `main` when ready.
 
 **Blockers:** None.
 
@@ -34,6 +36,17 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Whether a few real public invoice samples can be added to the evaluation set.
 
 ## Session log
+
+### 4 Nov 2026, Phase 2 build (Claude Code)
+
+Built `app/extract`: two-layer schemas (the model returns printed strings with confidence and evidence; code builds typed values), the Gemini client (semaphore, retries on 429, 5xx and timeouts, timeout, token log line per call), the schema-validated call with one retry on invalid output, prompts in `prompts.py`, windowed segmentation with merge rules, the evidence check, parsing of amounts, dates and currencies, spreadsheet column mapping (rules, then the model once per sheet), the vision fallback, and the service that stores invoices, line items and `llm_call` events. Added the manual "Gemini smoke test" workflow. Decisions D36 to D40; D12 updated (no pandas).
+
+Tested in the sandbox: ruff clean, 260 tests pass (113 new), coverage 96%, `alembic check` clean. The exit test uses a fake model that copies values exactly as the generator printed them: all 8 digital PDFs and 4 spreadsheets give the ground truth values, with nulls for the missing tax and customer, and no evidence flags. Other tests cover a reply that breaks the schema (retried once, then `EXTRACTION_FAILED`), an invented value (flagged, confidence halved), a page number outside the window, the vision path on the heavy-noise scan, and network errors that propagate for the job queue.
+
+Fixed on the way: Alembic's logging setup disabled every existing logger when migrations ran in the same process. It now keeps them (`disable_existing_loggers=False`). Production was not affected, since `start.sh` runs Alembic as its own process.
+
+Not tested: any call to the live Gemini API (no key in the sandbox). The smoke test workflow covers it.
+
 
 ### 4 Nov 2026, Phase 1 build (Claude Code)
 

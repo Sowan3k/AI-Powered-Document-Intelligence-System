@@ -21,3 +21,6 @@ def configure_logging(level: str = "INFO") -> None:
         root.addHandler(handler)
     # SQL echo would print query parameters, which can hold extracted data.
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    # One line per HTTP request is noise; DocIntel logs its own calls with timings.
+    for name in ("httpx", "httpx2", "google_genai"):
+        logging.getLogger(name).setLevel(logging.WARNING)

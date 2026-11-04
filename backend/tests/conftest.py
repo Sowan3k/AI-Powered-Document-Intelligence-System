@@ -4,13 +4,14 @@ Unit tests never touch the network or a database. Integration tests need a
 PostgreSQL database with pgvector, given by TEST_DATABASE_URL; without it they
 are skipped. Tests marked `tesseract` need the OCR binary; they skip without
 it, unless REQUIRE_TESSERACT=1 (set in CI), where a missing binary fails.
-Phase 2 adds the fake LLM client here.
+`FakeLlmClient` stands in for Gemini in every unit test.
 """
 
 import json
 import os
 import shutil
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
@@ -19,7 +20,10 @@ import pytest
 os.environ["APP_ENV"] = "test"
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 
+from pydantic import BaseModel  # noqa: E402
+
 from app.core.config import get_settings  # noqa: E402
+from app.extract.llm import LlmReply, LlmUsage, Turn  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -55,3 +59,57 @@ def synthetic_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture(scope="session")
 def manifest(synthetic_dir: Path) -> list[dict]:
     return json.loads((synthetic_dir / "manifest.json").read_text())
+
+
+@dataclass
+class FakeCall:
+    purpose: str
+    model: str
+    system: str
+    turns: list[Turn]
+    schema: type[BaseModel] | None
+
+
+Responder = Callable[[FakeCall], str | dict | BaseModel]
+
+
+@dataclass
+class FakeLlmClient:
+    """Answers like Gemini without the network.
+
+    Give it a list of replies (used in order) or a function of the call. A dict
+    or model reply is sent as JSON. Every call is recorded in `calls`.
+    """
+
+    replies: list[str | dict | BaseModel] | Responder = field(default_factory=list)
+    calls: list[FakeCall] = field(default_factory=list)
+    tokens: tuple[int, int] = (100, 20)
+
+    def generate(
+        self,
+        *,
+        purpose: str,
+        model: str,
+        system: str,
+        turns: list[Turn],
+        schema: type[BaseModel] | None = None,
+    ) -> LlmReply:
+        call = FakeCall(purpose, model, system, list(turns), schema)
+        self.calls.append(call)
+        if callable(self.replies):
+            reply = self.replies(call)
+        else:
+            if not self.replies:
+                raise AssertionError(f"FakeLlmClient has no reply left for {purpose}")
+            reply = self.replies.pop(0)
+        if isinstance(reply, BaseModel):
+            reply = reply.model_dump_json()
+        elif isinstance(reply, dict):
+            reply = json.dumps(reply)
+        usage = LlmUsage(purpose, model, prompt_tokens=self.tokens[0], output_tokens=self.tokens[1])
+        return LlmReply(text=reply, usage=usage)
+
+
+@pytest.fixture
+def fake_llm() -> FakeLlmClient:
+    return FakeLlmClient()

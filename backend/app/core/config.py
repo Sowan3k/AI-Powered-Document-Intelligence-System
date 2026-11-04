@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     gemini_embed_model: str | None = None
     embed_dim: int = Field(default=768, ge=1, le=16000)
     llm_max_concurrency: int = Field(default=2, ge=1, le=32)
+    llm_timeout_s: float = Field(default=90, gt=0)
+    llm_max_retries: int = Field(default=4, ge=0, le=10)  # on 429, 5xx and timeouts
 
     # Auth for the single demo account (Phase 4).
     jwt_secret: SecretStr | None = None
@@ -85,6 +87,12 @@ class Settings(BaseSettings):
     scanned_page_min_chars: int = Field(default=25, ge=0)  # fewer letters/digits means OCR
     ocr_dpi: int = Field(default=300, ge=72, le=600)
     ocr_timeout_s: int = Field(default=120, ge=5)
+
+    # Extraction (Phase 2).
+    segment_window_pages: int = Field(default=8, ge=1, le=50)  # pages per LLM call
+    segment_overlap_pages: int = Field(default=1, ge=0, le=10)  # shared with the next window
+    vision_dpi: int = Field(default=200, ge=72, le=400)
+    date_day_first: bool = True  # 03/04/2026 is 3 April unless the day is over 12
 
     # Worker loop.
     worker_poll_interval_s: float = Field(default=2.0, gt=0)

@@ -76,6 +76,7 @@ def build(out: Path, seed: int = 7, scale: int = 1) -> list[dict]:
          "contains": [m[0].invoice_number for m in multi]},
         [m[0] for m in multi],
         pages=[[i + 1, i + 1] for i in range(len(multi))],
+        layouts=[m[1] for m in multi],
     )  # fmt: skip
     good_doc = layouts.invoice_pdf(multi)
     good_doc.save(path)

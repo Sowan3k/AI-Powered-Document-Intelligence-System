@@ -181,6 +181,11 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
     clean_flagged = clean_total = 0
     flag_rules: Counter[str] = Counter()
     wrong_fields: Counter[str] = Counter()
+    tokens_in = tokens_out = 0
+    extra_invoices: dict[str, int] = {}
+    not_invoice: dict[str, int] = {}  # file -> invoices wrongly extracted from it
+    adversarial: dict[str, dict] = {}
+    adj_right = adj_total = adj_r05 = 0
 
     with sessions() as s:
         for entry in manifest:
@@ -231,6 +236,8 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
             tokens = 0
             for e in calls:
                 n = int(e.detail["prompt_tokens"]) + int(e.detail["output_tokens"])
+                tokens_in += int(e.detail["prompt_tokens"])
+                tokens_out += int(e.detail["output_tokens"])
                 tokens += n
                 tokens_by_purpose[e.detail["purpose"]] += n
                 calls_by_purpose[e.detail["purpose"]] += 1
@@ -244,7 +251,13 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
                 .order_by(Invoice.page_start, Invoice.row_start)
             ).all()  # fmt: skip
             expected_invoices += len(truth["invoices"])
-            for inv, want in match_invoices(list(stored), truth["invoices"]):
+            pairs = match_invoices(list(stored), truth["invoices"])
+            matched = sum(1 for inv, _ in pairs if inv is not None)
+            if len(stored) > matched:
+                extra_invoices[name] = len(stored) - matched
+            if truth.get("not_invoice"):
+                not_invoice[name] = len(stored)
+            for inv, want in pairs:
                 planted = want.get("planted") or []
                 if inv is None:
                     for f in FIELDS:
@@ -266,6 +279,24 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
                     select(ValidationIssue).where(ValidationIssue.invoice_id == inv.id)
                 ).all()
                 codes = {i.rule_code for i in issues}
+                if truth.get("adversarial"):
+                    adversarial[name] = {
+                        "fields_correct": all(
+                            norm(f, getattr(inv, f)) == norm(f, want[f]) for f in FIELDS
+                        ),
+                        "flags": sorted(codes),
+                    }
+                if want.get("adjustments"):
+                    adj_total += 1
+                    stored_adj = [
+                        Decimal(a["amount"])
+                        for a in (inv.field_meta or {}).get("adjustments") or []
+                        if a.get("amount")
+                    ]
+                    adj_right += sorted(stored_adj) == sorted(
+                        Decimal(a["amount"]) for a in want["adjustments"]
+                    )
+                    adj_r05 += "R05" in codes
                 for p in planted:
                     detection[p].append(EXPECTED_RULE[p] in codes)
                 if not planted:
@@ -328,8 +359,22 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
             "false_flag_rate": round(clean_flagged / clean_total, 4) if clean_total else None,
             "false_flag_rules": dict(flag_rules),
         },  # fmt: skip
+        "not_invoice_files": {
+            "files": len(not_invoice),
+            "with_no_invoice": sum(1 for n in not_invoice.values() if n == 0),
+            "invoices_wrongly_extracted": not_invoice,
+        },
+        "extra_invoices": extra_invoices,
+        "adversarial": adversarial,
+        "adjustments": {
+            "invoices": adj_total,
+            "all_lines_right": adj_right,
+            "flagged_r05": adj_r05,
+        },
         "tokens": {
             "per_document": summary([float(t) for t in tokens_per_doc]),
+            "input": tokens_in,
+            "output": tokens_out,
             "total": sum(tokens_per_doc),
             "by_purpose": dict(tokens_by_purpose),
             "calls_by_purpose": dict(calls_by_purpose),
@@ -374,7 +419,17 @@ def markdown(r: dict) -> str:
         f"{r['validation']['clean_with_errors']} of {r['validation']['clean_invoices']} "
         f"({pct(r['validation']['false_flag_rate'])}), rules: {r['validation']['false_flag_rules'] or 'none'}.",
         "",
-        f"Tokens: {r['tokens']['total']} in total; per completed document mean "
+        f"Files that are not invoices: {r['not_invoice_files']['with_no_invoice']} of "
+        f"{r['not_invoice_files']['files']} gave no invoice "
+        f"({r['not_invoice_files']['invoices_wrongly_extracted']}). "
+        f"Extra invoices in other files: {r['extra_invoices'] or 'none'}.",
+        f"Prompt injection: {r['adversarial'] or 'none'}.",
+        f"Discounts and charges: {r['adjustments']['all_lines_right']} of "
+        f"{r['adjustments']['invoices']} invoices read every line right; "
+        f"{r['adjustments']['flagged_r05']} flagged by R05.",
+        "",
+        f"Tokens: {r['tokens']['total']} in total ({r['tokens']['input']} input, "
+        f"{r['tokens']['output']} output); per completed document mean "
         f"{r['tokens']['per_document']['mean']}, p95 {r['tokens']['per_document']['p95']}. "
         f"By purpose: {r['tokens']['by_purpose']}. Calls: {r['tokens']['calls_by_purpose']}.",
         f"Job attempts: {r['job_attempts']}.",

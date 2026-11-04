@@ -34,6 +34,48 @@ logger = logging.getLogger(__name__)
 RETRY_STATUS = {408, 429, 500, 502, 503, 504}
 
 
+class CallRateLimiter:
+    """Keeps calls under a per-minute quota (free tiers count requests per minute)."""
+
+    def __init__(self, per_minute: int | None, window_s: float = 60.0) -> None:
+        self.per_minute = per_minute
+        self.window_s = window_s
+        self._calls: list[float] = []
+        self._lock = threading.Lock()
+
+    def acquire(self) -> float:
+        """Wait for a free slot. Returns the seconds waited."""
+        if not self.per_minute:
+            return 0.0
+        waited = 0.0
+        while True:
+            with self._lock:
+                now = time.monotonic()
+                self._calls = [t for t in self._calls if t > now - self.window_s]
+                if len(self._calls) < self.per_minute:
+                    self._calls.append(now)
+                    return waited
+                pause = self._calls[0] + self.window_s - now
+            time.sleep(pause)
+            waited += pause
+
+
+def retry_delay(exc: genai_errors.APIError) -> float | None:
+    """The server's own retryDelay hint on a 429, in seconds, if it sent one."""
+    try:
+        for item in exc.details["error"].get("details", []):  # type: ignore[index]
+            delay = str(item.get("retryDelay", ""))
+            if delay.endswith("s"):
+                return float(delay[:-1])
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return None
+    return None
+
+
+MAX_DELAY_S = 60.0
+QUOTA_DELAY_S = 15.0  # a per-minute quota needs more than a few seconds to refill
+
+
 class LlmError(Exception):
     """A call failed after its retries (network, quota or server). Safe to retry later."""
 
@@ -112,9 +154,13 @@ class GeminiClient:
         timeout_s: float = 90,
         max_retries: int = 4,
         backoff_s: float = 2.0,
+        calls_per_minute: int | None = None,
+        quota_delay_s: float = QUOTA_DELAY_S,
         sdk: genai.Client | None = None,
     ) -> None:
+        self._quota_delay_s = quota_delay_s
         self._semaphore = threading.BoundedSemaphore(max_concurrency)
+        self._rate = CallRateLimiter(calls_per_minute)
         self._max_retries = max_retries
         self._backoff_s = backoff_s
         # The SDK's own retries are off; this class retries, so it can count and log them.
@@ -139,7 +185,11 @@ class GeminiClient:
     def _with_retries(self, purpose: str, call):  # type: ignore[no-untyped-def]
         """Run `call()` under the semaphore, retrying 408, 429, 5xx and timeouts."""
         for attempt in range(1, self._max_retries + 2):
+            hint = None
             try:
+                waited = self._rate.acquire()
+                if waited:
+                    logger.info("llm %s waited %.1fs for the per-minute quota", purpose, waited)
                 with self._semaphore:
                     return call(), attempt
             except genai_errors.APIError as exc:
@@ -147,12 +197,16 @@ class GeminiClient:
                     logger.warning("llm %s failed: HTTP %s", purpose, exc.code)
                     raise LlmError(f"Gemini call failed with HTTP {exc.code}") from None
                 reason = f"HTTP {exc.code}"
+                if exc.code == 429:
+                    hint = max(retry_delay(exc) or 0.0, self._quota_delay_s)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 if attempt > self._max_retries:
                     logger.warning("llm %s failed: %s", purpose, type(exc).__name__)
                     raise LlmError("Gemini call failed: network error or timeout") from None
                 reason = type(exc).__name__
             delay = self._backoff_s * 2 ** (attempt - 1) * (1 + random.random() / 4)  # noqa: S311
+            if hint is not None:
+                delay = min(max(delay, hint), MAX_DELAY_S)
             logger.info("llm %s attempt %d: %s, retry in %.1fs", purpose, attempt, reason, delay)
             time.sleep(delay)
         raise AssertionError("unreachable")
@@ -281,6 +335,7 @@ def get_llm_client(settings: Settings) -> GeminiClient:
         max_concurrency=settings.llm_max_concurrency,
         timeout_s=settings.llm_timeout_s,
         max_retries=settings.llm_max_retries,
+        calls_per_minute=settings.llm_calls_per_minute,
     )
 
 

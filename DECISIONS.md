@@ -688,3 +688,32 @@ The workflow runs only when asked (by hand, or when `eval/eval-request.txt` chan
 **Trade-off:** Synthetic layouts are cleaner than real invoices (D13), so accuracy is likely optimistic. Matching lines by amount alone can pair two lines with equal amounts the wrong way round; it never inflates the count.
 
 **In one sentence:** The evaluation measures the deployed pipeline end to end, scores with exact rules, and labels every limitation in the report.
+
+---
+
+## D52: A repaired PDF with damaged pages is corrupted; a blank page is not a hard page
+
+**Alternatives:** Reject every PDF that MuPDF had to repair, or process whatever a repaired file yields.
+
+**Why:** The first real evaluation run (4 November) showed both problems at once. A PDF cut at 30% of eight pages was rebuilt by MuPDF, which then listed all eight pages; five were empty because their content was lost. Each empty page went to OCR, scored confidence 0, and was sent to the vision model, which was overloaded, so a broken file cost minutes of retries and ended as a vague `JOB_FAILED`. Now:
+
+- If MuPDF had to repair the file and a page then reports missing content ("format error", "cannot load", "non-page object"), the file fails at once with `CORRUPTED_FILE` and names the page. A repaired file whose pages read cleanly still goes through, because small cross-reference faults are common in real PDFs and their content is intact. A test covers each case.
+- A page that is blank after cleanup (under 0.2% dark pixels) gets no OCR and no confidence (`null`), and the vision fallback skips it. A blank page has nothing to read; sending it to a vision model wastes a call and time.
+
+MuPDF's own stderr messages are switched off and read through `mupdf_warnings()` instead.
+
+**Trade-off:** A damaged file whose readable pages hold good invoices is rejected whole. For finance documents that is the safer failure: a cut-off file can silently miss invoices, and the person can upload a good copy.
+
+**In one sentence:** Broken files fail fast with the right code, and blank pages cost nothing.
+
+---
+
+## D53: The Gemini client stays under the per-minute quota and honours the server's retry hint
+
+**Alternatives:** Rely on retries with short exponential backoff alone (the first design), or process documents more slowly.
+
+**Why:** In the first real evaluation run, every document that completed was extracted perfectly, but 9 of 26 failed after three attempts with Gemini errors. Digital documents finish in about three seconds, so the worker called the model faster than a free-tier per-minute quota allows, and retries after 2 and 4 seconds could not wait out a quota that refills per minute. Now the client keeps a sliding window of calls and waits before a call that would exceed `LLM_CALLS_PER_MINUTE` (12 by default, per process). On HTTP 429 it waits at least 15 seconds, or longer if the server's `RetryInfo.retryDelay` says so, capped at 60 seconds. Embedding calls are recorded as `llm_call` events too, so tokens per document include them.
+
+**Trade-off:** A busy batch is slower by design: 12 calls a minute means about 12 single-page documents a minute. On a paid tier, raising the setting is a configuration change. The limit is per process, which with one worker is the whole deployment.
+
+**In one sentence:** Pace the calls to fit the quota instead of retrying into it.

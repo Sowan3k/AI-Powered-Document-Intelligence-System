@@ -210,6 +210,8 @@ def test_full_pipeline_then_search_and_correct(env: Env) -> None:
     for step in ("uploaded", "job_queued", "job_started", "ingested", "extracted", "validated",
                  "completed", "job_succeeded"):  # fmt: skip
         assert step in history, step
+    purposes = {e["detail"]["purpose"] for e in doc["history"] if e["event"] == "llm_call"}
+    assert purposes == {"extract_invoices", "embed"}  # embeddings are counted too
 
     results = env.get(f"/api/documents/{multi['document_id']}/results?include_pages=true").json()
     truth = env.truth("multi_invoice.pdf")["invoices"]

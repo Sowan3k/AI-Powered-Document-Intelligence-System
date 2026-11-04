@@ -159,7 +159,7 @@ class Worker:
                 session, self.storage, self.llm, job.document_id, self.settings, job
             )
         if job.job_type == queue.JOB_INDEX:
-            return reindex(session, self.llm, job.document_id, self.settings)
+            return reindex(session, self.llm, job.document_id, self.settings, job)
         raise ValueError(f"unknown job type {job.job_type!r}")
 
     def run(self) -> None:

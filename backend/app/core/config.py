@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     llm_max_concurrency: int = Field(default=2, ge=1, le=32)
     llm_timeout_s: float = Field(default=90, gt=0)
     llm_max_retries: int = Field(default=4, ge=0, le=10)  # on 429, 5xx and timeouts
+    llm_calls_per_minute: int | None = Field(default=12, ge=1)  # stay under free-tier quotas
 
     # Auth for the single demo account (Phase 4).
     jwt_secret: SecretStr | None = None

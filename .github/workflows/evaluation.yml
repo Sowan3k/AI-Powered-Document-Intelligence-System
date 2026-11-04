@@ -53,8 +53,8 @@ jobs:
       GEMINI_VISION_MODEL: gemini-3.8-flash
       GEMINI_EMBED_MODEL: gemini-embedding-2
       EMBED_DIM: "768"
-      # Fewer retries per call, so a busy vision model falls back sooner (D44).
-      LLM_MAX_RETRIES: "2"
+      # A busy vision model falls back after these retries (D44); 429s wait out the quota (D53).
+      LLM_MAX_RETRIES: "3"
       JOB_BACKOFF_S: "10"
       PYTHONPATH: .:../eval/generate
     steps:

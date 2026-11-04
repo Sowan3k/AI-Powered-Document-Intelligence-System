@@ -80,3 +80,31 @@ def test_encrypted_pdf_message_names_no_password(synthetic_dir: Path) -> None:
     with pytest.raises(IngestError) as info:
         list(pdf.iter_pages(synthetic_dir / "encrypted.pdf", Settings()))
     assert "password protected" in info.value.message
+
+
+def test_repaired_pdf_with_intact_pages_is_read(tmp_path: Path, synthetic_dir: Path) -> None:
+    # A wrong startxref offset makes MuPDF rebuild the file; the pages are all there.
+    data = (synthetic_dir / "multi_invoice.pdf").read_bytes()
+    marker = data.rindex(b"startxref")
+    broken = data[:marker] + b"startxref\n1\n%%EOF\n"
+    (tmp_path / "xref.pdf").write_bytes(broken)
+    assert pymupdf.open(tmp_path / "xref.pdf").is_repaired
+    pages = list(pdf.iter_pages(tmp_path / "xref.pdf", Settings()))
+    assert len(pages) == 4 and all("INV-2026-" in p.text for p in pages)
+
+
+def test_pdf_cut_short_is_corrupted_even_when_mupdf_can_repair_it(tmp_path: Path) -> None:
+    # Eight pages cut at 30%: MuPDF finds all eight, but most lost their content.
+    import random
+
+    from synth import layouts
+    from synth.model import make_invoice
+
+    rng = random.Random(3)
+    doc = layouts.invoice_pdf([(make_invoice(rng, n), "classic") for n in range(8)])
+    data = doc.tobytes()
+    (tmp_path / "cut.pdf").write_bytes(data[: int(len(data) * 0.3)])
+    with pytest.raises(IngestError) as info:
+        list(pdf.iter_pages(tmp_path / "cut.pdf", Settings()))
+    assert info.value.code is IngestErrorCode.CORRUPTED_FILE
+    assert "damaged" in info.value.message or "cannot" in info.value.message

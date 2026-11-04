@@ -63,10 +63,18 @@ def test_multi_page_tiff(synthetic_dir: Path) -> None:
     assert all(p.text for p in pages)
 
 
-@pytest.mark.tesseract
-def test_blank_image_gives_empty_text_and_zero_confidence() -> None:
+def test_blank_image_is_not_sent_anywhere() -> None:
+    # No Tesseract run and no confidence: a blank page is not a hard page.
     result = ocr.ocr_image(np.full((800, 1700), 255, np.uint8))
-    assert result.text == "" and result.confidence == 0.0
+    assert result.text == "" and result.confidence is None
+
+
+@pytest.mark.tesseract
+def test_page_with_marks_but_no_words_gets_zero_confidence() -> None:
+    image = np.full((800, 1700), 255, np.uint8)
+    cv2.rectangle(image, (100, 100), (1500, 600), 0, 8)  # a frame, no text
+    result = ocr.ocr_image(image)
+    assert result.confidence is not None and result.confidence < 60
 
 
 def test_tesseract_timeout_gives_empty_page(monkeypatch: pytest.MonkeyPatch) -> None:

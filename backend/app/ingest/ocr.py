@@ -21,10 +21,13 @@ MAX_SKEW = 10.0  # degrees searched each way
 TESSERACT_CONFIG = "--oem 1 --psm 3"
 
 
+BLANK_INK = 0.002  # under 0.2% dark pixels after cleanup: nothing printed on the page
+
+
 @dataclass(frozen=True)
 class OcrResult:
     text: str
-    confidence: float  # 0 to 100
+    confidence: float | None  # 0 to 100; None for a blank page, which has nothing to read
     skew_degrees: float
 
 
@@ -136,7 +139,15 @@ def run_tesseract(binary: np.ndarray, timeout_s: int) -> tuple[str, float]:
     return "\n".join(out), round(mean, 2)
 
 
+def is_blank(binary: np.ndarray) -> bool:
+    dark = binary.size - cv2.countNonZero(binary)
+    return dark / binary.size < BLANK_INK
+
+
 def ocr_image(image: np.ndarray, timeout_s: int = 120) -> OcrResult:
     binary, angle = clean_image(image)
+    if is_blank(binary):
+        # A blank page is not a hard page: no OCR, and no vision fallback either.
+        return OcrResult(text="", confidence=None, skew_degrees=angle)
     text, confidence = run_tesseract(binary, timeout_s)
     return OcrResult(text=text, confidence=confidence, skew_degrees=angle)

@@ -22,6 +22,11 @@ from app.ingest.schemas import PageContent
 
 logger = logging.getLogger(__name__)
 
+# MuPDF prints repair notices to stderr; read them through mupdf_warnings() instead.
+pymupdf.TOOLS.mupdf_display_errors(False)
+# Signs that a page of a repaired file lost content: the file is damaged, not just untidy.
+DAMAGE_SIGNS = ("format error", "cannot load", "non-page object", "syntax error")
+
 
 @contextmanager
 def open_pdf(path: Path) -> Iterator[pymupdf.Document]:
@@ -69,6 +74,7 @@ def iter_pages(path: Path, settings: Settings) -> Iterator[PageContent]:
 
 
 def _read_page(doc: pymupdf.Document, index: int, settings: Settings) -> PageContent:
+    pymupdf.TOOLS.mupdf_warnings(reset=True)
     try:
         page = doc.load_page(index)
         text = page.get_text("text", sort=True)
@@ -76,6 +82,15 @@ def _read_page(doc: pymupdf.Document, index: int, settings: Settings) -> PageCon
         raise IngestError(
             IngestErrorCode.CORRUPTED_FILE, f"page {index + 1} of the PDF cannot be read"
         ) from None
+    if doc.is_repaired:
+        # MuPDF rebuilt a broken file. Many such files are fine, but a page that
+        # reports missing content means the file was cut short or damaged.
+        warnings = pymupdf.TOOLS.mupdf_warnings(reset=True).lower()
+        if any(sign in warnings for sign in DAMAGE_SIGNS):
+            raise IngestError(
+                IngestErrorCode.CORRUPTED_FILE,
+                f"the PDF is damaged: page {index + 1} has missing or broken content",
+            )
     if not is_scanned(text, settings.scanned_page_min_chars):
         return PageContent(page_number=index + 1, text=text.strip(), method=PageMethod.DIGITAL)
     image = render_gray(page, settings.ocr_dpi)

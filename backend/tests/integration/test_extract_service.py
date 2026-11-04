@@ -196,3 +196,20 @@ def test_vision_outage_keeps_the_ocr_text(
     assert page.method is PageMethod.OCR and page.text == ocr_text
     [failed] = events(db, doc, "vision_failed")
     assert len(failed.detail["errors"]) == 2  # vision model, then the text model
+
+
+def test_blank_scanned_page_never_goes_to_vision(
+    db: Session, storage: LocalStorage, settings: Settings, tmp_path: Path
+) -> None:
+    import pymupdf
+
+    blank = pymupdf.open()
+    blank.new_page()
+    blank.save(tmp_path / "blank.pdf")
+    doc = ingested(db, storage, tmp_path / "blank.pdf", settings)
+    [page] = db.scalars(select(Page).where(Page.document_id == doc.id))
+    assert page.method is PageMethod.OCR and page.ocr_confidence is None
+    fake = FakeLlmClient([])
+    outcome = extract_document(db, storage, fake, doc.id, settings)
+    assert outcome is not None and outcome.vision_pages == 0
+    assert fake.calls == []  # a blank window makes no call at all

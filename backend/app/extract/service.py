@@ -187,7 +187,8 @@ def _vision_fallback(
         p.page_number: p
         for p in pages
         if p.method is PageMethod.OCR
-        and (p.ocr_confidence or 0) < settings.ocr_confidence_threshold
+        and p.ocr_confidence is not None  # None: a blank page, nothing to read
+        and p.ocr_confidence < settings.ocr_confidence_threshold
     }
     if not weak:
         return

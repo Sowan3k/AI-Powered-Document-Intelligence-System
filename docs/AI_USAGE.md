@@ -105,3 +105,7 @@ How it was verified: lint, typecheck and a production build, then an automated w
 
 AI-generated: the evaluation runner (`eval/run_eval.py`), the Evaluation workflow, the new planted labels in the generator, and decision D51. The runner was first checked with the fake model, which found three bugs in its own scoring before any real tokens were spent. Real numbers come only from the GitHub Actions run with the Gemini key.
 
+### 4 Nov 2026, first real evaluation run and fixes (Claude Code)
+
+The first real run measured perfect extraction on every completed document, and exposed two real problems the fake-model tests could not: free-tier rate limits, and a truncated PDF that MuPDF repairs into empty pages. Claude Code traced both from the run's log and a local reproduction, then wrote the fixes (D52, D53) and their tests. The numbers in `docs/EVALUATION.md` come from runs in GitHub Actions, not from the sandbox.
+

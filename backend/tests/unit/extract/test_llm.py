@@ -59,6 +59,7 @@ def client(outcomes: list, **kwargs) -> tuple[GeminiClient, FakeModels]:  # type
     models = FakeModels(outcomes)
     sdk = SimpleNamespace(models=models)
     kwargs.setdefault("backoff_s", 0)
+    kwargs.setdefault("quota_delay_s", 0)
     return GeminiClient(SecretStr("fake-key"), sdk=sdk, **kwargs), models  # type: ignore[arg-type]
 
 
@@ -210,3 +211,36 @@ def test_fake_reply_is_json() -> None:
     fake = FakeLlmClient([Answer(total="1")])
     reply = fake.generate(purpose="p", model="m", system="s", turns=[])
     assert json.loads(reply.text) == {"total": "1"}
+
+
+def test_rate_limiter_spaces_calls() -> None:
+    from app.extract.llm import CallRateLimiter
+
+    limiter = CallRateLimiter(per_minute=2, window_s=0.3)
+    started = time.monotonic()
+    waits = [limiter.acquire() for _ in range(4)]
+    assert waits[:2] == [0.0, 0.0]
+    assert waits[2] > 0 and time.monotonic() - started >= 0.3
+
+
+def test_rate_limiter_off() -> None:
+    from app.extract.llm import CallRateLimiter
+
+    assert CallRateLimiter(None).acquire() == 0.0
+
+
+def test_quota_error_waits_as_the_server_asks(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.extract import llm as llm_module
+
+    slept: list[float] = []
+    monkeypatch.setattr(llm_module.time, "sleep", slept.append)
+    quota = genai_errors.APIError(
+        429,
+        {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "details": [
+            {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "21s"}]}},
+    )  # fmt: skip
+    c, models = client([quota, api_error(429), ok_response()], backoff_s=1, quota_delay_s=15)
+    assert call(c).usage.attempts == 3
+    waits = [x for x in slept if x >= 1]  # the fake SDK itself sleeps 0.01 s per call
+    assert waits == [21.0, 15.0]  # the server's hint, then at least the quota delay
+    assert llm_module.retry_delay(api_error(500)) is None

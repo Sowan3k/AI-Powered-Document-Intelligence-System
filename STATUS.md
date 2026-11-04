@@ -4,7 +4,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) done on 4 Nov (CI run 14). Phase 4 (API, job queue, search) checklist done on 4 Nov (CI run 19); its exit test waits for the merge to `main`. Phase 5 (frontend) checklist done on 4 Nov (CI run 21). Exit tests for Phases 4 and 5 need the merge to `main`. Phase 6 (evaluation): runner and workflow built, first real run started.
+**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) done on 4 Nov (CI run 14). Phase 4 (API, job queue, search) checklist done on 4 Nov (CI run 19); its exit test waits for the merge to `main`. Phase 5 (frontend) checklist done on 4 Nov (CI run 21). Exit tests for Phases 4 and 5 need the merge to `main`. Phase 6 (evaluation): first real run done, fixes in, second run next.
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -25,7 +25,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Phase 4 exit test: after the merge, upload a mixed batch on the live site and search it. Claude Code can run it once the backend is live.
 3. Sowan: merge the session branch into `main`, then in Render check that `DEMO_PASSWORD` is set (Render generates `JWT_SECRET` itself). Then log in through `/api/docs` with user `reviewer`.
 4. After the merge: check the live site on a phone (sign in, upload, review, search, reconcile).
-5. Claude Code reads the first real evaluation run and writes `docs/EVALUATION.md` from it.
+5. Claude Code runs the evaluation again after the fixes (D52, D53) and writes `docs/EVALUATION.md` from it.
 
 **Blockers:** None.
 
@@ -37,6 +37,13 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Whether a few real public invoice samples can be added to the evaluation set.
 
 ## Session log
+
+### 4 Nov 2026, first real evaluation run (Claude Code)
+
+Evaluation run 1 (GitHub Actions, real Gemini, scale 2, 35 files, 26 minutes). Every document that completed was read perfectly: 16 of 16 invoices, all eight fields 100%, line items 55 of 55, every planted error caught, no false flags on clean invoices, about 1,400 tokens per document. But 9 documents failed with `JOB_FAILED` after three attempts each, and `truncated.pdf` got `JOB_FAILED` instead of `CORRUPTED_FILE`.
+
+Causes and fixes: the worker called Gemini faster than the free tier's per-minute quota, and short retries could not wait it out. The client now paces calls (`LLM_CALLS_PER_MINUTE`) and honours the 429 retry hint (D53). The truncated PDF was "repaired" by MuPDF into eight pages, five of them empty, which went to the overloaded vision model. Damaged pages in a repaired PDF now fail the file as `CORRUPTED_FILE`, and blank pages skip OCR and vision (D52). Embedding calls are now counted in tokens. Added a time budget to the runner so a slow run still reports. 344 tests pass.
+
 
 ### 4 Nov 2026, Phase 6 start (Claude Code)
 

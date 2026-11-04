@@ -44,7 +44,7 @@ def process_document(
     if extract_document(session, storage, llm, document_id, settings, job) is None:
         return Outcome(False, _code(session, document_id))
     validate_document(session, document_id, settings, job)
-    index_document(session, llm, document_id, settings)
+    _record(session, document_id, job, index_document(session, llm, document_id, settings))
     document = session.get(Document, document_id)
     assert document is not None  # noqa: S101 (ingest found it)
     document.status = DocumentStatus.COMPLETED
@@ -56,10 +56,29 @@ def process_document(
 
 
 def reindex(
-    session: Session, llm: LlmClient | None, document_id: uuid.UUID, settings: Settings
+    session: Session,
+    llm: LlmClient | None,
+    document_id: uuid.UUID,
+    settings: Settings,
+    job: Job | None = None,
 ) -> Outcome:
-    index_document(session, llm, document_id, settings)
+    _record(session, document_id, job, index_document(session, llm, document_id, settings))
     return Outcome(True)
+
+
+def _record(session: Session, document_id: uuid.UUID, job: Job | None, usages) -> None:  # type: ignore[no-untyped-def]
+    """Embedding calls count like every other model call (tokens per document)."""
+    for usage in usages:
+        session.add(
+            ProcessingEvent(
+                document_id=document_id,
+                job_id=job.id if job else None,
+                event="llm_call",
+                detail=usage.as_detail(),
+            )
+        )
+    if usages:
+        session.commit()
 
 
 def _code(session: Session, document_id: uuid.UUID) -> str | None:

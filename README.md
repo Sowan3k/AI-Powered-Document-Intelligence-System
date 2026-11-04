@@ -50,7 +50,7 @@ The API never waits on slow work: it stores and queues, and the worker claims jo
 
 ## Evaluation
 
-From evaluation run 4 with the real Gemini models, on 36 synthetic files holding 87 labelled invoices: **all 8 fields 100% correct on 87 of 87 invoices**, line items 211 of 211, every planted validation error caught (10 of 10) with 1 false flag in 77 clean invoices, all 9 broken files rejected with the right code, and no failed documents. About 2,780 tokens per document. The data is synthetic and cleaner than real invoices, so real accuracy will be lower; the weak spots are listed in the report.
+From evaluation run 5 with the real Gemini models, on 44 synthetic files holding 91 labelled invoices: **all 8 fields 100% correct on 91 of 91 invoices**, line items 224 of 224, every planted validation error caught (12 of 12) with 1 false flag in 80 clean invoices, all 9 broken files rejected with the right code, 4 of 4 files that are not invoices left empty, a prompt-injection invoice read correctly, and no failed documents. Tokens: 2,464 per document on average. **Cost at paid Gemini prices: about $0.0015 per invoice ($1.50 per 1,000), before thinking tokens**; output tokens are 92% of it. The data is synthetic and cleaner than real invoices, so real accuracy will be lower; the weak spots are listed in the report.
 
 Full method and results, including the weak spots: [docs/EVALUATION.md](docs/EVALUATION.md).
 

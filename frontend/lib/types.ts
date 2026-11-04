@@ -144,7 +144,7 @@ export type ReviewItem = Invoice & {
 
 export type SearchHit = Invoice & { filename: string; score: number | null; line_items: LineItem[] };
 
-export type SearchResponse = Page<SearchHit> & { mode: "keyword" | "semantic"; query: string | null };
+export type SearchResponse = Page<SearchHit> & { mode: "keyword" | "semantic" | "hybrid"; query: string | null };
 
 export type ReconcileSide = {
   invoice_id: string;

@@ -229,7 +229,7 @@ class SearchHit(InvoiceOut):
 
 
 class SearchResponse(BaseModel):
-    mode: Literal["keyword", "semantic"]
+    mode: Literal["keyword", "semantic", "hybrid"]
     query: str | None
     items: list[SearchHit]
     total: int

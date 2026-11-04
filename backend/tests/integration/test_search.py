@@ -95,3 +95,27 @@ def test_embedding_text_uses_the_d31_document_format(db: Session, corpus: Docume
     text = embedding_text(inv)
     assert text.startswith(f"title: Invoice {inv.invoice_number} from {inv.supplier_name} | text: ")
     assert "Items: Toner cartridge" in text
+
+
+def test_hybrid_finds_exact_codes_and_loose_words(db: Session, corpus: Document) -> None:
+    mine = Filters(document_id=corpus.id)
+    # An exact number: keyword ranks it first, semantic agrees or not; fusion keeps it first.
+    assert numbers(db, mode="hybrid", q="INV-2026-0008", llm=FakeLlmClient(), filters=mine)[0] == (
+        "INV-2026-0008"
+    )
+    # Loose words that full text cannot match: the semantic list carries the answer.
+    assert numbers(db, mode="keyword", q="steel bolts rivets", filters=mine) == []
+    loose = numbers(db, mode="hybrid", q="steel bolts rivets", llm=FakeLlmClient(), filters=mine)
+    assert loose[0] == "INV-2026-0008"
+    hits, total = search(
+        db, mode="hybrid", q="toner", filters=mine, settings=SETTINGS, llm=FakeLlmClient()
+    )
+    assert total == 3 and hits[0].invoice.invoice_number == "INV-2026-0007"
+    assert hits[0].score > hits[1].score  # in both lists beats in one
+
+
+def test_hybrid_falls_back_to_keyword_without_the_model(db: Session, corpus: Document) -> None:
+    found = numbers(db, mode="hybrid", q="toner", llm=None, filters=Filters(document_id=corpus.id))
+    assert found == ["INV-2026-0007"]
+    with pytest.raises(ValueError):
+        numbers(db, mode="hybrid", q=None, llm=None)

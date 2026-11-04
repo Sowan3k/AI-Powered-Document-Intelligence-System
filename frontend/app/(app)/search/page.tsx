@@ -23,15 +23,18 @@ export default function SearchPage() {
 function SearchView() {
   const params = useSearchParams();
   const initial = params.get("q") ?? "";
-  const [mode, setMode] = useState<"keyword" | "semantic">("keyword");
+  // Best match (hybrid, D68) by default: exact codes and loose descriptions both work.
+  const [mode, setMode] = useState<"hybrid" | "keyword" | "semantic">("hybrid");
   // A search typed on Home runs at once.
-  const [path, setPath] = useState<string | null>(initial ? `/api/search${query({ mode: "keyword", limit: 50, q: initial })}` : null);
+  const [path, setPath] = useState<string | null>(initial ? `/api/search${query({ mode: "hybrid", limit: 50, q: initial })}` : null);
   const { data, error, loading, slow } = useApi<SearchResponse>(path);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = Object.fromEntries(new FormData(event.currentTarget)) as Form;
-    setPath(`/api/search${query({ mode, limit: 50, ...form })}`);
+    // With no words, best match lists everything that fits the filters.
+    const effective = mode === "hybrid" && !form.q?.trim() ? "keyword" : mode;
+    setPath(`/api/search${query({ mode: effective, limit: 50, ...form })}`);
   }
 
   return (
@@ -40,7 +43,7 @@ function SearchView() {
       <Card>
         <form onSubmit={submit} className="flex flex-col gap-3">
           <div role="radiogroup" aria-label="Search mode" className="flex gap-1 rounded-lg bg-neutral-100 p-1 text-sm dark:bg-neutral-800">
-            {(["keyword", "semantic"] as const).map((m) => (
+            {(["hybrid", "keyword", "semantic"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -49,17 +52,17 @@ function SearchView() {
                 onClick={() => setMode(m)}
                 className={`flex-1 rounded-md px-3 py-2 ${mode === m ? "bg-white font-medium shadow-sm dark:bg-neutral-950" : ""}`}
               >
-                {m === "keyword" ? "Exact words" : "By meaning"}
+                {m === "hybrid" ? "Best match" : m === "keyword" ? "Exact words" : "By meaning"}
               </button>
             ))}
           </div>
-          <Field label={mode === "keyword" ? "Words, numbers or names" : "Describe what you are looking for"}>
+          <Field label={mode === "keyword" ? "Words, numbers or names" : mode === "semantic" ? "Describe what you are looking for" : "Numbers, names or a description"}>
             <input
               name="q"
               defaultValue={initial}
               className={inputClass}
               required={mode === "semantic"}
-              placeholder={mode === "keyword" ? 'INV-2026-00007, "toner cartridge", acme -delivery' : "printer supplies bought in spring"}
+              placeholder={mode === "keyword" ? 'INV-2026-00007, "toner cartridge", acme -delivery' : mode === "semantic" ? "printer supplies bought in spring" : "INV-2026-00007 or printer supplies"}
             />
           </Field>
           <details>
@@ -104,6 +107,7 @@ function SearchView() {
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
             {data.total} result{data.total === 1 ? "" : "s"}
             {data.mode === "semantic" && ", closest meaning first"}
+            {data.mode === "hybrid" && ", best matches first (words and meaning combined)"}
           </p>
           {data.items.length === 0 && <Empty>Nothing matched. Try fewer words or wider filters.</Empty>}
           <ul className="flex flex-col gap-3">
@@ -124,7 +128,7 @@ function SearchView() {
                         )}
                       </div>
                       <div className="flex items-center gap-1">
-                        {hit.score !== null && <Badge tone="blue">{data.mode === "semantic" ? `${Math.round(hit.score * 100)}% match` : `rank ${hit.score.toFixed(2)}`}</Badge>}
+                        {hit.score !== null && data.mode !== "hybrid" && <Badge tone="blue">{data.mode === "semantic" ? `${Math.round(hit.score * 100)}% match` : `rank ${hit.score.toFixed(2)}`}</Badge>}
                         <StatusBadge status={hit.review_status} />
                       </div>
                     </div>

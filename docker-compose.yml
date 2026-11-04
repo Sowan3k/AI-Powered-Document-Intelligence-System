@@ -5,8 +5,11 @@
 #
 # Web app: http://localhost:3000    API docs: http://localhost:8000/api/docs
 #
-# The database password below is a local-only placeholder. Real keys (Gemini,
-# Supabase) go in a .env file beside this one, which Git ignores.
+# The database password and demo login below are local-only placeholders.
+# Uploaded files stay on the `uploads` volume, so no Supabase project is
+# needed. Spreadsheets and CSV files work without any key. PDFs and images need
+# GEMINI_API_KEY, GEMINI_MODEL, GEMINI_VISION_MODEL and GEMINI_EMBED_MODEL in a
+# .env file beside this one, which Git ignores.
 
 name: docintel
 
@@ -15,6 +18,12 @@ x-backend-env: &backend-env
   DATABASE_URL: postgresql+psycopg://docintel:${POSTGRES_PASSWORD:-docintel-local}@db:5432/docintel
   CORS_ORIGINS: http://localhost:3000
   EMBED_DIM: ${EMBED_DIM:-768}
+  # Files on a shared local volume instead of Supabase Storage (DECISIONS.md D32).
+  STORAGE_BACKEND: local
+  LOCAL_STORAGE_DIR: /data/uploads
+  # Local-only demo login (user "reviewer"). Override both in .env for anything shared.
+  DEMO_PASSWORD: ${DEMO_PASSWORD:-docintel-demo}
+  JWT_SECRET: ${JWT_SECRET:-local-only-signing-key-change-me}
 
 x-backend: &backend
   build: ./backend
@@ -23,6 +32,8 @@ x-backend: &backend
     - path: .env
       required: false
   environment: *backend-env
+  volumes:
+    - uploads:/data/uploads
   restart: unless-stopped
 
 services:
@@ -83,3 +94,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

@@ -4,36 +4,132 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 0 done on 4 Nov 2026. Next: Phase 1 (document ingestion).
+**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the exit tests on the live site for Phases 4 and 5 (they need the merge to `main`), and the Phase 7 items only Sowan can do.
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
 
 - Web app: https://docintel-tan-two.vercel.app (Vercel project `docintel`)
 - API: https://docintel-api-y25b.onrender.com (Render service `docintel-api`, Singapore, free plan). Docs at `/api/docs`, health at `/api/health`.
-- Render and Vercel deploy automatically from `main`. Work happens on the session branch; merging into `main` deploys it.
+- Render and Vercel deploy automatically from `main`. All work so far is on the session branch `sowan/admiring-gates-y0oyrm`; **nothing since Phase 0 is live yet.**
 
-**Supabase (set up by Sowan):** project created, `vector` and `pg_trgm` enabled in the `extensions` schema (on the search_path), private bucket `documents` with a 50 MB limit, Data API disabled. The backend uses SQLAlchemy over the pooler for the database and the Storage API only for files (D17). Code never creates buckets.
+**Supabase (set up by Sowan):** `vector` and `pg_trgm` in the `extensions` schema, private bucket `documents` (50 MB), Data API disabled. `SUPABASE_SERVICE_ROLE_KEY` holds an `sb_secret_` key, sent only in the `apikey` header (D32).
 
-**Gemini models (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` for text, `gemini-3.8-flash` for vision, `gemini-embedding-2` with `output_dimensionality=768`. The embedding model has no `task_type`: queries use the prefix `task: search result | query: ` and documents use `title: {title} | text: ` (D31). Phase 2 and Phase 4 must follow this.
+**Gemini (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` (text), `gemini-3.8-flash` (vision), `gemini-embedding-2` at 768 dimensions. The vision model answered HTTP 503 (overloaded) in every real run; the fallback to the text model read those pages (D44).
 
-**Next:**
+**Evaluation (run 4, real Gemini):** 87 of 87 invoices, all 8 fields 100%, line items 211 of 211, planted errors 10 of 10, 1 false flag in 77 clean invoices, all 9 broken files rejected correctly, no failed documents. See `docs/EVALUATION.md`.
 
-1. Claude Code starts Phase 1 (document ingestion).
-2. Sowan: tell Claude Code which kind of Supabase key is in `SUPABASE_SERVICE_ROLE_KEY` (the new `sb_secret_...` key or the legacy `service_role` key). Only the kind, never the value. Phase 1 needs it for Storage uploads.
-3. Sowan: add the `GEMINI_API_KEY` GitHub Actions secret before Phase 6, if not done yet.
+**Next, for Sowan (in order):**
+
+1. Merge `sowan/admiring-gates-y0oyrm` into `main`. Render and Vercel deploy by themselves.
+2. In Render, check these environment variables: `DEMO_PASSWORD` is set (pick one and put it in the submission email); `STORAGE_BACKEND=supabase` and the new defaults come from `render.yaml` (sync the Blueprint if Render asks). Optional: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` while `gemini-3.8-flash` stays overloaded; weak scans then skip a wait of about a minute.
+3. After the deploy: open the web app on your phone, sign in, upload a few files from the dataset (or your own), and check results, review, a correction, both searches and reconcile. Tell Claude Code what you see, and it will tick the exit tests for Phases 4 and 5.
+4. Record the walkthrough video (3 to 5 minutes) following the Phase 7 list.
+5. Decide repository access (invite the reviewers, or make it public; gitleaks scans the full history on every push and has been green).
+6. Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio.
 
 **Blockers:** None.
 
-**Note:** Render's free instance hours are shared across the workspace with BahasaBot and grab-realtime-demo. Idle services sleep and use no hours, but busy demos elsewhere eat into the same allowance during the review period.
+**Note:** Render's free instance hours are shared across the workspace with BahasaBot and grab-realtime-demo.
 
 **Open questions:**
 
 1. Repository access at submission: invite the reviewers, or make the repo public after a full secret scan.
-2. Whether a few real public invoice samples can be added to the evaluation set.
-3. Local file storage: docker-compose has no Supabase Storage. Phase 1 needs a storage interface with a local-disk backend for compose and tests, and Supabase in production.
+2. Real public invoice samples were not added to the evaluation (licensing and personal data). The report says so.
 
 ## Session log
+
+### 4 Nov 2026, frontend redesign and scale check (Claude Code)
+
+Sowan's review: people here prefer minimal steps and a visible live process. Rebuilt the web app around one Home screen (search, upload on pick, live processing, needs-attention cards with the problem and one-tap Approve, recent documents with filter chips), a floating live dock on every other screen, and a bottom tab bar on phones (D55). Backend: `GET /api/activity`, extraction progress per window, and the first error in the review queue. Checked the brief Sowan sent against the build: all seven tasks and nine deliverables are covered except the video.
+
+Scale check for the brief's 1,000-page PDFs: a 1,000-page digital PDF reads in 2.6 s with flat memory (160 MB peak); 143 extraction calls, about 12 minutes on the free tier. Scanned pages took 0.79 s each and first peaked at 290 MB; MuPDF's cache is now trimmed after every scanned page, which brought the peak to 211 MB.
+
+Tested: 353 backend tests, frontend lint, typecheck and build, and a new Chromium walk-through at iPhone size: sign-in from the start page, 6 files picked (upload at once, empty file explained), live steps on Home and in the dock on another tab ("AI is extracting the fields: ... (+3 more, 3 waiting)", "0/6 windows"), the problem shown on the attention card, one-tap Approve, quick search, the Failed filter, no console errors, no sideways scrolling.
+
+
+### 4 Nov 2026, evaluation run 4 and Phase 6 closed (Claude Code)
+
+Run 4 (real Gemini, 15 minutes): 27 documents completed, 9 broken files correctly rejected, 0 failures, every job on its first attempt. 87 of 87 invoices with all fields 100% correct (including the 37-page statement), line items 211 of 211, planted errors 10 of 10, 1 false flag (R04) in 77 clean invoices, 75,048 tokens in total. Wrote the results into `docs/EVALUATION.md` with the weak spots and what runs 1 to 3 found, and the summary into the README. Phase 6 checklist and exit test ticked (the optional real samples were not added). Phase 7 documents ticked: README, architecture, schema, security, AI usage, design decisions. CI run 32 green: 351 tests, coverage 96%.
+
+
+### 4 Nov 2026, evaluation run 3 and the embedding fix (Claude Code)
+
+Run 3 (15 minutes, down from 26): the truncated PDF now gets `CORRUPTED_FILE` and all 9 broken files get the right code; no rate-limit failures. Completed documents again 100% on every field and line item, all planted errors caught, no false flags. But all 10 documents with more than one invoice failed at the embedding step. The SDK sends a list of plain strings as one multi-part content, and `gemini-embedding-2` returns one vector for it. Fixed by sending one `Content` per text, proven with the real SDK against a fake transport (D54). A wrong-shaped reply is now final, not retried. Run 4 requested. 350 tests pass.
+
+
+### 4 Nov 2026, first real evaluation run (Claude Code)
+
+Evaluation run 1 (GitHub Actions, real Gemini, scale 2, 35 files, 26 minutes). Every document that completed was read perfectly: 16 of 16 invoices, all eight fields 100%, line items 55 of 55, every planted error caught, no false flags on clean invoices, about 1,400 tokens per document. But 9 documents failed with `JOB_FAILED` after three attempts each, and `truncated.pdf` got `JOB_FAILED` instead of `CORRUPTED_FILE`.
+
+Causes and fixes: the worker called Gemini faster than the free tier's per-minute quota, and short retries could not wait it out. The client now paces calls (`LLM_CALLS_PER_MINUTE`) and honours the 429 retry hint (D53). The truncated PDF was "repaired" by MuPDF into eight pages, five of them empty, which went to the overloaded vision model. Damaged pages in a repaired PDF now fail the file as `CORRUPTED_FILE`, and blank pages skip OCR and vision (D52). Embedding calls are now counted in tokens. Added a time budget to the runner so a slow run still reports. 344 tests pass.
+
+
+### 4 Nov 2026, Phase 6 start (Claude Code)
+
+CI run 21: all four jobs green on the Phase 5 commit. Phase 5 checklist ticked.
+
+Built `eval/run_eval.py` (D51): it generates the dataset, uploads every file, lets the real worker process the queue, and scores field accuracy, line item precision, recall and F1, document outcomes by cause, timing per path (mean and p95), validation detection and false flags, and tokens per document. A dry run with the fake model checked the scoring: every planted error detected, 0 false flags on 34 clean invoices, line items 66 of 66. Three scoring bugs were found and fixed on the way: the loop stopped while retries waited on backoff, spreadsheets were scored on line items they do not contain, and two deliberate reconciliation errors were not labelled as planted. New workflow "Evaluation": runs by hand, or when `eval/eval-request.txt` changes, with the real key.
+
+
+### 4 Nov 2026, Phase 5 build (Claude Code)
+
+Built the frontend: login, upload (several files, drag and drop, live status per file), documents list (status filter, pages, polls while anything runs), document page (fields beside the source text, confidence and evidence per field, issues, line items, inline correction with "mark as reviewed", correction history, processing history with model calls and tokens, retry and process-again buttons), review queue, search (keyword or by meaning, filters), and reconcile. Loading, empty, error and sleeping-backend states on every page. Decisions D49 and D50.
+
+Tested: lint, typecheck and production build pass. Ran the real API and worker on Postgres with the fake model, and the built web app, then drove it with Chromium at iPhone 13 size. Every step passed: redirect to login, a wrong password, upload of 7 files (5 completed, the empty and the encrypted file failed with their codes), detail page, review queue, correcting the planted wrong total (R05 cleared, status reviewed), keyword search, semantic search, reconciliation (2 matched, 1 mismatched, 1 only in A, 1 only in B), and the failed document's error. The page stayed 390 pixels wide on a 390-pixel screen. The only console error was the 401 from the deliberate wrong password.
+
+Found on the way: quantities showed four decimals ("12.0000"), now trimmed; reconciliation said "pages 2-2", now "page 2". Known limitation recorded as D50: a reconciliation workbook that repeats PDF invoices gets R06 duplicate errors.
+
+
+### 4 Nov 2026, Phase 4 build and real Gemini check (Claude Code)
+
+Real Gemini, first run (smoke test workflow with Sowan's key): all 4 digital invoices extracted with every field right and no flags, about 650 prompt tokens each. The vision model `gemini-3.8-flash` answered HTTP 503 (overloaded) five times and failed the run. Fix (D44): a weak page now tries the vision model, then the text model, then keeps its Tesseract text. The smoke test now also runs on pushes that change extraction code, since a manual run needs the workflow on `main`. Second run: 48 of 48 fields correct on 6 invoices (4 digital, 2 in the scanned PDF), 5,692 prompt and 4,220 output tokens in total. `gemini-3.8-flash` was still overloaded; `gemini-3.5-flash-lite` read both scanned pages.
+
+Built Phase 4: the job queue (`FOR UPDATE SKIP LOCKED`, heartbeats, stale recovery, backoff, final versus retryable failures), the pipeline (ingest, extract, validate, index), the worker, JWT login, per-IP rate limits, a request size cap, and every endpoint in PHASES.md, plus `GET /reconciliations/{id}`. Search: full text in two forms with weights, and semantic search on pgvector with the D31 query format. Upload code moved to `app/ingest/upload.py`, so the API process never loads OpenCV or PyMuPDF. Spreadsheets now process without a Gemini key, so `docker compose up` works for CSV and Excel with no keys at all. Decisions D44 to D48.
+
+Tested in the sandbox: ruff clean, 337 tests pass (77 new), coverage 95%, `alembic check` clean. Integration tests cover every endpoint, auth failures (missing, bad, forged and expired tokens), rate limits, a job that fails three times on HTTP 503 and then succeeds after `POST /jobs/{id}/retry`, an unreadable file that fails once without retries, two workers getting different jobs under `SKIP LOCKED`, and stale job recovery. Ran the API and worker as real processes on Postgres: upload a CSV, job succeeded, keyword search found it, the worker stopped cleanly on SIGTERM. CI's Docker job now runs the same flow inside the compose stack.
+
+CI run 19: all four jobs green, including the compose upload and search step. Phase 4 checklist ticked; the exit test waits for the live deploy.
+
+Fixed on the way, found by tests: `setweight()` rejected the weight as a bound parameter (now an inline literal), and negated search words slipped through (D47).
+
+
+### 4 Nov 2026, Phase 3 build (Claude Code)
+
+Built `app/validate`: rules R01 to R11 as small pure functions with `Decimal` and the money tolerance, duplicate rules R06 and R07 on Postgres with `pg_trgm` similarity, a service that stores issues and sets `needs_review` on any error, and reconciliation (number first, then supplier, date and total) stored in `reconciliations`. The generator gained planted cases for R04, R08, R06 and R07, and a PDF and workbook pair for reconciliation. They are added at the end of the build, so the existing fixtures did not change. Decisions D41 to D43.
+
+Tested in the sandbox: ruff clean, 300 tests pass (40 new), coverage 96%, `alembic check` clean. Exit test: 15 digital PDFs go through ingest, extraction with the fake model and validation. Every planted error gives exactly its rule (R05, R03, R04, R01 warnings for missing tax and customer, R08, R06, R07), and the clean invoices give no issues at all. The reconciliation of the PDF against the workbook finds the expected matched, mismatched, only-in-A and only-in-B invoices.
+
+CI run 14: all four jobs green. Phase 3 checklist ticked.
+
+Measured on the way: a one-letter OCR slip in a supplier name scores 0.53, so the supplier similarity default is 0.5, not 0.6 (D42).
+
+
+### 4 Nov 2026, Phase 2 build (Claude Code)
+
+Built `app/extract`: two-layer schemas (the model returns printed strings with confidence and evidence; code builds typed values), the Gemini client (semaphore, retries on 429, 5xx and timeouts, timeout, token log line per call), the schema-validated call with one retry on invalid output, prompts in `prompts.py`, windowed segmentation with merge rules, the evidence check, parsing of amounts, dates and currencies, spreadsheet column mapping (rules, then the model once per sheet), the vision fallback, and the service that stores invoices, line items and `llm_call` events. Added the manual "Gemini smoke test" workflow. Decisions D36 to D40; D12 updated (no pandas).
+
+Tested in the sandbox: ruff clean, 260 tests pass (113 new), coverage 96%, `alembic check` clean. The exit test uses a fake model that copies values exactly as the generator printed them: all 8 digital PDFs and 4 spreadsheets give the ground truth values, with nulls for the missing tax and customer, and no evidence flags. Other tests cover a reply that breaks the schema (retried once, then `EXTRACTION_FAILED`), an invented value (flagged, confidence halved), a page number outside the window, the vision path on the heavy-noise scan, and network errors that propagate for the job queue.
+
+Fixed on the way: Alembic's logging setup disabled every existing logger when migrations ran in the same process. It now keeps them (`disable_existing_loggers=False`). Production was not affected, since `start.sh` runs Alembic as its own process.
+
+Not tested: any call to the live Gemini API (no key in the sandbox). The smoke test workflow covers it.
+
+CI run 12: all four jobs green, including the Docker build with the Gemini SDK. Phase 2 checklist ticked.
+
+
+### 4 Nov 2026, Phase 1 build (Claude Code)
+
+Sowan confirmed three things: the Supabase key is an `sb_secret_` key, the `GEMINI_API_KEY` Actions secret exists (ticked in PHASES.md), and the live page shows "API healthy, database connected".
+
+Built Phase 1. `app/ingest`: detection by magic bytes, size, batch and page limits, PDF reader in page batches, scanned page detection, OpenCV cleanup and Tesseract OCR with a confidence per page, JPEG, PNG and multi-page TIFF, `.xlsx`, `.xls` and CSV readers (header detection, merged cells, empty rows, encoding and delimiter), and a service that stores uploads and writes `pages` and `sheets` rows. `app/storage`: one interface with Supabase and local disk backends, closing open question 3. `eval/generate/synth`: seeded generator for 26 fixture files with ground truth and a manifest. Compose now keeps files on an `uploads` volume. CI installs Tesseract and fails if OCR tests would skip. Decisions D32 to D35.
+
+Tested in the sandbox (Tesseract and Postgres with pgvector could be installed this time): ruff clean on backend and generator, 147 tests pass (101 new), coverage 95%, `alembic check` clean. The exit test passes: all 26 fixtures give the expected structure or failure code. OCR confidence on the test scans: 87 to 95 for light noise, about 45 for heavy noise. A test caught a real bug: openpyxl refuses a file with no `.xlsx` extension, which is how the worker saves downloads. Fixed by opening files by handle.
+
+Not tested here: the Docker image build and a real call to Supabase Storage (only a fake transport).
+
+CI run 10: all four jobs green. 147 tests passed, none skipped, with Tesseract required. The Docker job built the image with the new libraries and ran the compose stack. Phase 1 checklist and exit test ticked.
+
 
 ### 4 Nov 2026, Phase 0 closed (Claude Code)
 

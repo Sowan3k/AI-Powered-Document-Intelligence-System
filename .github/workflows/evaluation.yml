@@ -1,0 +1,94 @@
+name: Evaluation
+
+# The full pipeline on the labelled synthetic dataset, with the real Gemini API.
+# Spends tokens, so it runs only when asked: by hand (Actions tab, once this file
+# is on main), or when eval/eval-request.txt changes (edit the scale or the
+# reason in that file and push).
+on:
+  workflow_dispatch:
+    inputs:
+      scale:
+        description: "Dataset scale (1 is about 32 files)"
+        default: "2"
+  push:
+    paths:
+      - eval/eval-request.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evaluation
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: docintel_eval
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d docintel_eval"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENV: test
+      LOG_LEVEL: WARNING
+      # Throwaway database in a service container, not a secret.
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/docintel_eval
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      # Same models as Render (DECISIONS.md D31).
+      GEMINI_MODEL: gemini-3.5-flash-lite
+      GEMINI_VISION_MODEL: gemini-3.8-flash
+      GEMINI_EMBED_MODEL: gemini-embedding-2
+      EMBED_DIM: "768"
+      # A busy vision model falls back after these retries (D44); 429s wait out the quota (D53).
+      LLM_MAX_RETRIES: "3"
+      JOB_BACKOFF_S: "10"
+      PYTHONPATH: .:../eval/generate
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install Tesseract
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Apply migrations
+        run: alembic upgrade head
+
+      - name: Run the evaluation
+        run: |
+          scale="${{ github.event.inputs.scale }}"
+          if [ -z "$scale" ]; then
+            scale=$(grep -oE '^scale=[0-9]+' ../eval/eval-request.txt | cut -d= -f2 || true)
+          fi
+          python ../eval/run_eval.py --scale "${scale:-1}" --out ../eval/reports
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-report
+          path: eval/reports/
+          retention-days: 90

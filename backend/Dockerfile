@@ -22,9 +22,12 @@ RUN pip install -r requirements.txt
 COPY alembic.ini start.sh ./
 COPY app ./app
 
-# Run as a non-root user.
+# Run as a non-root user. /data/uploads holds files only when STORAGE_BACKEND=local
+# (docker-compose mounts a volume there); Render uses Supabase Storage.
 RUN useradd --create-home --uid 10001 docintel \
-    && chmod +x start.sh
+    && chmod +x start.sh \
+    && mkdir -p /data/uploads \
+    && chown docintel:docintel /data/uploads
 USER docintel
 
 EXPOSE 8000

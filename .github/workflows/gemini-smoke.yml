@@ -1,0 +1,55 @@
+name: Gemini smoke test
+
+# Runs real extraction on a few synthetic invoices with the GEMINI_API_KEY
+# secret, to prove the schema and prompts work against the live API. The
+# sandbox where the code is written has no key. Runs by hand (Actions tab, once
+# this file is on main), or on a push that changes the extraction code or this
+# test, so prompt changes are checked against the real model.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - backend/app/extract/**
+      - eval/smoke_extract.py
+      - .github/workflows/gemini-smoke.yml
+
+concurrency:
+  group: gemini-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      APP_ENV: test
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      # Model names are configuration, not secrets (DECISIONS.md D31).
+      GEMINI_MODEL: gemini-3.5-flash-lite
+      GEMINI_VISION_MODEL: gemini-3.8-flash
+      PYTHONPATH: .:../eval/generate
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install Tesseract
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Extract synthetic invoices with Gemini
+        run: python ../eval/smoke_extract.py

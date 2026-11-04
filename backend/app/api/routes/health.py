@@ -49,8 +49,8 @@ def live() -> LiveResponse:
 )
 def health(
     response: Response,
-    db: Session = Depends(get_db),  # noqa: B008
-    settings: Settings = Depends(get_settings),  # noqa: B008
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> HealthResponse:
     started = time.perf_counter()
     try:

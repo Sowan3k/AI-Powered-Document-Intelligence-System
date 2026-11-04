@@ -40,6 +40,8 @@ jobs:
       # Throwaway CI database in a service container, not a secret.
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/docintel_test
       TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/docintel_test
+      # OCR tests fail instead of skipping if Tesseract is missing.
+      REQUIRE_TESSERACT: "1"
     steps:
       - uses: actions/checkout@v5
 
@@ -49,14 +51,20 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
 
+      - name: Install Tesseract
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+          tesseract --version
+
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      - name: Ruff lint
-        run: ruff check .
+      - name: Ruff lint (backend and dataset generator)
+        run: ruff check . ../eval
 
       - name: Ruff format check
-        run: ruff format --check .
+        run: ruff format --check . ../eval
 
       - name: Apply migrations
         run: alembic upgrade head
@@ -137,6 +145,12 @@ jobs:
       - name: Tesseract is installed in the backend image
         run: docker run --rm docintel-backend:local tesseract --version
 
+      - name: Ingestion libraries load in the backend image
+        run: >-
+          docker run --rm docintel-backend:local python -c
+          "import cv2, pymupdf, pytesseract, openpyxl, xlrd, app.ingest.reader;
+          print('tesseract', pytesseract.get_tesseract_version(), 'pymupdf', pymupdf.__version__)"
+
       - name: Start the stack
         run: docker compose up -d --wait --wait-timeout 180
 
@@ -145,6 +159,27 @@ jobs:
           body=$(curl -sS --fail http://localhost:8000/api/health)
           echo "$body"
           echo "$body" | grep -q '"database":"connected"'
+
+      - name: Upload a CSV, let the worker process it, search for it
+        run: |
+          set -euo pipefail
+          api=http://localhost:8000/api
+          token=$(curl -sS --fail -X POST "$api/auth/login" -H 'Content-Type: application/json' \
+            -d '{"username":"reviewer","password":"docintel-demo"}' | jq -r .access_token)
+          auth="Authorization: Bearer $token"
+          printf 'Invoice No,Invoice Date,Supplier,Total,Currency\nINV-CI-0001,2026-10-01,Acme Traders Ltd,120.50,USD\n' > /tmp/ci.csv
+          job=$(curl -sS --fail -H "$auth" -F "files=@/tmp/ci.csv;type=text/csv" "$api/documents" \
+            | jq -r '.documents[0].job_id')
+          for _ in $(seq 1 30); do
+            state=$(curl -sS --fail -H "$auth" "$api/jobs/$job" | jq -r .status)
+            echo "job $job: $state"
+            [ "$state" = succeeded ] && break
+            [ "$state" = failed ] && exit 1
+            sleep 2
+          done
+          [ "$state" = succeeded ]
+          curl -sS --fail -H "$auth" "$api/search?q=INV-CI-0001" | tee /tmp/hits.json
+          jq -e '.total == 1 and .items[0].total == "120.50"' /tmp/hits.json
 
       - name: Web app responds
         run: curl -sS --fail -o /dev/null -w "%{http_code}\n" http://localhost:3000/

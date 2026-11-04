@@ -1,0 +1,126 @@
+"""Supabase Storage over its REST API (no Supabase client library, see D17).
+
+The key is a new-style secret key (`sb_secret_...`). It is not a JWT, so it goes
+only in the `apikey` header. Supabase rejects a secret key sent as
+`Authorization: Bearer`. The API gateway swaps the key for a service role token
+before the request reaches Storage.
+"""
+
+import logging
+import time
+from collections.abc import Callable, Iterator
+from pathlib import Path
+
+import httpx2 as httpx
+from pydantic import SecretStr
+
+from app.storage.base import StorageError, StorageNotFoundError, check_key
+
+logger = logging.getLogger(__name__)
+
+CHUNK = 1024 * 1024
+RETRIES = 3
+
+
+class SupabaseStorage:
+    def __init__(
+        self,
+        base_url: str,
+        secret_key: SecretStr,
+        bucket: str,
+        *,
+        timeout_s: float = 60,
+        client: httpx.Client | None = None,
+        backoff_s: float = 1.0,
+    ) -> None:
+        self._base = f"{base_url.rstrip('/')}/storage/v1/object/{bucket}"
+        self._key = secret_key
+        self._backoff_s = backoff_s
+        self._client = client or httpx.Client(timeout=timeout_s)
+
+    def _headers(self) -> dict[str, str]:
+        return {"apikey": self._key.get_secret_value()}
+
+    def _call(self, op: str, send: Callable[[], httpx.Response]) -> httpx.Response:
+        """Run one request with retries on network errors, 429 and 5xx."""
+        for attempt in range(1, RETRIES + 1):
+            try:
+                response = send()
+            except httpx.TransportError as exc:
+                logger.warning("storage %s attempt %d: %s", op, attempt, type(exc).__name__)
+                if attempt == RETRIES:
+                    raise StorageError(f"storage {op} failed: network error") from None
+            else:
+                if response.status_code < 400:
+                    return response
+                retryable = response.status_code == 429 or response.status_code >= 500
+                if not retryable or attempt == RETRIES:
+                    return response
+                logger.warning("storage %s attempt %d: HTTP %d", op, attempt, response.status_code)
+            time.sleep(self._backoff_s * 2 ** (attempt - 1))
+        raise AssertionError("unreachable")
+
+    @staticmethod
+    def _fail(op: str, response: httpx.Response) -> StorageError:
+        # Storage reports a missing object as 404, or as 400 with "not_found" in the body.
+        if response.status_code == 404 or (
+            response.status_code == 400 and "not_found" in response.text.lower()
+        ):
+            return StorageNotFoundError("object not found")
+        return StorageError(f"storage {op} failed with HTTP {response.status_code}")
+
+    def upload(self, key: str, source: Path, content_type: str) -> None:
+        check_key(key)
+        size = source.stat().st_size
+
+        def chunks() -> Iterator[bytes]:
+            with source.open("rb") as fh:
+                while block := fh.read(CHUNK):
+                    yield block
+
+        headers = {
+            **self._headers(),
+            "Content-Type": content_type,
+            "Content-Length": str(size),
+            # Keys are fresh UUIDs, so overwriting is safe and makes a retry harmless.
+            "x-upsert": "true",
+        }
+        response = self._call(
+            "upload",
+            lambda: self._client.post(f"{self._base}/{key}", content=chunks(), headers=headers),
+        )
+        if response.status_code >= 400:
+            raise self._fail("upload", response)
+
+    def download(self, key: str, dest: Path) -> None:
+        check_key(key)
+        for attempt in range(1, RETRIES + 1):
+            try:
+                with self._client.stream(
+                    "GET", f"{self._base}/{key}", headers=self._headers()
+                ) as r:
+                    if r.status_code >= 400:
+                        r.read()
+                        retryable = r.status_code == 429 or r.status_code >= 500
+                        if not retryable or attempt == RETRIES:
+                            raise self._fail("download", r)
+                    else:
+                        with dest.open("wb") as fh:
+                            for block in r.iter_bytes(CHUNK):
+                                fh.write(block)
+                        return
+            except httpx.TransportError as exc:
+                logger.warning("storage download attempt %d: %s", attempt, type(exc).__name__)
+                if attempt == RETRIES:
+                    raise StorageError("storage download failed: network error") from None
+            time.sleep(self._backoff_s * 2 ** (attempt - 1))
+
+    def delete(self, key: str) -> None:
+        check_key(key)
+        response = self._call(
+            "delete", lambda: self._client.delete(f"{self._base}/{key}", headers=self._headers())
+        )
+        if response.status_code >= 400:
+            error = self._fail("delete", response)
+            if not isinstance(error, StorageNotFoundError):
+                raise error

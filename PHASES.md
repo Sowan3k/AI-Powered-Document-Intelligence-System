@@ -39,20 +39,22 @@ Exit test: the Vercel page shows "API healthy, database connected" from the live
 
 Goal: every accepted file type turns into one common internal structure (pages or sheets of text with metadata), and bad files fail cleanly.
 
-- [ ] File type detection by magic bytes for PDF, JPG, PNG, TIFF, XLSX, XLS, CSV
-- [ ] Upload limits from config: file size, files per batch, pages per PDF
-- [ ] Digital PDF reader with PyMuPDF, page by page, in batches
-- [ ] Scanned page detection: a page with almost no extractable text is rendered to an image and sent to OCR
-- [ ] Image cleanup with OpenCV: grayscale, deskew, denoise, threshold
-- [ ] Tesseract OCR with a per-page mean confidence score
-- [ ] Multi-page TIFF support
-- [ ] Spreadsheet reader: every sheet, header row detection, empty row and merged cell handling, CSV encoding and delimiter detection
-- [ ] Clear failure codes: `UNSUPPORTED_TYPE`, `CORRUPTED_FILE`, `ENCRYPTED_PDF`, `EMPTY_FILE`, `TOO_LARGE`, `TOO_MANY_PAGES` (plus `ENCRYPTED_FILE` and `TOO_MANY_FILES`, D33)
-- [ ] Synthetic dataset generator in `eval/generate/` (see Phase 6), built now because the tests need fixtures
-- [ ] Unit tests for each reader, including a truncated PDF, an empty file and a renamed file
-- [ ] Storage interface: Supabase Storage in production, local disk for compose and tests (D32)
+- [x] File type detection by magic bytes for PDF, JPG, PNG, TIFF, XLSX, XLS, CSV
+- [x] Upload limits from config: file size, files per batch, pages per PDF
+- [x] Digital PDF reader with PyMuPDF, page by page, in batches
+- [x] Scanned page detection: a page with almost no extractable text is rendered to an image and sent to OCR
+- [x] Image cleanup with OpenCV: grayscale, deskew, denoise, threshold
+- [x] Tesseract OCR with a per-page mean confidence score
+- [x] Multi-page TIFF support
+- [x] Spreadsheet reader: every sheet, header row detection, empty row and merged cell handling, CSV encoding and delimiter detection
+- [x] Clear failure codes: `UNSUPPORTED_TYPE`, `CORRUPTED_FILE`, `ENCRYPTED_PDF`, `EMPTY_FILE`, `TOO_LARGE`, `TOO_MANY_PAGES` (plus `ENCRYPTED_FILE` and `TOO_MANY_FILES`, D33)
+- [x] Synthetic dataset generator in `eval/generate/` (see Phase 6), built now because the tests need fixtures
+- [x] Unit tests for each reader, including a truncated PDF, an empty file and a renamed file
+- [x] Storage interface: Supabase Storage in production, local disk for compose and tests (D32)
 
 Exit test: every fixture file produces either the expected text structure or the expected failure code.
+
+**Exit test passed on 4 Nov 2026.** CI run 10: 147 tests passed with none skipped (Tesseract required), including the manifest test over 26 generated files. The Docker job built the image and ran the compose stack.
 
 ---
 

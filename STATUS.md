@@ -4,7 +4,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 1 (document ingestion) built on 4 Nov 2026, waiting on CI. Next: Phase 2 (AI extraction).
+**Phase:** 1 done on 4 Nov 2026 (CI run 10 green). Phase 2 (AI extraction) in progress.
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -21,9 +21,8 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next:**
 
-1. Claude Code ticks the Phase 1 checklist once CI run 9 (or later) is green.
-2. Claude Code starts Phase 2 (AI extraction).
-3. Sowan: merge the session branch into `main` when ready. After the deploy, check Render logs show no error at startup. Storage is first used by the Phase 4 upload endpoint, so the first real Supabase Storage call happens then.
+1. Claude Code builds Phase 2 (AI extraction).
+2. Sowan: merge the session branch into `main` when ready. After the deploy, check Render logs show no error at startup. Storage is first used by the Phase 4 upload endpoint, so the first real Supabase Storage call happens then.
 
 **Blockers:** None.
 
@@ -44,7 +43,9 @@ Built Phase 1. `app/ingest`: detection by magic bytes, size, batch and page limi
 
 Tested in the sandbox (Tesseract and Postgres with pgvector could be installed this time): ruff clean on backend and generator, 147 tests pass (101 new), coverage 95%, `alembic check` clean. The exit test passes: all 26 fixtures give the expected structure or failure code. OCR confidence on the test scans: 87 to 95 for light noise, about 45 for heavy noise. A test caught a real bug: openpyxl refuses a file with no `.xlsx` extension, which is how the worker saves downloads. Fixed by opening files by handle.
 
-Not tested here: the Docker image build (CI does it) and a real call to Supabase Storage (only a fake transport).
+Not tested here: the Docker image build and a real call to Supabase Storage (only a fake transport).
+
+CI run 10: all four jobs green. 147 tests passed, none skipped, with Tesseract required. The Docker job built the image with the new libraries and ran the compose stack. Phase 1 checklist and exit test ticked.
 
 
 ### 4 Nov 2026, Phase 0 closed (Claude Code)

@@ -21,9 +21,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next:**
 
-1. Claude Code ticks Phase 4 once CI is green. The exit test (a mixed batch processed on the live Render service and searched) needs the branch merged into `main`.
-2. Sowan: merge the session branch into `main`, then in Render check that `DEMO_PASSWORD` is set (Render generates `JWT_SECRET` itself). Then log in through `/api/docs` with user `reviewer`.
-3. Claude Code builds Phase 5 (frontend).
+1. Sowan: decide on the vision model. In two smoke runs about 10 minutes apart, `gemini-3.8-flash` answered 503 (overloaded) on every try, and the fallback to `gemini-3.5-flash-lite` read both scanned pages correctly. Each weak page waits about 2.5 minutes on the busy model first. Option: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` in Render (and `render.yaml`) until Flash recovers. It is a config change, not a code change.
+2. Claude Code ticks Phase 4 once CI is green. The exit test (a mixed batch processed on the live Render service and searched) needs the branch merged into `main`.
+3. Sowan: merge the session branch into `main`, then in Render check that `DEMO_PASSWORD` is set (Render generates `JWT_SECRET` itself). Then log in through `/api/docs` with user `reviewer`.
+4. Claude Code builds Phase 5 (frontend).
 
 **Blockers:** None.
 
@@ -38,7 +39,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ### 4 Nov 2026, Phase 4 build and real Gemini check (Claude Code)
 
-Real Gemini, first run (smoke test workflow with Sowan's key): all 4 digital invoices extracted with every field right and no flags, about 650 prompt tokens each. The vision model `gemini-3.8-flash` answered HTTP 503 (overloaded) five times and failed the run. Fix (D44): a weak page now tries the vision model, then the text model, then keeps its Tesseract text. The smoke test now also runs on pushes that change extraction code, since a manual run needs the workflow on `main`.
+Real Gemini, first run (smoke test workflow with Sowan's key): all 4 digital invoices extracted with every field right and no flags, about 650 prompt tokens each. The vision model `gemini-3.8-flash` answered HTTP 503 (overloaded) five times and failed the run. Fix (D44): a weak page now tries the vision model, then the text model, then keeps its Tesseract text. The smoke test now also runs on pushes that change extraction code, since a manual run needs the workflow on `main`. Second run: 48 of 48 fields correct on 6 invoices (4 digital, 2 in the scanned PDF), 5,692 prompt and 4,220 output tokens in total. `gemini-3.8-flash` was still overloaded; `gemini-3.5-flash-lite` read both scanned pages.
 
 Built Phase 4: the job queue (`FOR UPDATE SKIP LOCKED`, heartbeats, stale recovery, backoff, final versus retryable failures), the pipeline (ingest, extract, validate, index), the worker, JWT login, per-IP rate limits, a request size cap, and every endpoint in PHASES.md, plus `GET /reconciliations/{id}`. Search: full text in two forms with weights, and semantic search on pgvector with the D31 query format. Upload code moved to `app/ingest/upload.py`, so the API process never loads OpenCV or PyMuPDF. Spreadsheets now process without a Gemini key, so `docker compose up` works for CSV and Excel with no keys at all. Decisions D44 to D48.
 

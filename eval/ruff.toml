@@ -4,3 +4,5 @@ extend = "../backend/pyproject.toml"
 
 [lint.per-file-ignores]
 "**" = ["S101", "S107", "S311"]
+# The report template is easier to read as whole sentences.
+"run_eval.py" = ["E501"]

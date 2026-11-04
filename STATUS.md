@@ -4,7 +4,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) done on 4 Nov (CI run 14). Phase 4 (API, job queue, search) checklist done on 4 Nov (CI run 19); its exit test waits for the merge to `main`. Phase 5 (frontend) built on 4 Nov, waiting on CI. Exit tests for Phases 4 and 5 need the merge to `main`.
+**Phase:** 1 and 2 done on 4 Nov 2026 (Phase 2 with the fake model; live API pending the smoke test). Phase 3 (validation) done on 4 Nov (CI run 14). Phase 4 (API, job queue, search) checklist done on 4 Nov (CI run 19); its exit test waits for the merge to `main`. Phase 5 (frontend) checklist done on 4 Nov (CI run 21). Exit tests for Phases 4 and 5 need the merge to `main`. Phase 6 (evaluation): runner and workflow built, first real run started.
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -24,7 +24,8 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 1. Sowan: decide on the vision model. In two smoke runs about 10 minutes apart, `gemini-3.8-flash` answered 503 (overloaded) on every try, and the fallback to `gemini-3.5-flash-lite` read both scanned pages correctly. Each weak page waits about 2.5 minutes on the busy model first. Option: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` in Render (and `render.yaml`) until Flash recovers. It is a config change, not a code change.
 2. Phase 4 exit test: after the merge, upload a mixed batch on the live site and search it. Claude Code can run it once the backend is live.
 3. Sowan: merge the session branch into `main`, then in Render check that `DEMO_PASSWORD` is set (Render generates `JWT_SECRET` itself). Then log in through `/api/docs` with user `reviewer`.
-4. After the merge: check the live site on a phone (sign in, upload, review, search, reconcile). Claude Code then starts Phase 6 (evaluation).
+4. After the merge: check the live site on a phone (sign in, upload, review, search, reconcile).
+5. Claude Code reads the first real evaluation run and writes `docs/EVALUATION.md` from it.
 
 **Blockers:** None.
 
@@ -36,6 +37,13 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Whether a few real public invoice samples can be added to the evaluation set.
 
 ## Session log
+
+### 4 Nov 2026, Phase 6 start (Claude Code)
+
+CI run 21: all four jobs green on the Phase 5 commit. Phase 5 checklist ticked.
+
+Built `eval/run_eval.py` (D51): it generates the dataset, uploads every file, lets the real worker process the queue, and scores field accuracy, line item precision, recall and F1, document outcomes by cause, timing per path (mean and p95), validation detection and false flags, and tokens per document. A dry run with the fake model checked the scoring: every planted error detected, 0 false flags on 34 clean invoices, line items 66 of 66. Three scoring bugs were found and fixed on the way: the loop stopped while retries waited on backoff, spreadsheets were scored on line items they do not contain, and two deliberate reconciliation errors were not labelled as planted. New workflow "Evaluation": runs by hand, or when `eval/eval-request.txt` changes, with the real key.
+
 
 ### 4 Nov 2026, Phase 5 build (Claude Code)
 

@@ -207,8 +207,10 @@ def build(out: Path, seed: int = 7, scale: int = 1) -> list[dict]:
     layouts.invoice_pdf([(inv, "classic") for inv in recon]).save(path)
     changed = copy.deepcopy(recon[1])
     changed.total += Decimal("25.00")
+    changed.planted = ["wrong_total"]
     unnumbered = copy.deepcopy(recon[3])
     unnumbered.invoice_number = ""  # matched by supplier, date and total instead
+    unnumbered.planted = ["missing_number"]
     extra = new("USD")
     sheet_rows = [copy.deepcopy(recon[0]), changed, unnumbered, extra]
     path = add(

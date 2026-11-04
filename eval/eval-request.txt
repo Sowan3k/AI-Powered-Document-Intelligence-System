@@ -1,0 +1,4 @@
+# Changing this file and pushing runs the Evaluation workflow with the real
+# Gemini API (it spends tokens). Keep a short note of why each run was asked for.
+scale=2
+reason=first full evaluation, Phase 6, 4 Nov 2026

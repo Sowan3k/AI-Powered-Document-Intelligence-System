@@ -667,3 +667,24 @@ One small hook (`useApi`) loads data, polls while a job runs (the documents list
 **Trade-off:** Some noise in the review queue when the same invoices arrive twice on purpose. The duplicate message names the matching invoice, so a reviewer clears it quickly.
 
 **In one sentence:** The duplicate rule cannot yet tell an intentional second copy from a real duplicate, and the report says so.
+
+---
+
+## D51: Evaluation runs the real pipeline and scores from the database
+
+**Alternatives:** Call the extraction functions directly on each file and score in memory, or hand-label a set of real invoices.
+
+**Why:** `eval/run_eval.py` generates the labelled dataset, uploads every file through `register_upload`, queues it, and lets the real `Worker` process the queue, with real Gemini calls, OCR, retries and fallbacks. It then scores what the database holds, so the numbers describe the system a reviewer uses, not a shortcut through it. The scoring rules:
+
+- Field accuracy: each true invoice is paired with a stored one by normalised number (by position when the truth has no number). Values are compared after normalisation: invoice numbers without punctuation, supplier names without case or suffixes, money as exact `Decimal`, dates as dates. A true invoice the system missed counts as wrong on every field.
+- Line items: a line matches when an extracted line has the same amount; precision, recall and F1 over all PDF and image invoices (spreadsheet registers carry no line columns).
+- Documents: completed, failed by cause, and broken files checked against the code each must get.
+- Timing: from the processing events, job start to completion, per document and per page, split by digital, OCR, vision and spreadsheet paths; mean and 95th percentile.
+- Validation: each planted error must trigger its rule. The false flag rate counts clean invoices with any error-level issue, leaving out R06 and R07, because the dataset repeats invoices on purpose (one invoice as a PDF, a scan and a TIFF).
+- Tokens: summed from the `llm_call` events per document. No cost figure is printed, because the price of these models was not confirmed; tokens are the honest unit.
+
+The workflow runs only when asked (by hand, or when `eval/eval-request.txt` changes), since it spends tokens. `--fake` runs the same code with the test suite's perfect-reader model to check the scoring without spending anything; its accuracy numbers are meaningless and the report says so.
+
+**Trade-off:** Synthetic layouts are cleaner than real invoices (D13), so accuracy is likely optimistic. Matching lines by amount alone can pair two lines with equal amounts the wrong way round; it never inflates the count.
+
+**In one sentence:** The evaluation measures the deployed pipeline end to end, scores with exact rules, and labels every limitation in the report.

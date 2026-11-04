@@ -211,9 +211,14 @@ def reader_for_truths(truths: list[dict]):  # type: ignore[no-untyped-def]
         # Only PDF truths say how each page was laid out; pick the best match.
         paged = [t for t in truths if "layout" in t or "layouts" in t]
         scored = [(sum(inv["invoice_number"] in prompt for inv in t["invoices"]), t) for t in paged]
-        best = max(scored, key=lambda x: x[0], default=(0, None))
-        if best[1] is None or best[0] == 0:
-            return {"invoices": []}
-        return perfect_reader(best[1], prompt_pages(prompt))(call)
+        candidates = sorted((x for x in scored if x[0] > 0), key=lambda x: -x[0])
+        for _, truth in candidates:
+            try:  # two files can share invoice numbers (a duplicate in another layout)
+                return perfect_reader(truth, prompt_pages(prompt))(call)
+            except AssertionError:
+                continue
+        if candidates:
+            raise AssertionError("no ground truth matches the printed values")
+        return {"invoices": []}
 
     return reply

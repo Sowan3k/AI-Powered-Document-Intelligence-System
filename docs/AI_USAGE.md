@@ -101,3 +101,7 @@ AI-generated: every page and component in `frontend/app` and `frontend/component
 
 How it was verified: lint, typecheck and a production build, then an automated walk-through in Chromium at phone size against the real API and worker (with the fake model in place of Gemini). It covered every action in the brief and checked for console errors and horizontal scrolling. Screenshots were reviewed, which led to two display fixes.
 
+### 4 Nov 2026, Phase 6 start (Claude Code)
+
+AI-generated: the evaluation runner (`eval/run_eval.py`), the Evaluation workflow, the new planted labels in the generator, and decision D51. The runner was first checked with the fake model, which found three bugs in its own scoring before any real tokens were spent. Real numbers come only from the GitHub Actions run with the Gemini key.
+

@@ -150,3 +150,27 @@ Prompt (summary): Sowan pasted a shadcn-style "cinematic landing hero" built wit
 
 AI-generated: the adapted hero component with props, slots and a reduced-motion path; the rest of the phone mockup; the DocIntel landing content; the shared wake state; the icon drawing, its sizes and the web manifest; and decision D74. Claude Code checked every scroll stage in Chromium on desktop and phone sizes. The screenshots found three layout faults a build would not catch: the brand line and the call to action under the fixed top bar on a phone, and a ring label cut at the edge. Claude Code also drew a simpler icon for 16 and 32 pixels after the full drawing lost its check mark at that size.
 
+### 5 Nov 2026, opening page fixes (Claude Code)
+
+Prompt (summary): Sowan tested the opening page on his phone and reported lag, too much scrolling with an empty screen, no hint to scroll, and a sign-in form too far down. He sent phone screenshots of the empty card and the login page and asked Claude Code to check the lag itself.
+
+AI-generated: the reworked hero, the scroll hint, the new sign-in order, and decision D75. Claude Code measured before changing anything: it scrolled the hero in Chromium with the CPU slowed four times and recorded every frame, then found the causes in the code (layout and blur on every frame, a JavaScript pin, a full-screen blended grain). The same measurement after the change showed 59 fps. A screenshot check after the rewrite found one more fault, an injected `position: relative` that overrode the card's full-screen size, which the numbers alone would have missed.
+
+### 5 Nov 2026, liquid glass (Claude Code)
+
+Prompt (summary): Sowan said the blur looked like frosted glass, not iOS-style liquid glass with transparency.
+
+AI-generated: the new glass material, the refraction hook that draws a displacement map for each element's shape, the floating top bar over a scroll edge, the text colour that follows the backdrop on the opening page, and decision D76. Claude Code checked the result over real screens from a local API with demo data, in light and dark mode, and measured the opening page's frame rate again. That measurement caught a cost in the first version (a hit test on every frame) and led to the IntersectionObserver.
+
+### 5 Nov 2026, glass like a drop of water (Claude Code)
+
+Prompt (summary): Sowan explained that liquid glass means the light behind a component blends while scrolling, like a real water drop above the screen.
+
+AI-generated: the dome-shaped displacement map, the three-pass colour fringe, the scroll-driven highlight, the vibrancy halo, and decision D77. Claude Code measured each step. A first version of the moving light followed the scroll speed in JavaScript; the frame measurement showed extra style work, a browser trace found the cause (about 50 extra style passes, written out of step with GSAP), and the light moved to CSS. That still cost about 1.7 ms a frame, so it is off on the opening page.
+
+### 5 Nov 2026, glass that answers to tilt and touch (Claude Code)
+
+Prompt (summary): Sowan described Apple's Liquid Glass as a responsive material: it reads the content behind it, refracts and scatters light as you scroll, shifts its reflections with the gyroscope, and makes a ripple where the finger presses.
+
+AI-generated: the tilt and mouse light source, the press ripple (light ring and distortion wave), the light layers, and decision D78. Claude Code measured the worst case, a phone tilting all the time while scrolling, and found the first design dropped Home to 35 fps; a browser trace showed about 20 elements restyled per change. The light moved to its own layers driven by transforms, and the same test then held 60 fps. Testing also caught a negative ring size on a ripple's first frame.
+

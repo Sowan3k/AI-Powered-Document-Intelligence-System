@@ -45,6 +45,30 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, glass that answers to tilt and touch (Claude Code)
+
+Sowan described the rest of Apple's material: reflections that follow the gyroscope and a ripple under the finger. Added (D78): the glints and sheen follow the phone's tilt (Chrome on Android, no prompt) or the mouse; a press sends a ring of light and, in Chromium, a wave of distortion through the refraction filter. The light now sits on two small layers inside each piece of glass and moves by transform only.
+
+Tested: lint, typecheck and build; screenshots of a press (three frames) and of a tilt from synthetic orientation events, light and dark, over a local API; CPU slowed four times: Home 60 fps still and 60 fps with constant tilting (35 fps before the layers), opening page 58 fps; no page errors. A negative ring size on the first frame of a ripple was found in testing and fixed.
+
+### 5 Nov 2026, glass like a drop of water (Claude Code)
+
+Sowan said liquid means the light behind the glass blends as the page scrolls, like a water drop on the screen. Changed (D77): the displacement map is now a dome across each bar, so content under it magnifies and squeezes at the rim as it scrolls; three channel passes leave a thin colour fringe; a CSS scroll-driven animation moves the rim's light with the page (off on the opening page); labels on glass carry a soft halo.
+
+Tested: lint, typecheck and build; close-ups of the tab bar over a moving list from a local API, light and dark; a browser trace that ruled out a JavaScript version of the moving light (about 50 extra style passes); CPU slowed four times: Home 57 to 58 fps, opening page 58 fps.
+
+### 5 Nov 2026, liquid glass (Claude Code)
+
+Sowan said the glass looked frosted, not like iOS liquid glass. Rebuilt the material (D76): a light tint, 3 px of blur on bars and pills, a bright gradient rim, and in Chromium real edge refraction from a displacement map per element (`frontend/lib/liquid-glass.ts`). The app's top bar is now floating glass pieces over a fading scroll edge. On the opening page the bar's text turns light over the dark card.
+
+Tested: frontend lint, typecheck and build; screenshots at 412 by 860 in light and dark over real content from a local API with 42 demo documents (Home, Search, the opening page), desktop at 1280 by 800 (Home, Review, sign-in), a page change with the bar pieces held still, and no page errors. Scroll on the opening page, CPU slowed four times: 59 fps.
+
+### 5 Nov 2026, opening page fixes after Sowan's phone test (Claude Code)
+
+Sowan tested the live opening page on his phone: the scroll lagged, long stretches showed an empty blue card, there was no sign to scroll, and on `/login` the form sat below the preview. Fixed (D75): the hero animates only transforms and opacity, sticks with CSS `position: sticky` instead of a GSAP pin, and scrolls two screens instead of 7,000 pixels, with the content inside the card the whole time. The card peeks up at rest with a "Swipe up to see it work" pill. On a phone the sign-in form now comes first.
+
+Tested: frontend lint, typecheck and build. Chromium with the CPU slowed four times, scrolling through the hero over the same 4.7 s: before 40 to 43 fps with frames up to 67 ms; after 58 to 59 fps, 95th percentile 16.8 ms, no frame over 34 ms. Screenshots at twelve scroll steps at 412 by 860 in dark mode, at 1440 by 900, with reduced motion, and of `/login` on both sizes. No sideways scrolling, no page errors.
+
 ### 5 Nov 2026, opening page and app icon (Claude Code)
 
 Sowan shared a scroll-driven hero and asked for it as the opening page, with the server waking in the background, and asked for an icon. Built (D74): `/` shows the hero and starts the health check on load; a fixed top bar holds the live status and Sign in; the sign-in page carries on with the same wake state. The hero lives in `frontend/components/ui/cinematic-hero.tsx` (GSAP 3.15.0), filled by `frontend/components/landing.tsx`. New icon set: `app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png`, `app/manifest.ts` and three PNGs in `public/`.

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { CheckIcon } from "@/components/icons";
 import { HEALTH_TIMEOUT_MS, fetchHealth, type HealthResult } from "@/lib/api";
+import { useLiquidGlass } from "@/lib/liquid-glass";
 
 type StepState = "waiting" | "working" | "done" | "error";
 export type Wake = {
@@ -133,6 +134,7 @@ export function WakeTimeline({ wake }: { wake: Wake }) {
  */
 export function WakeIsland({ wake }: { wake: Wake }) {
   const [gone, setGone] = useState(false);
+  const pillGlass = useLiquidGlass<HTMLDivElement>();
   useEffect(() => {
     if (!wake.ready) return;
     const t = setTimeout(() => setGone(true), 2600);
@@ -144,12 +146,13 @@ export function WakeIsland({ wake }: { wake: Wake }) {
       <AnimatePresence>
         {!gone && (
           <motion.div
+            ref={pillGlass}
             layout
             initial={{ opacity: 0, y: -16, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -16, scale: 0.9, transition: { duration: 0.25 } }}
             transition={{ type: "spring", stiffness: 420, damping: 32 }}
-            className="glass-strong pointer-events-auto flex items-center gap-2.5 rounded-full py-2 pr-4 pl-2 text-sm font-medium"
+            className="glass pointer-events-auto flex items-center gap-2.5 rounded-full py-2 pr-4 pl-2 text-sm font-medium"
             role="status"
           >
             <span className="relative grid size-6 place-items-center">

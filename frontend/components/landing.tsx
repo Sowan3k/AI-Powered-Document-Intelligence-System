@@ -2,12 +2,13 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 import { CheckIcon, Mark, SearchIcon } from "@/components/icons";
 import { CinematicHero } from "@/components/ui/cinematic-hero";
 import { useServerWake, type Wake } from "@/components/server-wake";
 import { API_BASE_URL } from "@/lib/api";
+import { useLiquidGlass } from "@/lib/liquid-glass";
 
 /**
  * The opening page (D74). The free server starts waking the moment this page
@@ -90,13 +91,24 @@ function Actions() {
 function TopBar({ wake }: { wake: Wake }) {
   const lost = wake.steps.some((s) => s.state === "error");
   const dot = wake.ready ? "bg-emerald-400" : lost ? "bg-rose-400" : "animate-pulse bg-sky-400";
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const glass = useLiquidGlass<HTMLDivElement>();
+  const onDark = useOverDarkCard(barRef);
+  const setRefs = useCallback(
+    (el: HTMLDivElement | null) => {
+      barRef.current = el;
+      return glass(el);
+    },
+    [glass],
+  );
   return (
     <header className="fixed inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-[60] px-3">
       <motion.div
+        ref={setRefs}
         initial={{ opacity: 0, y: -14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 30, delay: 0.2 }}
-        className="glass-strong mx-auto flex max-w-5xl items-center justify-between gap-2 rounded-full py-1.5 pr-1.5 pl-3"
+        className={`glass glass-still mx-auto flex max-w-5xl items-center justify-between gap-2 rounded-full py-1.5 pr-1.5 pl-3 transition-colors duration-300 ${onDark ? "glass-on-dark" : ""}`}
       >
         <span className="flex items-center gap-2">
           <Mark className="size-7" />
@@ -108,7 +120,10 @@ function TopBar({ wake }: { wake: Wake }) {
             <span className="sm:hidden">{wake.ready ? "Ready" : lost ? "Not answering" : `${wake.seconds} s`}</span>
             <span className="hidden sm:inline">{wake.short}</span>
           </span>
-          <Link href="/login" className="rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background transition-opacity hover:opacity-85">
+          <Link
+            href="/login"
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-300 hover:opacity-85 ${onDark ? "bg-white text-slate-900" : "bg-foreground text-background"}`}
+          >
             Sign in
           </Link>
         </span>
@@ -117,11 +132,51 @@ function TopBar({ wake }: { wake: Wake }) {
   );
 }
 
-/** A quiet nudge on the first screen; it leaves once the visitor scrolls. */
+/**
+ * True while the hero's dark card is under the element. Clear glass shows
+ * what is behind it, so text on it must switch to light over the card, as
+ * iOS does with its glass (D76).
+ */
+function useOverDarkCard(ref: RefObject<HTMLElement | null>): boolean {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    const card = document.querySelector(".main-card");
+    if (!el || !card) return;
+    let observer: IntersectionObserver | null = null;
+    // The browser tells us when the card crosses a 1 px line through the
+    // middle of the bar. It accounts for transforms, and needs no work per frame.
+    const watch = () => {
+      observer?.disconnect();
+      const r = el.getBoundingClientRect();
+      const mid = Math.round(r.top + r.height / 2);
+      observer = new IntersectionObserver(([entry]) => setDark(entry.isIntersecting), {
+        rootMargin: `${-mid}px 0px ${-(window.innerHeight - mid - 1)}px 0px`,
+      });
+      observer.observe(card);
+    };
+    watch();
+    window.addEventListener("resize", watch);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", watch);
+    };
+  }, [ref]);
+  return dark;
+}
+
+/**
+ * A clear nudge on the first screen, sitting on the card that peeks up from
+ * the bottom edge. It leaves as soon as the visitor scrolls (D75).
+ */
 function ScrollHint() {
   const [show, setShow] = useState(true);
+  const [touch, setTouch] = useState(false);
+  const pillGlass = useLiquidGlass<HTMLSpanElement>();
   useEffect(() => {
-    const onScroll = () => setShow(window.scrollY < 40);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from the device
+    setTouch(window.matchMedia("(pointer: coarse)").matches);
+    const onScroll = () => setShow(window.scrollY < 24);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -129,18 +184,25 @@ function ScrollHint() {
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { delay: 2.2 } }}
-          exit={{ opacity: 0 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0, transition: { delay: 1.4, type: "spring", stiffness: 260, damping: 24 } }}
+          exit={{ opacity: 0, y: 12, transition: { duration: 0.2 } }}
           aria-hidden
-          className="pointer-events-none fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-[60] flex flex-col items-center gap-1 text-xs font-medium text-muted"
+          className="pointer-events-none fixed inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+4svh)] z-[60] flex justify-center motion-reduce:hidden"
         >
-          Scroll to see it work
-          <motion.span animate={{ y: [0, 5, 0] }} transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}>
-            <svg viewBox="0 0 24 24" className="size-4 fill-none stroke-current stroke-2" aria-hidden>
-              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </motion.span>
+          <span ref={pillGlass} className="glass glass-still glass-on-dark flex items-center gap-2.5 rounded-full py-2.5 pr-5 pl-3 text-sm font-semibold">
+            <span className="relative grid size-7 place-items-center overflow-hidden rounded-full bg-gradient-to-b from-sky-400 to-violet-500 text-white">
+              <motion.svg
+                viewBox="0 0 24 24"
+                className="size-4 fill-none stroke-current stroke-[2.5]"
+                animate={{ y: touch ? [5, -5, 5] : [-5, 5, -5] }}
+                transition={{ duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <path d={touch ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} strokeLinecap="round" strokeLinejoin="round" />
+              </motion.svg>
+            </span>
+            {touch ? "Swipe up to see it work" : "Scroll to see it work"}
+          </span>
         </motion.div>
       )}
     </AnimatePresence>

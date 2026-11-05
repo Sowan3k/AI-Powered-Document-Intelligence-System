@@ -10,6 +10,7 @@ import { ActivityDock } from "@/components/activity-dock";
 import { CompareIcon, HomeIcon, Mark, ReviewIcon, SearchIcon } from "@/components/icons";
 import { direction } from "@/components/page-transition";
 import { API_BASE_URL, SIGNED_OUT_EVENT, clearToken, readToken } from "@/lib/api";
+import { useLiquidGlass } from "@/lib/liquid-glass";
 
 const TABS = [
   { href: "/documents", label: "Home", Icon: HomeIcon },
@@ -71,59 +72,80 @@ function ReviewBadge() {
 
 const lensSpring = { type: "spring", stiffness: 420, damping: 34, mass: 0.8 } as const;
 
+/**
+ * iOS-style top: content blurs and fades under a scroll edge, and the
+ * controls float above it as separate pieces of liquid glass (D76). Each piece
+ * carries its own transition name, so it stays put and keeps its blur.
+ */
 function TopBar({ pathname }: { pathname: string }) {
   const router = useRouter();
+  const brandGlass = useLiquidGlass<HTMLAnchorElement>();
+  const navGlass = useLiquidGlass<HTMLElement>();
+  const actionsGlass = useLiquidGlass<HTMLDivElement>();
   return (
-    <header
-      style={{ viewTransitionName: "app-header" }}
-      className="glass sticky top-0 z-20 rounded-none border-x-0 border-t-0 pt-[env(safe-area-inset-top)]"
-    >
-      <div className="mx-auto flex max-w-5xl items-center gap-1 px-3 py-2 text-sm">
-        <Link href="/documents" transitionTypes={direction(pathname, "/documents")} className="mr-3 flex items-center gap-2 px-1 text-base font-semibold tracking-tight">
-          <Mark />
-          DocIntel
-        </Link>
-        <nav className="hidden items-center gap-1 sm:flex">
-          {TABS.map(({ href, label }) => {
-            const active = isActive(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                transitionTypes={direction(pathname, href)}
-                aria-current={active ? "page" : undefined}
-                className={`relative rounded-full px-3.5 py-1.5 transition-colors ${active ? "text-foreground" : "text-muted hover:text-foreground"}`}
-              >
-                {active && <motion.span layoutId="top-lens" transition={lensSpring} className="glass-lens absolute inset-0 -z-10 rounded-full" />}
-                {label}
-                {href === "/review" && <ReviewBadge />}
-              </Link>
-            );
-          })}
-        </nav>
-        <a href={`${API_BASE_URL}/api/docs`} target="_blank" rel="noreferrer" className="ml-auto hidden rounded-full px-3 py-1.5 text-muted transition-colors hover:text-foreground sm:block">
-          API docs
-        </a>
-        <button
-          onClick={() => {
-            clearToken();
-            router.replace("/login");
-          }}
-          className="ml-auto rounded-full px-3 py-1.5 text-muted transition-colors hover:text-foreground sm:ml-0"
-        >
-          Sign out
-        </button>
-      </div>
-    </header>
+    <>
+      <div
+        aria-hidden
+        style={{ viewTransitionName: "app-edge" }}
+        className="scroll-edge pointer-events-none fixed inset-x-0 top-0 z-20 h-[calc(env(safe-area-inset-top)+4.5rem)]"
+      />
+      <header className="sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex max-w-5xl items-center gap-2 px-3 py-2 text-sm">
+          <Link
+            ref={brandGlass}
+            href="/documents"
+            transitionTypes={direction(pathname, "/documents")}
+            style={{ viewTransitionName: "app-brand" }}
+            className="glass flex items-center gap-2 rounded-full py-1.5 pr-3.5 pl-1.5 text-base font-semibold tracking-tight"
+          >
+            <Mark className="size-7" />
+            DocIntel
+          </Link>
+          <nav ref={navGlass} style={{ viewTransitionName: "app-nav" }} className="glass hidden items-center gap-0.5 rounded-full p-1 sm:flex">
+            {TABS.map(({ href, label }) => {
+              const active = isActive(pathname, href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  transitionTypes={direction(pathname, href)}
+                  aria-current={active ? "page" : undefined}
+                  className={`relative rounded-full px-3.5 py-1.5 transition-colors ${active ? "text-foreground" : "text-muted hover:text-foreground"}`}
+                >
+                  {active && <motion.span layoutId="top-lens" transition={lensSpring} className="glass-lens absolute inset-0 -z-10 rounded-full" />}
+                  {label}
+                  {href === "/review" && <ReviewBadge />}
+                </Link>
+              );
+            })}
+          </nav>
+          <div ref={actionsGlass} style={{ viewTransitionName: "app-actions" }} className="glass ml-auto flex items-center rounded-full p-1">
+            <a href={`${API_BASE_URL}/api/docs`} target="_blank" rel="noreferrer" className="hidden rounded-full px-3 py-1.5 text-muted transition-colors hover:text-foreground sm:block">
+              API docs
+            </a>
+            <button
+              onClick={() => {
+                clearToken();
+                router.replace("/login");
+              }}
+              className="rounded-full px-3 py-1.5 text-muted transition-colors hover:text-foreground"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </header>
+    </>
   );
 }
 
 /** Thumb-friendly tabs on phones: a floating glass bar with a lens that slides to the active tab. */
 function BottomTabs({ pathname }: { pathname: string }) {
+  const tabsGlass = useLiquidGlass<HTMLUListElement>();
   return (
     <nav className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 sm:hidden">
       {/* The name sits on the glass itself: on an ancestor it would stop the blur (D73). */}
-      <ul style={{ viewTransitionName: "app-tabs" }} className="glass grid grid-cols-4 gap-1 rounded-[1.75rem] p-1.5">
+      <ul ref={tabsGlass} style={{ viewTransitionName: "app-tabs" }} className="glass grid grid-cols-4 gap-1 rounded-[1.75rem] p-1.5">
         {TABS.map(({ href, label, Icon }) => {
           const active = isActive(pathname, href);
           return (

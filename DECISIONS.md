@@ -986,3 +986,72 @@ Found while testing in Chromium: a `view-transition-name` on an ancestor of a gl
 **Trade-off:** GSAP and ScrollTrigger add about 59 KB (gzipped) to the opening page. A long pinned scroll is a style choice some visitors skip, which is why Sign in is always visible.
 
 **In one sentence:** The first minute on the free plan becomes a short tour, with the real server status in view and sign-in one tap away.
+
+## D75: A shorter, smoother opening page, and the sign-in form first on phones
+
+**Alternatives:** Keep the shared hero as it was and only shorten it, replace it with a static page, or turn the animations off on phones.
+
+**Why:** Sowan tested D74 on his phone. The scroll lagged, long stretches showed an empty blue card, nothing said to scroll, and on the sign-in page the form sat below the preview. Measured in Chromium with the CPU slowed four times: 40 to 43 frames a second, with frames up to 67 ms. The causes, and the fixes:
+
+- **Every frame did layout and blur work.** The card animated its width, height and corners, so the page was laid out again each frame. The headline and the call to action animated a blur filter, a full-screen grain layer was blended over everything, and the badges blurred the plain gradient behind them. Now the card is full size from the start and only moves and scales; the headline and the call to action only fade and scale; the grain and the badge blur are gone. Nothing visible was lost, because blurring a smooth gradient looks the same as not blurring it.
+- **A JavaScript pin.** GSAP pinned the section by switching it to a fixed position, which jitters on phone browsers, and a one-second scrub made the page feel behind the finger. The stage now sticks with CSS `position: sticky`, which the browser handles itself, sized in `svh` so the phone's toolbars do not resize it. The scrub is 0.4 seconds.
+- **Too much scroll for too little.** The section was 7,000 pixels, with an empty card while it rose and again while it shrank. Now it is two screens of scroll. The content rides inside the card: it arrives with the card and leaves with it, so the card is never empty.
+- **No sign of more below.** At rest, the card now peeks up from the bottom edge, with a clear pill on it: "Swipe up to see it work" on a touch screen, "Scroll to see it work" with a mouse.
+- **The form first.** On a phone the sign-in page now shows the brand, then the form, then the preview of an invoice being checked. Wide screens keep the two columns.
+
+Result, measured the same way over the same time: 58 to 59 frames a second, the 95th percentile frame at 16.8 ms, and no frame over 34 ms. Headless Chromium does not count the blur work a real phone's graphics chip did, so the gain on a phone should be larger.
+
+**Trade-off:** The film grain and the badge blur are gone, and the card no longer grows from a smaller card to a full screen; it rises at full size. A shorter scroll also means each step passes faster.
+
+**In one sentence:** Only transforms and opacity on scroll, a native sticky stage, half the scroll with nothing empty, and the form where the thumb expects it.
+
+## D76: Liquid glass instead of frosted glass
+
+**Alternatives:** Keep the frosted glass of D73, drop the blur and use flat translucent bars, or use a glass library.
+
+**Why:** Sowan pointed out that the glass looked frosted, not like iOS liquid glass. He was right: D73 used 16 to 24 px of blur and a milky tint, which hides what is behind. Liquid glass is nearly clear, its rim catches light, and its thick edge bends what is behind it. The choices:
+
+- **Clear material.** Bars, tabs, pills and the dock use a light tint and 3 px of blur, with a boost in saturation, so the content behind stays readable through the glass. Sheets and the sign-in card hold forms and lists, so they keep 10 px. The rim is a 1 px gradient ring cut out with a mask, bright at the top left and bottom right, with a soft inner light along the edges.
+- **Refraction where the browser can draw it.** `frontend/lib/liquid-glass.ts` builds a displacement map for each glass bar, shaped like its own rounded rectangle: no pull in the middle, rising toward the rim, pointing inward. An SVG filter applies it to the element's backdrop, so the content behind bends at the edges like light through the thick edge of a lens. Only Chromium renders a `url()` filter in `backdrop-filter`. Chrome on Android, which Sowan uses, gets the bending; Safari and Firefox keep the clear glass without it. The map is rebuilt only when the element changes size.
+- **The iOS top.** The app's top bar is no longer one strip. A scroll edge blurs and fades the content as it slides under, and the brand, the tabs and the account buttons float above it as separate pieces of glass. Each piece has its own transition name, because a name on a shared parent would stop the blur (D73).
+- **Text that follows the backdrop.** Clear glass shows what is behind it, so on the opening page the bar switches to light text while the dark card is under it. An IntersectionObserver reports when the card crosses the bar, so this costs no work per frame.
+- **Accessibility.** With "reduce transparency" on, glass falls back to a solid tint and the refraction is off.
+
+Measured with the CPU slowed four times, scrolling the opening page: 59 fps, as before this change. A first version checked the colour under the bar on every frame and added about 260 ms of script; the IntersectionObserver removed it.
+
+**Trade-off:** Clearer glass gives text on it less contrast over busy content; the tint and the small blur are set for legibility on the app's own screens, not for any backdrop. Refraction appears only in Chromium browsers, so iPhone users see clear glass without the bending.
+
+**In one sentence:** Nearly clear glass with a bright rim, real edge refraction where Chromium can draw it, and floating controls over a scroll edge, as iOS does it.
+
+## D77: Glass that acts like a drop of water
+
+**Alternatives:** Keep the edge-only bending of D76, use a WebGL canvas behind the whole page, or animate a fake shine without real refraction.
+
+**Why:** Sowan explained what he meant by liquid: the light behind a piece of glass should blend and move as the page scrolls, like a real water drop on the screen. D76 bent only a thin band at the rim, so while scrolling it barely showed. The changes:
+
+- **A dome, not a bevel.** The displacement map now describes a curved surface across almost half of the element's short side: its height follows a circle, flat on top and steep at the rim. The pull follows the slope, so what scrolls under a bar is gently magnified in the middle and squeezed hard at the edge, and it visibly flows through the lens as the page moves.
+- **A colour fringe.** Water bends red light a little more than blue. The filter now displaces the backdrop three times, by 100%, 94% and 88% of the pull, keeps one colour channel from each, and adds them back up, which leaves a thin rainbow at the rim.
+- **Light that moves with the page.** A CSS scroll-driven animation turns the rim's highlight and slides the inner sheen as the page scrolls. A JavaScript version that followed the scroll speed was tried first; a browser trace showed it forced about 50 extra style passes on the opening page, because it wrote styles at a different moment than GSAP. The CSS version costs about 1.7 ms a frame on a slowed CPU, so it runs in the app and is off on the opening page, where the hero already animates on scroll.
+- **Vibrancy.** Clear, magnifying glass puts busy content behind the labels, so text and icons on glass carry a soft halo in the glass's own tone, as iOS does.
+
+Measured with the CPU slowed four times: Home scrolls at 57 to 58 fps with the glass bars over a moving list; the opening page at 58 fps.
+
+**Trade-off:** Three displacement passes cost more graphics work than one; they run only on a few small bars. The refraction and fringe need Chromium; Safari shows the clear glass and the moving highlight without the bending. Strong magnification can make busy content behind a label harder to ignore; the halo is the answer, not more blur.
+
+**In one sentence:** A domed lens with a colour fringe over every bar, and light that moves as the page scrolls, at no cost to the frame rate.
+
+## D78: Glass that answers to tilt and touch, with the light on its own layers
+
+**Alternatives:** Stop at D77, fake the effects with a looping animation, or render the bars in WebGL.
+
+**Why:** Sowan described the rest of Apple's material: its reflections shift with the phone's gyroscope, and a press makes a ripple of distortion under the finger. The changes:
+
+- **Tilt.** Chrome on Android sends the phone's orientation without a permission prompt. The way the phone is held becomes neutral, and the neutral point drifts slowly after the hand, so only a change of angle moves the light. Tilting turns the glints around the rim and slides the sheen across the glass. On a desktop the mouse is the light source. iOS Safari would need a permission prompt, which a reviewer should not see, so iPhones get the scroll-driven light only.
+- **Ripple.** A press sends a ring of light out from the finger in every browser. In Chromium it also sends a wave of distortion: a ring-shaped displacement map grows from the press point inside the same refraction filter and fades in 0.65 s. The wave's filter steps exist only while it runs.
+- **The light on its own layers.** The first version moved the light by changing CSS variables on the glass. With the phone tilting constantly, Home dropped to 35 fps: each change restyled about 20 elements, measured in a browser trace. Now each piece of glass holds two small layers the script adds: a conic gradient of glints behind the rim's mask, and a soft sheen. Tilt changes only their transform, which the graphics chip applies without restyling or repainting the glass and its text. The scroll turn is a CSS scroll-driven `rotate`, which Chrome runs on the compositor thread. The press ring is drawn on the light layer, so a tap does not repaint the glass either.
+
+Measured with the CPU slowed four times while scrolling Home: 60 fps still and 60 fps with the phone tilting constantly (35 fps before the layers). The opening page: 58 fps.
+
+**Trade-off:** Two extra layers per piece of glass use a little graphics memory. The wave needs Chromium. A browser cannot read the pixels behind an element, so the glass "reads the content" only through refraction and its tint, plus the known dark card on the opening page.
+
+**In one sentence:** Light that follows the phone's tilt and a ripple under the finger, moved by the graphics chip alone, so the page stays at 60 fps.

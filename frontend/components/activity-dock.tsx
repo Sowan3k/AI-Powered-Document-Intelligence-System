@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useActivity } from "@/components/activity";
 import { ChevronIcon, SparkIcon, CheckIcon } from "@/components/icons";
 import { ProcessFlow } from "@/components/process-flow";
+import { useLiquidGlass } from "@/lib/liquid-glass";
 
 /**
  * Live processing on every screen. A small pill shows how many files are moving;
@@ -18,6 +19,7 @@ export function ActivityDock() {
   const { activity } = useActivity();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const dockGlass = useLiquidGlass<HTMLButtonElement>();
   const active = activity?.active ?? [];
   const recent = (activity?.recent ?? []).slice(0, 5);
   // Home shows the same flow in full, so the dock would only cover it.
@@ -53,6 +55,7 @@ export function ActivityDock() {
         )}
       </AnimatePresence>
       <motion.button
+        ref={dockGlass}
         style={{ viewTransitionName: "app-dock" }}
         whileTap={{ scale: 0.97 }}
         onClick={() => setOpen(!open)}

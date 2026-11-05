@@ -26,29 +26,31 @@ export function LoginScreen() {
     <div className="relative flex min-h-dvh flex-1 flex-col">
       <Backdrop />
       <WakeIsland wake={wake} />
-      <main className="mx-auto grid w-full max-w-5xl flex-1 items-center gap-8 px-4 pt-[calc(max(0.75rem,env(safe-area-inset-top))+3.75rem)] pb-10 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
-        <section className="flex flex-col gap-6">
-          <motion.header custom={0} variants={rise} initial="hidden" animate="show">
-            <div className="flex items-center gap-2.5">
-              <Mark className="size-9" />
-              <span className="text-2xl font-semibold tracking-tight">DocIntel</span>
-            </div>
-            <h1 className="mt-5 text-[2rem] leading-[1.1] font-semibold tracking-tight sm:text-5xl">
-              Invoices in.
-              <br />
-              <span className="bg-gradient-to-r from-sky-400 via-indigo-400 to-violet-400 bg-clip-text text-transparent">Checked data out.</span>
-            </h1>
-            <p className="mt-4 max-w-md text-[15px] text-muted">
-              DocIntel reads invoices from PDFs, scans, photos and spreadsheets. Python checks every number,
-              and a person sees only what needs a look.
-            </p>
-          </motion.header>
-          <motion.div custom={1} variants={rise} initial="hidden" animate="show">
-            <ScanPreview />
-          </motion.div>
-        </section>
+      {/* Phones: the form comes first, the pitch and preview below it (D75). Wide screens: side by side. */}
+      <main className="mx-auto grid w-full max-w-5xl flex-1 content-start gap-6 px-4 pt-[calc(max(0.75rem,env(safe-area-inset-top))+3.75rem)] pb-10 lg:grid-cols-[1.1fr_1fr] lg:content-center lg:gap-x-14 lg:gap-y-6">
+        <motion.header custom={0} variants={rise} initial="hidden" animate="show" className="lg:col-start-1 lg:row-start-1">
+          <div className="flex items-center gap-2.5">
+            <Mark className="size-9" />
+            <span className="text-2xl font-semibold tracking-tight">DocIntel</span>
+          </div>
+          <h1 className="mt-5 hidden text-5xl leading-[1.1] font-semibold tracking-tight lg:block">
+            Invoices in.
+            <br />
+            <span className="bg-gradient-to-r from-sky-400 via-indigo-400 to-violet-400 bg-clip-text text-transparent">Checked data out.</span>
+          </h1>
+          <p className="mt-4 hidden max-w-md text-[15px] text-muted lg:block">
+            DocIntel reads invoices from PDFs, scans, photos and spreadsheets. Python checks every number,
+            and a person sees only what needs a look.
+          </p>
+        </motion.header>
 
-        <motion.section custom={2} variants={rise} initial="hidden" animate="show" className="glass-strong flex flex-col gap-5 rounded-[2rem] p-6 sm:p-7">
+        <motion.section
+          custom={1}
+          variants={rise}
+          initial="hidden"
+          animate="show"
+          className="glass-strong flex flex-col gap-5 rounded-[2rem] p-6 sm:p-7 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center"
+        >
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Sign in</h2>
             <p className="mt-1 text-sm text-muted">Use the demo account from the submission email.</p>
@@ -63,6 +65,11 @@ export function LoginScreen() {
             </a>
           </p>
         </motion.section>
+
+        <motion.div custom={2} variants={rise} initial="hidden" animate="show" className="lg:col-start-1 lg:row-start-2">
+          <p className="mb-3 text-xs font-semibold tracking-[0.16em] text-muted uppercase lg:hidden">What happens to an invoice</p>
+          <ScanPreview />
+        </motion.div>
       </main>
     </div>
   );

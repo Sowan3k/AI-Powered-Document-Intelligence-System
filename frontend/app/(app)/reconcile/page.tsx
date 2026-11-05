@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Badge, Button, Card, Empty, ErrorBox, Field, Loading, PageTitle, inputClass } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -9,21 +10,31 @@ import type { DocumentSummary, Page, ReconcileSide, Reconciliation } from "@/lib
 import { useApi } from "@/lib/use-api";
 
 export default function ReconcilePage() {
+  return (
+    <Suspense>
+      <Reconcile />
+    </Suspense>
+  );
+}
+
+function Reconcile() {
+  const params = useSearchParams();
+  const presetA = params.get("a");
+  const presetB = params.get("b");
   const docs = useApi<Page<DocumentSummary>>("/api/documents?status=completed&limit=100");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<Reconciliation | null>(null);
+  const started = useRef(false);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
+  async function compare(a: string, b: string) {
     setBusy(true);
     setError(null);
     try {
       setReport(
         await api<Reconciliation>("/api/reconcile", {
           method: "POST",
-          body: JSON.stringify({ document_a: form.get("a"), document_b: form.get("b") }),
+          body: JSON.stringify({ document_a: a, document_b: b }),
         }),
       );
     } catch (err) {
@@ -32,6 +43,20 @@ export default function ReconcilePage() {
       setBusy(false);
     }
   }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    compare(String(form.get("a")), String(form.get("b")));
+  }
+
+  useEffect(() => {
+    // Two documents marked on Home: compare them straight away.
+    if (presetA && presetB && !started.current) {
+      started.current = true;
+      compare(presetA, presetB);
+    }
+  }, [presetA, presetB]);
 
   const options = docs.data?.items ?? [];
   return (
@@ -49,7 +74,7 @@ export default function ReconcilePage() {
           <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
             {(["a", "b"] as const).map((side, i) => (
               <Field key={side} label={`Document ${side.toUpperCase()}`}>
-                <select name={side} required className={inputClass} defaultValue={options[i]?.id}>
+                <select name={side} required className={inputClass} defaultValue={(side === "a" ? presetA : presetB) ?? options[i]?.id}>
                   {options.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.filename} ({d.invoice_count} invoices)

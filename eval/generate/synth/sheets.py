@@ -76,3 +76,14 @@ def write_csv(
                 [i.invoice_number, i.invoice_date.isoformat(), i.supplier_name, customer,
                  i.currency, i.subtotal, tax, i.total]
             )  # fmt: skip
+
+
+def write_table_xlsx(path: Path, sheet: str, headers: list[str], rows: list[list[object]]) -> None:
+    """A plain table on one sheet, header on row 1 (for files that are not invoices)."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = sheet
+    ws.append(headers)
+    for row in rows:
+        ws.append(row)
+    wb.save(path)

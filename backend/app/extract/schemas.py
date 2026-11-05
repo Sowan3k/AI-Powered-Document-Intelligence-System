@@ -54,6 +54,12 @@ class LlmLineItem(BaseModel):
     confidence: float = Field(ge=0, le=1)
 
 
+class LlmAdjustment(BaseModel):
+    label: str = Field(description="The label as printed, e.g. Discount, Delivery charge, SD.")
+    amount: str = Field(description="The amount exactly as printed, with any minus sign.")
+    evidence: str | None = Field(description="A short snippet copied exactly from the text.")
+
+
 class LlmInvoice(BaseModel):
     page_start: int = Field(ge=1, description="First page of this invoice.")
     page_end: int = Field(ge=1, description="Last page of this invoice.")
@@ -63,6 +69,10 @@ class LlmInvoice(BaseModel):
     customer_name: LlmField
     subtotal: LlmField
     tax: LlmField
+    adjustments: list[LlmAdjustment] = Field(
+        description="Printed lines between subtotal and total other than the main tax. "
+        "May be empty."
+    )
     total: LlmField
     currency: LlmField = Field(description="Currency symbol or code as printed, e.g. $, EUR, Tk.")
     line_items: list[LlmLineItem]
@@ -81,8 +91,9 @@ class LlmExtraction(BaseModel):
 
 
 class LlmColumnMapping(BaseModel):
-    """For each invoice field, the sheet header that holds it, or null."""
+    """Whether the rows are invoices, and for each field the header that holds it, or null."""
 
+    lists_invoices: bool
     invoice_number: str | None
     invoice_date: str | None
     supplier_name: str | None
@@ -114,6 +125,16 @@ class LineItemData(BaseModel):
     confidence: float = Field(default=0.0, ge=0, le=1)
 
 
+class AdjustmentData(BaseModel):
+    """A discount, charge, extra duty or rounding line. Discounts are negative."""
+
+    label: str
+    amount: Decimal | None = None
+    raw: str | None = None
+    evidence: str | None = None
+    flags: list[str] = []
+
+
 class InvoiceData(BaseModel):
     """One normalised invoice, ready to store and validate."""
 
@@ -132,6 +153,7 @@ class InvoiceData(BaseModel):
     total: FieldValue[Decimal] = FieldValue()
     currency: FieldValue[str] = FieldValue()
     line_items: list[LineItemData] = []
+    adjustments: list[AdjustmentData] = []
     # Currency codes seen anywhere in this invoice's values (R11 uses it).
     currencies_seen: list[str] = []
 

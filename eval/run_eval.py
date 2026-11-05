@@ -12,6 +12,10 @@ Run from backend/ with a throwaway database (the GitHub Actions workflow
 
 `--fake` swaps Gemini for the test suite's perfect-reader model, to check
 the scoring code without spending tokens; its accuracy numbers mean nothing.
+
+`--photos N` adds N phone photos of invoices (mild, medium and hard). They
+are scored on their own, under "photos", so the main numbers stay
+comparable between runs.
 """
 
 import argparse
@@ -108,11 +112,11 @@ def line_scores(inv: Invoice, want: dict) -> tuple[int, int, int]:
     return tp, len(inv.line_items), len(expected)
 
 
-def run(scale: int, fake: bool, workdir: Path, budget_s: float = 45 * 60) -> dict:
+def run(scale: int, fake: bool, workdir: Path, budget_s: float = 45 * 60, photos: int = 0) -> dict:
     settings = get_settings()
     configure_logging(settings.log_level)
     data = workdir / "data"
-    manifest = build(data, seed=7, scale=scale)
+    manifest = build(data, seed=7, scale=scale, photos=photos)
     truths = {
         e["file"]: json.loads((data / f"{e['file']}.json").read_text())
         for e in manifest
@@ -160,7 +164,23 @@ def run(scale: int, fake: bool, workdir: Path, budget_s: float = 45 * 60) -> dic
         time.sleep(0.5)  # a retry is waiting for its backoff
     wall_s = time.monotonic() - started
 
-    return score(sessions, manifest, truths, ids, settings, wall_s, scale, fake)
+    def in_photos(entry: dict) -> bool:
+        return truths.get(entry["file"], {}).get("group") == "photo"
+
+    main = [e for e in manifest if not in_photos(e)]
+    report = score(sessions, main, truths, ids, settings, wall_s, scale, fake)
+    photo_set = [e for e in manifest if in_photos(e)]
+    if photo_set:
+        report["photos"] = score(sessions, photo_set, truths, ids, settings, wall_s, scale, fake)
+        report["photos"]["by_level"] = {
+            level: score(
+                sessions,
+                [e for e in photo_set if truths[e["file"]].get("level") == level],
+                truths, ids, settings, wall_s, scale, fake,
+            )["field_accuracy_overall"]
+            for level in ("mild", "medium", "hard")
+        }  # fmt: skip
+    return report
 
 
 def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dict:  # type: ignore[no-untyped-def]
@@ -181,6 +201,15 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
     clean_flagged = clean_total = 0
     flag_rules: Counter[str] = Counter()
     wrong_fields: Counter[str] = Counter()
+    tokens_in = tokens_out = tokens_think = 0
+    latency_ms: dict[str, list[float]] = defaultdict(list)
+    extra_invoices: dict[str, int] = {}
+    not_invoice: dict[str, int] = {}  # file -> invoices wrongly extracted from it
+    adversarial: dict[str, dict] = {}
+    adj_right = adj_total = adj_r05 = 0
+    # Does the system catch its own mistakes? An invoice with any wrong field
+    # should end in the review queue, not pass as correct.
+    wrong_invoices = wrong_sent_to_review = sent_to_review = 0
 
     with sessions() as s:
         for entry in manifest:
@@ -230,7 +259,13 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
             calls = [e for e in events if e.event == "llm_call"]
             tokens = 0
             for e in calls:
-                n = int(e.detail["prompt_tokens"]) + int(e.detail["output_tokens"])
+                think = int(e.detail.get("thinking_tokens") or 0)
+                n = int(e.detail["prompt_tokens"]) + int(e.detail["output_tokens"]) + think
+                tokens_in += int(e.detail["prompt_tokens"])
+                tokens_out += int(e.detail["output_tokens"])
+                tokens_think += think
+                if e.detail.get("latency_ms") is not None:
+                    latency_ms[e.detail["purpose"]].append(float(e.detail["latency_ms"]))
                 tokens += n
                 tokens_by_purpose[e.detail["purpose"]] += n
                 calls_by_purpose[e.detail["purpose"]] += 1
@@ -244,7 +279,13 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
                 .order_by(Invoice.page_start, Invoice.row_start)
             ).all()  # fmt: skip
             expected_invoices += len(truth["invoices"])
-            for inv, want in match_invoices(list(stored), truth["invoices"]):
+            pairs = match_invoices(list(stored), truth["invoices"])
+            matched = sum(1 for inv, _ in pairs if inv is not None)
+            if len(stored) > matched:
+                extra_invoices[name] = len(stored) - matched
+            if truth.get("not_invoice"):
+                not_invoice[name] = len(stored)
+            for inv, want in pairs:
                 planted = want.get("planted") or []
                 if inv is None:
                     for f in FIELDS:
@@ -253,12 +294,19 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
                         detection[p].append(False)
                     continue
                 found += 1
+                any_wrong = False
                 for f in FIELDS:
                     field_total[f] += 1
                     if norm(f, getattr(inv, f)) == norm(f, want[f]):
                         field_hits[f] += 1
                     else:
                         wrong_fields[f"{f} ({path})"] += 1
+                        any_wrong = True
+                in_review = inv.review_status.value == "needs_review"
+                sent_to_review += in_review
+                if any_wrong:
+                    wrong_invoices += 1
+                    wrong_sent_to_review += in_review
                 tp, got, exp = line_scores(inv, want)
                 if path != "spreadsheet" and (exp or got):  # registers have no line columns
                     line_tp, line_got, line_want = line_tp + tp, line_got + got, line_want + exp
@@ -266,6 +314,24 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
                     select(ValidationIssue).where(ValidationIssue.invoice_id == inv.id)
                 ).all()
                 codes = {i.rule_code for i in issues}
+                if truth.get("adversarial"):
+                    adversarial[name] = {
+                        "fields_correct": all(
+                            norm(f, getattr(inv, f)) == norm(f, want[f]) for f in FIELDS
+                        ),
+                        "flags": sorted(codes),
+                    }
+                if want.get("adjustments"):
+                    adj_total += 1
+                    stored_adj = [
+                        Decimal(a["amount"])
+                        for a in (inv.field_meta or {}).get("adjustments") or []
+                        if a.get("amount")
+                    ]
+                    adj_right += sorted(stored_adj) == sorted(
+                        Decimal(a["amount"]) for a in want["adjustments"]
+                    )
+                    adj_r05 += "R05" in codes
                 for p in planted:
                     detection[p].append(EXPECTED_RULE[p] in codes)
                 if not planted:
@@ -292,6 +358,7 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
             "text": settings.gemini_model,
             "vision": settings.gemini_vision_model,
             "embedding": settings.gemini_embed_model,
+            "thinking_level": settings.gemini_thinking_level or "model default",
         },
         "dataset": {"scale": scale, "files": len(manifest), "invoices_expected": expected_invoices},
         "wall_seconds": round(wall_s, 1),
@@ -307,6 +374,12 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
         if total_fields
         else None,
         "wrong_fields": dict(wrong_fields.most_common()),
+        "review": {
+            "invoices_found": found,
+            "sent_to_review": sent_to_review,
+            "with_a_wrong_field": wrong_invoices,
+            "of_those_sent_to_review": wrong_sent_to_review,
+        },
         "line_items": {
             "precision": round(precision, 4) if precision is not None else None,
             "recall": round(recall, 4) if recall is not None else None,
@@ -328,11 +401,27 @@ def score(sessions, manifest, truths, ids, settings, wall_s, scale, fake) -> dic
             "false_flag_rate": round(clean_flagged / clean_total, 4) if clean_total else None,
             "false_flag_rules": dict(flag_rules),
         },  # fmt: skip
+        "not_invoice_files": {
+            "files": len(not_invoice),
+            "with_no_invoice": sum(1 for n in not_invoice.values() if n == 0),
+            "invoices_wrongly_extracted": not_invoice,
+        },
+        "extra_invoices": extra_invoices,
+        "adversarial": adversarial,
+        "adjustments": {
+            "invoices": adj_total,
+            "all_lines_right": adj_right,
+            "flagged_r05": adj_r05,
+        },
         "tokens": {
             "per_document": summary([float(t) for t in tokens_per_doc]),
+            "input": tokens_in,
+            "output": tokens_out,
+            "thinking": tokens_think,
             "total": sum(tokens_per_doc),
             "by_purpose": dict(tokens_by_purpose),
             "calls_by_purpose": dict(calls_by_purpose),
+            "latency_ms_by_purpose": {k: summary(v) for k, v in sorted(latency_ms.items())},
         },
         "job_attempts": {str(k): v for k, v in sorted(job_attempts.items())},
     }
@@ -345,7 +434,7 @@ def pct(x: float | None) -> str:
 def markdown(r: dict) -> str:
     lines = [
         f"Run: {r['run_at']}. Models: text `{r['models']['text']}`, vision `{r['models']['vision']}`, "
-        f"embedding `{r['models']['embedding']}`."
+        f"embedding `{r['models']['embedding']}`, thinking {r['models']['thinking_level']}."
         + (" **Fake model: numbers are not real.**" if r["fake_model"] else ""),
         f"Dataset: {r['dataset']['files']} files (scale {r['dataset']['scale']}), "
         f"{r['dataset']['invoices_expected']} labelled invoices. Wall time {r['wall_seconds']} s.",
@@ -374,13 +463,58 @@ def markdown(r: dict) -> str:
         f"{r['validation']['clean_with_errors']} of {r['validation']['clean_invoices']} "
         f"({pct(r['validation']['false_flag_rate'])}), rules: {r['validation']['false_flag_rules'] or 'none'}.",
         "",
-        f"Tokens: {r['tokens']['total']} in total; per completed document mean "
+        f"Files that are not invoices: {r['not_invoice_files']['with_no_invoice']} of "
+        f"{r['not_invoice_files']['files']} gave no invoice "
+        f"({r['not_invoice_files']['invoices_wrongly_extracted']}). "
+        f"Extra invoices in other files: {r['extra_invoices'] or 'none'}.",
+        f"Prompt injection: {r['adversarial'] or 'none'}.",
+        f"Discounts and charges: {r['adjustments']['all_lines_right']} of "
+        f"{r['adjustments']['invoices']} invoices read every line right; "
+        f"{r['adjustments']['flagged_r05']} flagged by R05.",
+        "",
+        f"Tokens: {r['tokens']['total']} in total ({r['tokens']['input']} input, "
+        f"{r['tokens']['output']} output, {r['tokens']['thinking']} thinking); "
+        f"per completed document mean "
         f"{r['tokens']['per_document']['mean']}, p95 {r['tokens']['per_document']['p95']}. "
         f"By purpose: {r['tokens']['by_purpose']}. Calls: {r['tokens']['calls_by_purpose']}.",
+        f"Latency per model call in ms (mean, p95): "
+        f"{ {k: (v['mean'], v['p95']) for k, v in r['tokens']['latency_ms_by_purpose'].items()} }.",
         f"Job attempts: {r['job_attempts']}.",
         f"Wrong fields (field and path): {r['wrong_fields'] or 'none'}.",
+        review_line(r["review"]),
     ]
+    if "photos" in r:
+        p = r["photos"]
+        lines += [
+            "",
+            f"Phone photos: {p['dataset']['files']} files, {p['invoices']['expected']} invoices, "
+            f"{p['invoices']['found']} found. Documents: {p['documents']}. "
+            f"Failures by cause: {p['failures_by_cause'] or 'none'}.",
+            "",
+            "| Field | Accuracy on photos |",
+            "|---|---|",
+            *[f"| {f} | {pct(a)} |" for f, a in p["field_accuracy"].items()],
+            f"| **all fields** | **{pct(p['field_accuracy_overall'])}** |",
+            "",
+            "By level: " + ", ".join(f"{k} {pct(v)}" for k, v in p["by_level"].items()) + ".",
+            f"Line items on photos: precision {pct(p['line_items']['precision'])}, "
+            f"recall {pct(p['line_items']['recall'])} ({p['line_items']['extracted']} extracted, "
+            f"{p['line_items']['expected']} expected).",
+            f"Pages by method: {p['pages_by_method']}. Timing: "
+            + ", ".join(f"{k} mean {v['mean']} s" for k, v in p["timing_seconds"].items())
+            + ".",
+            f"Wrong fields on photos: {p['wrong_fields'] or 'none'}.",
+            review_line(p["review"]),
+        ]
     return "\n".join(lines)
+
+
+def review_line(v: dict) -> str:
+    return (
+        f"Review queue: {v['sent_to_review']} of {v['invoices_found']} invoices found were sent "
+        f"to review; {v['with_a_wrong_field']} had a wrong field, and "
+        f"{v['of_those_sent_to_review']} of those were sent to review."
+    )
 
 
 def main() -> int:
@@ -389,9 +523,10 @@ def main() -> int:
     parser.add_argument("--fake", action="store_true")
     parser.add_argument("--out", type=Path, default=Path("../eval/reports"))
     parser.add_argument("--budget-min", type=float, default=45, help="stop taking jobs after this")
+    parser.add_argument("--photos", type=int, default=0, help="phone photos to add, scored apart")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="docintel-eval-") as tmp:
-        report = run(args.scale, args.fake, Path(tmp), args.budget_min * 60)
+        report = run(args.scale, args.fake, Path(tmp), args.budget_min * 60, args.photos)
     args.out.mkdir(parents=True, exist_ok=True)
     stamp = report["run_at"].replace(":", "").replace("-", "")
     (args.out / f"eval-{stamp}.json").write_text(json.dumps(report, indent=2, default=str))

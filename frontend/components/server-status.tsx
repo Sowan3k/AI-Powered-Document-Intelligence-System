@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-import { HEALTH_TIMEOUT_MS, fetchHealth, type HealthResult } from "@/lib/api";
+import { HEALTH_TIMEOUT_MS, fetchHealth, type HealthResponse, type HealthResult } from "@/lib/api";
+
+function degradedText(body: HealthResponse): string {
+  if (body.database !== "connected") return "Server up, database unavailable";
+  if (body.storage === "error") return "Server up, file storage unavailable: uploads will fail";
+  return "Server up, but not ready";
+}
 
 /** One line: is the backend awake? It sleeps on the free plan and takes up to a minute to wake. */
 export function ServerStatus() {
@@ -28,7 +34,7 @@ export function ServerStatus() {
       : state.kind === "healthy"
         ? ["bg-emerald-500", "Server ready"]
         : state.kind === "degraded"
-          ? ["bg-amber-500", "Server up, database unavailable"]
+          ? ["bg-amber-500", degradedText(state.body)]
           : ["bg-red-500", state.reason];
   return (
     <p aria-live="polite" className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">

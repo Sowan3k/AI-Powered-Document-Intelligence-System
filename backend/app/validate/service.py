@@ -10,6 +10,7 @@ import logging
 import uuid
 from collections import Counter
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -18,7 +19,7 @@ from app.core.config import Settings
 from app.db.enums import ReviewStatus, Severity
 from app.db.models import Document, Invoice, Job, ProcessingEvent, ValidationIssue
 from app.validate.duplicates import find_duplicates
-from app.validate.rules import InvoiceView, Issue, LineView, check_invoice
+from app.validate.rules import AdjustmentView, InvoiceView, Issue, LineView, check_invoice
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +38,20 @@ def view_of(invoice: Invoice) -> InvoiceView:
             LineView(li.position, li.quantity, li.unit_price, li.amount)
             for li in invoice.line_items
         ],
+        adjustments=adjustments_of(invoice.field_meta or {}),
         field_meta=dict(invoice.field_meta or {}),
     )
+
+
+def adjustments_of(meta: dict) -> list[AdjustmentView]:
+    """Discounts and charges as stored by extraction in field_meta (D57)."""
+    out = []
+    for a in meta.get("adjustments") or []:
+        amount = a.get("amount")
+        out.append(
+            AdjustmentView(a.get("label") or "Adjustment", Decimal(amount) if amount else None)
+        )
+    return out
 
 
 def validate_invoice(

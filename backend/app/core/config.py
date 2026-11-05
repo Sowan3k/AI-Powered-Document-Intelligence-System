@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     gemini_model: str | None = None
     gemini_vision_model: str | None = None
     gemini_embed_model: str | None = None
+    # Tried for a page window when the text model fails after its retries (an
+    # overload or quota error). Unset: the vision model, if it differs (D61).
+    gemini_fallback_model: str | None = None
+    # Unset keeps the model's default thinking; "low" or "minimal" cuts output tokens (D62).
+    gemini_thinking_level: Literal["minimal", "low", "medium", "high"] | None = None
     embed_dim: int = Field(default=768, ge=1, le=16000)
     llm_max_concurrency: int = Field(default=2, ge=1, le=32)
     llm_timeout_s: float = Field(default=90, gt=0)
@@ -108,6 +113,11 @@ class Settings(BaseSettings):
     heartbeat_interval_s: float = Field(default=10, gt=0)
     stale_job_s: float = Field(default=120, gt=0)  # a running job silent this long is re-queued
 
+    @field_validator("gemini_fallback_model", "gemini_thinking_level", mode="before")
+    @classmethod
+    def _blank_is_unset(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
     @field_validator("cors_origins")
     @classmethod
     def _strip_origins(cls, value: str) -> str:
@@ -131,6 +141,11 @@ class Settings(BaseSettings):
         if self.storage_backend is not None:
             return self.storage_backend
         return "supabase" if self.is_production else "local"
+
+    @property
+    def extraction_fallback_model(self) -> str | None:
+        fallback = self.gemini_fallback_model or self.gemini_vision_model
+        return fallback if fallback and fallback != self.gemini_model else None
 
     @property
     def is_production(self) -> bool:

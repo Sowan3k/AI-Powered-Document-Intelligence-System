@@ -1,12 +1,15 @@
 """Supabase Storage over its REST API (no Supabase client library, see D17).
 
-The key is a new-style secret key (`sb_secret_...`). It is not a JWT, so it goes
-only in the `apikey` header. Supabase rejects a secret key sent as
-`Authorization: Bearer`. The API gateway swaps the key for a service role token
-before the request reaches Storage.
+The key is a new-style secret key (`sb_secret_...`). Every call sends it in two
+headers: `apikey` and `Authorization: Bearer`. Hosted Storage refuses a request
+without an `Authorization` header (HTTP 400, FST_ERR_VALIDATION), and the API
+gateway swaps a `Bearer sb_...` value for a service role token before the
+request reaches Storage. Supabase's own clients send the same pair (D32).
+The key never appears in logs or error messages.
 """
 
 import logging
+import re
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -20,6 +23,10 @@ logger = logging.getLogger(__name__)
 
 CHUNK = 1024 * 1024
 RETRIES = 3
+CHECK_TIMEOUT_S = 5.0
+# Storage error codes such as FST_ERR_VALIDATION or InvalidJWT. Only a value of
+# this shape is copied into an error message; anything else in the body is not.
+ERROR_CODE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{2,39}$")
 
 
 class SupabaseStorage:
@@ -33,13 +40,16 @@ class SupabaseStorage:
         client: httpx.Client | None = None,
         backoff_s: float = 1.0,
     ) -> None:
-        self._base = f"{base_url.rstrip('/')}/storage/v1/object/{bucket}"
+        self._root = f"{base_url.rstrip('/')}/storage/v1/object"
+        self._base = f"{self._root}/{bucket}"
+        self._bucket = bucket
         self._key = secret_key
         self._backoff_s = backoff_s
         self._client = client or httpx.Client(timeout=timeout_s)
 
     def _headers(self) -> dict[str, str]:
-        return {"apikey": self._key.get_secret_value()}
+        key = self._key.get_secret_value()
+        return {"apikey": key, "Authorization": f"Bearer {key}"}
 
     def _call(self, op: str, send: Callable[[], httpx.Response]) -> httpx.Response:
         """Run one request with retries on network errors, 429 and 5xx."""
@@ -67,7 +77,23 @@ class SupabaseStorage:
             response.status_code == 400 and "not_found" in response.text.lower()
         ):
             return StorageNotFoundError("object not found")
-        return StorageError(f"storage {op} failed with HTTP {response.status_code}")
+        status = response.status_code
+        return StorageError(f"storage {op} failed with HTTP {status}" + _code(response))
+
+    def check(self) -> None:
+        """List at most one object: proves the URL, the key and the bucket, without retries."""
+        try:
+            response = self._client.post(
+                f"{self._root}/list/{self._bucket}",
+                json={"prefix": "", "limit": 1, "offset": 0},
+                headers=self._headers(),
+                timeout=CHECK_TIMEOUT_S,
+            )
+        except httpx.TransportError:
+            raise StorageError("storage check failed: network error") from None
+        if response.status_code >= 400:
+            status = response.status_code
+            raise StorageError(f"storage check failed with HTTP {status}" + _code(response))
 
     def upload(self, key: str, source: Path, content_type: str) -> None:
         check_key(key)
@@ -124,3 +150,18 @@ class SupabaseStorage:
             error = self._fail("delete", response)
             if not isinstance(error, StorageNotFoundError):
                 raise error
+
+
+def _code(response: httpx.Response) -> str:
+    """Storage's error code in brackets, such as " (FST_ERR_VALIDATION)", or nothing."""
+    try:
+        body = response.json()
+    except ValueError:
+        return ""
+    if not isinstance(body, dict):
+        return ""
+    for field in ("code", "error"):
+        value = body.get(field)
+        if isinstance(value, str) and ERROR_CODE.fullmatch(value):
+            return f" ({value})"
+    return ""

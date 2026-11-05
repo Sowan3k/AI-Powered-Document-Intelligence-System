@@ -24,7 +24,7 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
-      # The sb_secret_... key. The backend sends it only in the apikey header (D32).
+      # The sb_secret_... key. The backend sends it in the apikey and Authorization headers (D32).
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_BUCKET

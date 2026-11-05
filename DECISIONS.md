@@ -398,15 +398,26 @@ Search queries and stored invoices must both use them, or the similarity scores 
 
 **Alternatives:** Supabase Storage everywhere (compose would need a Supabase project), local disk everywhere (Render's free disk is wiped on every restart), or the `supabase` Python client.
 
-**Why:** `FileStorage` has three methods: `upload`, `download` and `delete`. `SupabaseStorage` calls the Storage REST API with `httpx2`. `LocalStorage` writes to a folder, which is a shared volume in docker-compose. `STORAGE_BACKEND` picks one; unset, it means `supabase` in production and `local` elsewhere, so a reviewer can run the whole stack with no Supabase account. The `supabase` client is banned anyway (D17), and the REST API needs only three calls.
+**Why:** `FileStorage` has four methods: `upload`, `download`, `delete` and `check`. `SupabaseStorage` calls the Storage REST API with `httpx2`. `LocalStorage` writes to a folder, which is a shared volume in docker-compose. `STORAGE_BACKEND` picks one; unset, it means `supabase` in production and `local` elsewhere, so a reviewer can run the whole stack with no Supabase account. The `supabase` client is banned anyway (D17), and the REST API needs only four calls.
 
-The key in `SUPABASE_SERVICE_ROLE_KEY` is a new-style secret key (`sb_secret_...`), not a JWT. Supabase's API key guide says such a key goes in the `apikey` header only; sent as `Authorization: Bearer`, it is parsed as a JWT and rejected. So the client sends `apikey` and no `Authorization` header, and a unit test checks every request for this. The gateway swaps the key for a service role token before the request reaches Storage.
+The key in `SUPABASE_SERVICE_ROLE_KEY` is a new-style secret key (`sb_secret_...`). Every Storage call sends it in two headers: `apikey: <key>` and `Authorization: Bearer <key>`. The API gateway swaps a `Bearer sb_...` value for a service role token before the request reaches Storage. Supabase's own Python client (`supabase` 2.34.0) sends the same pair. The key never appears in logs or error messages.
 
-Storage keys are always `<document uuid>/original.<ext>`, where the extension comes from the detected type. A regular expression rejects any other key, which blocks path tricks in the local backend. Uploads set `x-upsert: true`: the keys are fresh UUIDs, so overwriting is safe, and a retried upload after a lost response succeeds instead of failing with "already exists". Network errors, 429 and 5xx are retried three times with backoff. Error messages carry only the operation and the HTTP status, never the key or a response body.
+Storage keys are always `<document uuid>/original.<ext>`, where the extension comes from the detected type. A regular expression rejects any other key, which blocks path tricks in the local backend. Uploads set `x-upsert: true`: the keys are fresh UUIDs, so overwriting is safe, and a retried upload after a lost response succeeds instead of failing with "already exists". Network errors, 429 and 5xx are retried three times with backoff. Error messages carry the operation, the HTTP status and Storage's short error code (such as `FST_ERR_VALIDATION`), never the key or the rest of a response body.
 
-**Trade-off:** Local and Supabase backends can drift apart in behaviour. The Supabase client is tested only against a fake transport here; the first real call happens on Render. A missing Supabase setting fails when storage is first used, not at startup, so a misconfigured deploy still serves `/api/health`.
+**What went wrong first (5 November 2026).** The first version sent the key in `apikey` only. Supabase's migration guide for the new keys says "You can't send a publishable or secret key in the `Authorization: Bearer ...` header. Send it on the `apikey` header instead." We took that as the rule for every service, and a unit test asserted that no request carried `Authorization`. That sentence is about places that parse the header as a JWT, such as Edge Functions. Hosted Storage is different: it requires an `Authorization` header. CI was green on every push. The first real upload on the live site, twelve files on 5 November, failed with `STORAGE_ERROR`. Render logged "storage upload failed with HTTP 400" for each file, and Supabase's storage log showed the cause: `FST_ERR_VALIDATION`, "headers must have required property 'authorization'".
 
-**In one sentence:** Callers see one small interface, production files live in the private bucket, and the secret key travels the way Supabase documents for non-JWT keys.
+CI missed it because the fake Storage transport checked paths and bodies but not headers. It accepted a request the real service refuses, and the test that checked the headers encoded our wrong reading of the docs. The fix has four parts:
+
+- The client sends both headers on every call.
+- The fake now enforces the real service's rules. No `apikey` gets 401 from the gateway. No `Authorization` gets the same 400 and message production returned. A `Bearer sb_` value must match `apikey`. A test runs the old header code against the fake and expects that 400, and seven storage tests fail if the old code comes back.
+- `GET /api/health` now also asks Storage to list one object (5-second timeout, no retries, result reused for 15 seconds) and reports `"storage": "ok"` or `"error"`, with 503 on error. A wrong key now shows up without signing in or uploading. `/api/health/live` still makes no external call.
+- Error messages now carry Storage's error code, so the Render log would have named the cause on its own.
+
+The lesson: a fake must copy the real service's rules, not only its happy path, and a rule taken from documentation should be confirmed against the real service before release. Here the health check confirms it on every deploy.
+
+**Trade-off:** Local and Supabase backends can drift apart in behaviour. The fake copies only the rules we have seen; the health check is the backstop for the rest. `/api/health` now makes one outbound call every 15 seconds at most, and a Storage outage marks the API as degraded even while the database is fine. A missing Supabase setting fails when storage is first used, not at startup; the health check reports it as `"storage": "error"`.
+
+**In one sentence:** Callers see one small interface, production files live in the private bucket, the key travels the way Supabase's own clients send it, and the health check proves it on the live site.
 
 ---
 
@@ -466,7 +477,7 @@ The evidence check (AI rule 3) runs on every field with a value. A value is prov
 
 Each stored invoice keeps the parsed values in columns, and per field the confidence, evidence, raw text and flags in `field_meta`, plus the model's raw reply in `raw_extraction` for audit and evaluation. An amount with more than two decimals is rounded half up and flagged `rounded`; an amount too large for `NUMERIC(14,2)` is dropped and flagged `out_of_range`.
 
-**Trade-off:** More parsing code to own and test, and a few formats (Indian lakh grouping such as 12,34,567) are rejected rather than read. Rejected values go to review, which is the safe failure.
+**Trade-off:** More parsing code to own and test, and a few formats (Indian lakh grouping such as 12,34,567) are rejected rather than read. Rejected values go to review, which is the safe failure. *Updated by D56: lakh grouping, Bengali digits and the "/-" ending now parse.*
 
 **In one sentence:** The model copies what it sees, and deterministic code decides what the text means.
 
@@ -752,3 +763,171 @@ The backend gained `GET /api/activity` (each document's stage from its latest hi
 **Trade-off:** Polling, not push: a state change shows within 2 seconds rather than at once. Server-sent events would be faster but need a long-lived connection that the free Render instance and its proxy handle less reliably. The dock adds a small amount of screen clutter while files run; it hides itself once they finish.
 
 **In one sentence:** Drop files, watch them move, and fix or approve each problem with one tap.
+
+## D56: Amounts parse the way Bangladesh prints them
+
+**Alternatives:** Keep the strict thousands-only rule (D36) and send every lakh-grouped amount to review, or ask the model to convert amounts to plain numbers.
+
+**Why:** Bangladeshi invoices write "Tk 1,25,000/-": lakh grouping (the last three digits, then pairs), a "/-" or "/=" ending, sometimes Bengali digits (৳ ১,২৫,০০০) and the word টাকা. The old parser refused all of these, so the total of nearly every local invoice over one lakh came back unparsed and flagged. The parser now accepts lakh grouping (only with commas, and only when every group is well formed), strips the "/-" ending, turns Bengali digits into ASCII before parsing, and knows টাকা, Bengali month names and Bengali digits in dates and invoice numbers. The model still copies amounts exactly as printed; only Python reads them (AI rule 1).
+
+**Trade-off:** "12,34,567.00" used to count as malformed and now parses. A misread that happens to form valid lakh groups would no longer be caught by the parser, but the arithmetic rules (R03, R05) still catch a wrong number.
+
+**In one sentence:** A Bangladeshi invoice should not go to review just because it is written the Bangladeshi way.
+
+## D57: Discounts and charges between subtotal and total count in the total check
+
+**Alternatives:** Add fixed columns (discount, shipping) to the invoice table; let the model put a combined figure in tax; or keep the rule subtotal + tax = total and accept the false flags.
+
+**Why:** Real bills print other lines between subtotal and total: a discount, a delivery or service charge, a second duty such as SD, rounding. With only subtotal + tax = total, R05 flagged correct restaurant bills and VAT invoices. The model now copies each such line as a label and the printed amount (prompt rule 12). Python reads the amount and sets the sign from the label (discount, less, rebate, coupon, ছাড় make it negative), and R05 checks subtotal + tax + adjustments. An unreadable adjustment sends the invoice to review instead of being ignored. When no subtotal is printed, R03 adds the adjustments to the line sum. Spreadsheets map Discount, Delivery, Service charge and similar columns by rule. The lines are stored in `field_meta` beside each field's evidence, so no migration was needed, and the API returns them as `adjustments`.
+
+**Trade-off:** The sign comes from a keyword list, so an unusual label for a deduction ("goodwill") would be added instead of subtracted; R05 then flags it for a person, which is the safe direction. Adjustments are not a column, so they cannot be filtered in SQL.
+
+**In one sentence:** The model copies the extra lines, Python decides their sign and does the sum.
+
+## D58: A file that is not an invoice says so
+
+**Alternatives:** Add a classification call before extraction, or a separate document status `not_invoice`.
+
+**Why:** For PDFs and images the extraction prompt already allows an empty answer (rule 10), so a letter gives no invoice. A spreadsheet had no such guard: a staff list with a "Date" column became one fake invoice per row. Now the column-mapping call also answers `lists_invoices`, and a sheet the model says is not invoices gives none. When the model is not asked (headers map by rule, or no key), a sheet needs a money column and two mapped fields. A completed document with no invoices gets the event `no_invoice_found`, and the web app shows "No invoice found" on Home, in the live steps and on the document page, with a hint to upload a clearer copy if it is one. No extra call and no schema change: the existing calls carry the decision.
+
+**Trade-off:** If the model wrongly calls a real invoice register "not invoices", its rows are skipped. The sheet's stored mapping records the verdict, the document shows "No invoice found", and Process again retries it. Evaluation run 5 measures this on real Gemini.
+
+**In one sentence:** Nothing is invented from a file that is not an invoice, and the screen says why it is empty.
+
+## D59: Invoices download as a CSV for Excel
+
+**Alternatives:** An .xlsx export, or only the JSON API.
+
+**Why:** The brief says staff enter invoice data into internal systems, and in practice that means Excel or an accounting package import. `GET /api/export/invoices.csv` (optionally by review status) returns every invoice with its totals, discounts and charges, review status, open issues and source. It starts with a UTF-8 byte order mark, so Excel shows Bengali names correctly. Document text is untrusted, so any text cell that starts with = + - @ or a tab gets a leading apostrophe and cannot run as a formula (CSV injection). A button on Home downloads it.
+
+**Trade-off:** CSV has no types or formatting, and the export is capped at 20,000 rows to stay within the free instance's memory. An .xlsx writer would add a dependency for little gain.
+
+**In one sentence:** One tap gets the data into Excel, safely.
+
+## D60: Prompts carry a version, and a scheduled ping keeps the free demo awake
+
+**Alternatives:** Track prompt changes only in Git; let Supabase pause and wake it by hand before a demo.
+
+**Why:** `PROMPT_VERSION` in `prompts.py` is stored with the model name on every document's `extracted` event, so any stored result can be traced to the prompts and model that made it, and a prompt change can be compared run to run. Supabase pauses free projects after a week without activity, which would break the live link while reviewers look at it; a GitHub Actions workflow calls `/api/health` (which queries the database) every three days, and fails, which emails the owner, if the database does not answer.
+
+**Trade-off:** The version is bumped by hand. The ping costs a few minutes of the shared Render free hours each month.
+
+**In one sentence:** Every result says which prompt made it, and the demo stays up between visits.
+
+## D61: Page windows run in parallel, and a failed window tries a second model
+
+**Alternatives:** Keep one call at a time per document; use asyncio for the model calls; retry only through the job queue.
+
+**Why:** A 1,000-page PDF needs about 143 extraction calls (windows of 8 pages, D39). One at a time, the wait for each reply adds up, and the semaphore set by `LLM_MAX_CONCURRENCY` was never used because the worker is single-threaded. Windows now run on a small thread pool of that size. Threads fit here: the calls are I/O-bound and release the GIL, the rest of the code is synchronous (D18), and the client's semaphore and per-minute limiter (D53) already bound every call, so the free-tier quota still holds. Replies are merged in page order, whatever order they finish in, and progress is written on the worker's own thread because a database session is not thread-safe. A window whose model still fails after its retries (an overload or a quota error) tries `GEMINI_FALLBACK_MODEL`, by default the vision model, the same idea as the vision chain (D44). A reply that breaks the schema twice stays final (D40). If both models fail, the job queue retries the document with backoff (D45), and after the last attempt it shows as failed with a Process again button.
+
+**Trade-off:** On the free tier the per-minute limit, not concurrency, sets the speed, so the gain shows on a paid tier: raising `LLM_MAX_CONCURRENCY` and `LLM_CALLS_PER_MINUTE` is a configuration change. A fallback model may cost more per token, but only for windows that would otherwise fail.
+
+**In one sentence:** Long PDFs no longer wait for one reply at a time, and one busy model no longer fails a document.
+
+## D62: Cost is measured from real token counts, including thinking, and shown live
+
+**Alternatives:** Estimate cost from page counts; report tokens only; rely on the Google Cloud billing page.
+
+**Why:** Every Gemini call already stores its purpose, model, input and output tokens and latency as an `llm_call` event. Two gaps made the cost wrong or invisible. First, Gemini 3 models can think, and Google bills thinking tokens as output; the client counted only the answer's tokens. It now records `thinking_tokens` too, and `GEMINI_THINKING_LEVEL` (unset by default) can lower thinking for extraction, which copies text and needs little reasoning. Second, nobody could see the cost without reading the database. `GET /api/stats` now sums tokens by model and prices them from a small table in `app/core/pricing.py` (Google's list prices, with the date they were checked), and also gives document success and failure rates and processing time. Home shows one line of it. A model with no listed price gives no estimate rather than a guess. Embedding replies carry no token count, so embedding tokens are estimated at four characters per token, a small share of the total.
+
+**Trade-off:** Prices change, so the table needs a manual update; the date beside it says how fresh it is. The free tier costs nothing, so the figure shown is what the same work would cost on the paid tier.
+
+**In one sentence:** Every call's tokens are counted, thinking included, and the app shows what the work would cost.
+
+## D63: Security headers on every response
+
+**Alternatives:** Rely on the hosts' defaults; add a full nonce-based CSP to the web app.
+
+**Why:** The API returns data, never pages, so every response says so: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store` (invoice data must not sit in shared caches), a deny-all `Content-Security-Policy`, and HSTS in production. The Swagger page at `/api/docs` is left without the CSP because it loads its own scripts. The web app sends a CSP that lets the browser talk only to its own origin and the API origin, forbids plugins and framing (`frame-ancestors 'none'` stops clickjacking), and allows `blob:` frames only for the original file the page fetched itself (D65).
+
+**Trade-off:** The web app's CSP still allows inline scripts, because Next.js inlines its bootstrap; a nonce per request would remove that but needs every page rendered on the server. React already escapes all document text, and no code uses `dangerouslySetInnerHTML`.
+
+**In one sentence:** The browser is told exactly what the app may load and that it may not be framed.
+
+## D64: A low-confidence scan is also read upside down
+
+**Alternatives:** Tesseract's orientation detection (`--psm 0`), which needs an extra language file and fails on sparse pages; send every low-confidence page to the vision model.
+
+**Why:** Phone photos are often taken the wrong way up. A sideways page already read well (the cleanup and Tesseract's layout analysis handle 90 degrees: 94% confidence in a test), but an upside-down page fell to 47% and went to the slow, paid vision model. Now a page under 70% confidence is read once more turned 180 degrees, and the reading with the higher confidence wins. It costs one extra Tesseract pass (about half a second) and only on weak pages; a noisy page that is the right way up keeps its first reading. The evaluation set has an upside-down photo.
+
+**Trade-off:** Weak pages that are simply noisy pay the extra half second for nothing.
+
+**In one sentence:** One cheap extra OCR pass beats a slow vision call for a photo taken upside down.
+
+## D65: The original file can be viewed, and a document can be deleted
+
+**Alternatives:** Public or signed storage links; soft delete with a flag.
+
+**Why:** A reviewer checks a value against the page it came from, so the document page now shows the original: `GET /api/documents/{id}/file` streams the stored file through the API with the same login, and the page shows PDFs and photos inline (spreadsheets and TIFFs download). The bucket stays private and no link outlives the session (security rule 4). Deleting is the other half of handling personal data: `DELETE /api/documents/{id}` removes the stored file first and then the document row, and the database cascade removes pages, invoices, line items, issues, corrections, jobs, history and reconciliations. It refuses while a job runs, and if the file store fails it keeps the row so nothing is left half deleted. The log records only the document ID and the user.
+
+**Trade-off:** Streaming through the API uses the free instance's bandwidth and memory for large files, where a signed URL would not. A hard delete cannot be undone; the page asks for confirmation first.
+
+**In one sentence:** Reviewers see the real page, and data can be removed completely when it must be.
+
+## D66: Mark files, then upload; mark documents, then act on them
+
+**Alternatives:** Keep the upload-on-pick drop zone (D55); add a separate bulk page.
+
+**Why:** Two needs from Sowan's review. First, on a phone, photos come from the gallery and PDFs or Excel files from the Files app, and one picker cannot reach both, so a mixed batch needs more than one pick. Picking now adds files to a list; each shows its type (PDF, Photo, TIFF, Excel, CSV), its size and a checkbox, and files the server would refuse (an unsupported type, an empty file, over 50 MB) are shown as such and cannot be marked. "Upload N files" sends the marked ones together; more than 20 go in batches of 20, the server's batch limit. The server still checks every file by its bytes (security rule 5). Second, the document list has a checkbox per row and "Mark all on this page", and the marked documents can be processed again, downloaded for Excel (the export takes `document_id` filters), compared (exactly two), or deleted. The Failed filter adds "Retry all failed".
+
+**Trade-off:** Uploading is now two taps (pick, then upload) instead of one; the second tap is what lets a person check and mix files before sending. Bulk actions call the existing endpoints once per document, which is simple and reuses their checks, but slower than a bulk endpoint for hundreds of files.
+
+**In one sentence:** Gather files of any type from anywhere, tick what to send, and act on many documents at once.
+
+## D67: A model that just failed is skipped for five minutes while a fallback exists
+
+**Alternatives:** Keep retrying every model on every page; a full circuit breaker in the client for every call.
+
+**Why:** In evaluation run 6 one weak scan took 235 seconds, nearly all of it retrying `gemini-3.8-flash` (HTTP 503) before the fallback read the page. When a model still fails after all its retries, `app/extract/breaker.py` now remembers it for five minutes, and the fallback chains (vision, D44; extraction windows, D61) go straight to the next model. The last model in a chain is always tried, so the breaker can shorten a wait but never turns a slow success into a failure; a success closes it at once. The state lives in the worker process.
+
+**Trade-off:** For five minutes the preferred model is not tried even if it recovers sooner, so a few pages may be read by the fallback model when the better one was available.
+
+**In one sentence:** Stop waiting on a model that is down; come back to it in five minutes.
+
+## D68: Best match search merges keyword and meaning by reciprocal rank fusion
+
+**Alternatives:** Keep two separate modes only; a weighted sum of the full-text rank and the cosine similarity.
+
+**Why:** People type both exact codes ("INV-2026-00007") and loose descriptions ("printer supplies"). Full text finds codes and words; embeddings find meaning; neither does both. `mode=hybrid` takes the top 50 of each, filtered the same way, and scores each invoice by the sum of 1 / (60 + its rank) in each list. Ranks, not raw scores, are merged, because a `ts_rank` and a cosine similarity are not on the same scale and a weighted sum would need tuning against relevance labels we do not have. An invoice found by both lists rises to the top. Without the embedding model (no key, or Gemini down) it returns the keyword results instead of failing. It is the web app's default, called Best match; an empty query lists everything that fits the filters.
+
+**Trade-off:** Each hybrid search runs both queries and one embedding call, so it costs a little more than either alone. Only the top 50 of each list can appear.
+
+**In one sentence:** Codes and descriptions both find what they mean, with no weights to tune.
+
+## D69: Bengali scans go to the vision model, not to a Bengali Tesseract pack
+
+**Alternatives:** Install Tesseract's Bengali pack and read pages with `eng+ben`.
+
+**Why:** Measured on 5 November. With the Bengali pack, a Bengali invoice page read at 86 to 90% confidence and names came out right, but Bengali digits on short amount lines were read as Latin look-alikes: "৪০০.০০" became "800.00" and "১,৪০,২৫০.০০" became "$,80,2¢0.00", while the page confidence stayed high. A high-confidence page never reaches the vision model, so a confident wrong amount would go straight into the data. With English only, Tesseract reads a Bengali page at about 35% confidence, below the 60% threshold, and Gemini vision reads it, digits included. The change was reverted, and a test now checks that a Bengali page reads weakly so it takes the vision path. Bengali digits and month names already parse once read (D56).
+
+**Trade-off:** Bengali scans cost a vision call each and wait for it; on the free tier that can be slow when the vision model is busy (D67 shortens the wait).
+
+**In one sentence:** A slower correct reading beats a fast confident wrong one.
+
+## D70: Scaling is measured with a load test on the real queue
+
+**Alternatives:** Claim scalability from the design alone; a load test against the live free instance.
+
+**Why:** The brief asks for scalability, and the claim that more workers mean more throughput should be a number. `eval/load_test.py` uploads the same 24 invoices for 1, 2 and 4 workers and times how long they take to drain the real Postgres queue, with a fake model that waits 2 seconds a call (Gemini's measured latency, D62). Result: 1.0x, 2.0x, 3.8x. It also asserts that every document completed, so a lost or doubled job would fail the run. The live free instance is not used: it has one CPU and a shared monthly allowance, and its numbers would measure the free plan, not the design.
+
+**Trade-off:** Workers run as threads in one process, which is fair for waiting on the model but not for OCR-heavy batches, where separate processes or containers would be needed (`docker compose up --scale worker=3`).
+
+**In one sentence:** Twice the workers, twice the documents a minute, measured rather than claimed.
+
+---
+
+## D71: A harder set of phone photos, scored apart from the main numbers
+
+**Alternatives:** Keep only the clean synthetic set (runs 4 to 6 scored 100% on every field), add real invoices from the internet, or make every existing scan harder.
+
+**Why:** A perfect score on synthetic data the project made itself proves that the pipeline is sound, not that it reads hard input. The brief names poor image quality, and few pages in runs 4 to 6 reached the vision path. The one phone photo in the set (`photo_upside_down.jpg`, D64) is a light scan turned over, read by OCR. `--photos N` adds N phone photos of new invoices: the page on a desk, seen at an angle, lit from one side, out of focus, with sensor noise and JPEG compression. They come in three levels, cycling through the three layouts:
+
+- mild: a sharp photo, full size (Tesseract confidence 92 to 95 in the sandbox);
+- medium: smaller, a soft shadow over part of the page (80 to 90; OCR misread one invoice number);
+- hard: smaller still, a dark shadow, a hand shake blur and strong JPEG (35 to 55, so every one goes to the vision fallback).
+
+The photos are scored on their own, under "photos" in the report, so the main numbers stay comparable from run to run. Both groups now also report whether the system catches its own mistakes: of the invoices with any wrong field, how many ended in the review queue. A wrong invoice that passes as correct is the failure that matters most to a finance team. Real invoices from the internet were left out because of licences and personal data. Making the existing scans harder would have changed every earlier number.
+
+**Trade-off:** These are still synthetic photos of synthetic invoices. They have no folds, stamps, handwriting or creased thermal paper. Nine photos is a small sample, so one misread moves the photo accuracy by several points.
+
+**In one sentence:** Measure the hard case on its own, and count how many mistakes reach a person.

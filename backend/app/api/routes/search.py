@@ -1,4 +1,4 @@
-"""GET /api/search: keyword (full text) or semantic (embeddings), with filters."""
+"""GET /api/search: keyword (full text), semantic (embeddings) or hybrid (both), with filters."""
 
 import uuid
 from datetime import date
@@ -21,9 +21,9 @@ router = APIRouter(tags=["search"], dependencies=[Depends(current_user)])
 
 @router.get("/search", response_model=SearchResponse, responses={400: {}, 503: {}})
 def search_invoices(
-    mode: Literal["keyword", "semantic"] = "keyword",
+    mode: Literal["keyword", "semantic", "hybrid"] = "keyword",
     q: str | None = Query(
-        None, max_length=300, description="Words, or a question in semantic mode"
+        None, max_length=300, description="Words, or a question in semantic and hybrid mode"
     ),
     supplier: str | None = Query(None, max_length=200),
     date_from: date | None = None,

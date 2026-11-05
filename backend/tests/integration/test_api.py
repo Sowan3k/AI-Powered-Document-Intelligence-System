@@ -1,6 +1,8 @@
 """Every endpoint, end to end on Postgres, with the worker run in-process."""
 
 import contextlib
+import csv
+import io
 import json
 import uuid
 from collections.abc import Iterator
@@ -11,11 +13,14 @@ from pathlib import Path
 import jwt
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_llm, get_storage
 from app.core.config import Settings, get_settings
+from app.core.pricing import PRICES_USD_PER_M
 from app.core.ratelimit import login_limiter, upload_limiter
+from app.db.models import Document, Invoice
 from app.db.session import get_db
 from app.extract.llm import LlmError
 from app.extract.normalise import norm_supplier
@@ -53,6 +58,7 @@ class Env:
     ):  # type: ignore[no-untyped-def]
         self.client, self.db, self.worker, self.fake, self.dir = client, db, worker, fake, dir
         self.headers: dict[str, str] = {}
+        self.storage: LocalStorage = worker.storage  # type: ignore[assignment]
 
     def login(self) -> None:
         r = self.client.post("/api/auth/login", json={"username": "reviewer", "password": PASSWORD})
@@ -67,6 +73,9 @@ class Env:
 
     def patch(self, url: str, **kw):  # type: ignore[no-untyped-def]
         return self.client.patch(url, headers=self.headers, **kw)
+
+    def delete(self, url: str, **kw):  # type: ignore[no-untyped-def]
+        return self.client.delete(url, headers=self.headers, **kw)
 
     def upload(self, *names: str) -> dict:
         files = [
@@ -414,3 +423,88 @@ def test_activity_stage_mapping() -> None:
     assert set(STAGE_OF_EVENT.values()) <= set(order) | {"failed"}
     assert set(STAGE_LABELS) == set(order) | {"failed"}
     assert STAGE_OF_EVENT["extract_windows"] == "extracting"
+
+
+def test_export_csv_for_excel(env: Env, tmp_path: Path) -> None:
+    env.login()
+    env.worker.llm = None  # spreadsheets map by rule
+    bad = tmp_path / "evil.csv"
+    bad.write_text(
+        "Invoice No,Supplier,Customer,Subtotal,Discount,Total\n"
+        '=HYPERLINK("http://x"),Acme,রহিম ট্রেডার্স,"1,00,000.00",500.00,"99,500.00"\n'
+    )
+    env.dir = tmp_path
+    env.upload("evil.csv")
+    env.work()
+    assert env.client.get("/api/export/invoices.csv").status_code == 401
+    r = env.get("/api/export/invoices.csv")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+    assert "attachment" in r.headers["content-disposition"]
+    assert r.content.startswith(b"\xef\xbb\xbf")  # BOM, so Excel reads UTF-8
+    rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"))))
+    head, row = rows[0], rows[1]
+    got = dict(zip(head, row, strict=True))
+    assert got["Invoice number"].startswith("'=")  # no formula runs in Excel
+    assert got["Customer"] == "রহিম ট্রেডার্স"
+    assert (got["Subtotal"], got["Discounts and charges"], got["Total"]) == (
+        "100000.00", "-500.00", "99500.00"
+    )  # fmt: skip
+    assert got["Review status"] in {"ok", "needs_review"}
+    only = env.get("/api/export/invoices.csv", params={"review_status": "reviewed"})
+    assert len(list(csv.reader(io.StringIO(only.content.decode("utf-8-sig"))))) == 1
+    marked = env.get("/api/export/invoices.csv", params={"document_id": [str(uuid.uuid4())]})
+    assert len(list(csv.reader(io.StringIO(marked.content.decode("utf-8-sig"))))) == 1  # header
+    [doc] = env.get("/api/documents").json()["items"]
+    mine = env.get("/api/export/invoices.csv", params={"document_id": [doc["id"]]})
+    assert len(list(csv.reader(io.StringIO(mine.content.decode("utf-8-sig"))))) == 2
+
+
+def test_stats_report_outcomes_tokens_and_cost(env: Env, monkeypatch: pytest.MonkeyPatch) -> None:
+    env.login()
+    names = ["digital_classic_0.pdf", "encrypted.pdf"]
+    env.fake.replies = reader_for_truths([env.truth("digital_classic_0.pdf")])
+    env.upload(*names)
+    env.work()
+    s = env.get("/api/stats").json()
+    assert s["documents"] == {"completed": 1, "failed": 1}
+    assert (s["success_rate"], s["failure_rate"]) == (0.5, 0.5)
+    assert s["invoices"] and s["processing_seconds_mean"] is not None
+    # The fake model answers 100 input and 20 output tokens per call.
+    text = s["by_model"]["text-model"]
+    assert (text["calls"], text["input_tokens"], text["output_tokens"]) == (1, 100, 20)
+    assert text["cost_usd"] is None and s["cost_usd"] is None  # no listed price: no guess
+    monkeypatch.setitem(PRICES_USD_PER_M, "text-model", (1.0, 2.0))
+    monkeypatch.setitem(PRICES_USD_PER_M, "embed-model", (1.0, 0.0))
+    s = env.get("/api/stats").json()
+    embed = s["by_model"]["embed-model"]
+    expected = (100 * 1.0 + 20 * 2.0 + embed["input_tokens"] * 1.0) / 1_000_000
+    assert s["cost_usd"] == pytest.approx(expected)
+    assert s["cost_per_completed_document_usd"] == pytest.approx(expected)
+
+
+def test_original_file_and_delete(env: Env, db: Session) -> None:
+    env.login()
+    env.fake.replies = reader_for_truths([env.truth("digital_classic_0.pdf")])
+    body = env.upload("digital_classic_0.pdf", "register.csv")
+    pdf_id, csv_id = (d["document_id"] for d in body["documents"])
+    assert env.delete(f"/api/documents/{pdf_id}").status_code == 409  # still queued
+    env.work()
+
+    assert env.client.get(f"/api/documents/{pdf_id}/file").status_code == 401
+    pdf = env.get(f"/api/documents/{pdf_id}/file")
+    assert pdf.status_code == 200 and pdf.headers["content-type"] == "application/pdf"
+    assert pdf.headers["content-disposition"].startswith("inline")
+    assert pdf.content == (env.dir / "digital_classic_0.pdf").read_bytes()
+    sheet = env.get(f"/api/documents/{csv_id}/file")
+    assert sheet.headers["content-disposition"].startswith("attachment")  # never shown inline
+
+    doc = db.get(Document, uuid.UUID(pdf_id))
+    assert doc is not None and doc.storage_path
+    stored = env.storage.root / doc.storage_path
+    assert stored.exists()
+    assert env.delete(f"/api/documents/{pdf_id}").status_code == 204
+    db.expire_all()
+    assert not stored.exists()
+    assert env.get(f"/api/documents/{pdf_id}").status_code == 404
+    assert db.scalars(select(Invoice).where(Invoice.document_id == uuid.UUID(pdf_id))).all() == []
+    assert env.get(f"/api/documents/{csv_id}").status_code == 200  # the other file stays

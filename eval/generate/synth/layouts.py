@@ -16,6 +16,17 @@ def fmt_amount(value: Decimal, style: str) -> str:
     return text
 
 
+def fmt_lakh(value: Decimal) -> str:
+    """Bangladeshi grouping: 1,40,250.00 (the last three digits, then pairs)."""
+    whole, fraction = f"{value:.2f}".split(".")
+    head, tail = whole[:-3], whole[-3:]
+    pairs = []
+    while len(head) > 2:
+        pairs.insert(0, head[-2:])
+        head = head[:-2]
+    return ",".join([p for p in [head, *pairs] if p] + [tail]) + "." + fraction
+
+
 def fmt_qty(value: Decimal) -> str:
     return f"{value.normalize():f}"
 
@@ -153,7 +164,80 @@ def classic_two_page(doc: pymupdf.Document, inv: Invoice) -> None:
     _text(second, 50, y + 60, f"Currency: {inv.currency}. Payment due within 30 days.")
 
 
+def bangladesh(page: pymupdf.Page, inv: Invoice) -> None:
+    """A Mushak-6.3 style VAT invoice: Tk, lakh grouping, "/-" endings, discount
+    before VAT, a delivery charge."""
+    _text(page, 50, 50, inv.supplier_name, 16, bold=True)
+    _text(page, 50, 68, "House 12, Road 5, Dhanmondi, Dhaka-1205")
+    _text(page, 50, 82, "BIN: 000123456-0101")
+    _text(page, 360, 50, "TAX INVOICE (Mushak-6.3)", 12, bold=True)
+    _text(page, 360, 75, f"Challan No: {inv.invoice_number}")
+    _text(page, 360, 90, f"Date: {inv.invoice_date.strftime('%d-%m-%Y')}")
+    _text(page, 50, 120, f"Buyer: {inv.customer_name}")
+    y = 160
+    for x, label in ((50, "SL"), (75, "Description"), (300, "Qty"), (350, "Rate (Tk)"),
+                     (460, "Amount (Tk)")):  # fmt: skip
+        _text(page, x, y, label, bold=True)
+    for n, item in enumerate(inv.line_items, start=1):
+        y += 18
+        _text(page, 50, y, str(n))
+        _text(page, 75, y, item.description)
+        _text(page, 300, y, fmt_qty(item.quantity))
+        _text(page, 350, y, fmt_lakh(item.unit_price))
+        _text(page, 460, y, fmt_lakh(item.amount))
+    y += 30
+    rows = [("Sub-total", f"Tk {fmt_lakh(inv.subtotal)}")]
+    rows += [(f"Less: {a.label}" if a.amount < 0 else a.label, f"Tk {fmt_lakh(abs(a.amount))}")
+             for a in inv.adjustments if a.label == "Discount"]  # fmt: skip
+    rows.append((f"VAT {inv.tax_rate}%", f"Tk {fmt_lakh(inv.tax or Decimal(0))}"))
+    rows += [(a.label, f"Tk {fmt_lakh(a.amount)}") for a in inv.adjustments if a.amount > 0]
+    for label, value in rows:
+        _text(page, 300, y, label)
+        _text(page, 440, y, value)
+        y += 16
+    _text(page, 300, y, "Net Payable", bold=True)
+    _text(page, 440, y, f"Tk {fmt_lakh(inv.total)}/-", bold=True)
+    _text(page, 50, y + 40, "Prices include delivery to the buyer's warehouse in Gazipur.")
+
+
+def receipt(page: pymupdf.Page, inv: Invoice) -> None:
+    """A narrow restaurant bill with a service charge and VAT."""
+    _text(page, 200, 50, inv.supplier_name, 16, bold=True)
+    _text(page, 200, 68, "Gulshan Avenue, Dhaka")
+    _text(page, 200, 95, f"Bill No: {inv.invoice_number}")
+    _text(page, 200, 110, f"Date: {inv.invoice_date.strftime('%d/%m/%Y')}   Table: 7")
+    y = 140
+    for item in inv.line_items:
+        _text(page, 200, y, f"{fmt_qty(item.quantity)} x {item.description}")
+        _text(page, 360, y, fmt_amount(item.amount, "us"))
+        y += 16
+    y += 10
+    _text(page, 200, y, "Sub Total")
+    _text(page, 360, y, fmt_amount(inv.subtotal, "us"))
+    for a in inv.adjustments:
+        y += 16
+        _text(page, 200, y, a.label)
+        _text(page, 360, y, fmt_amount(a.amount, "us"))
+    y += 16
+    _text(page, 200, y, f"VAT {inv.tax_rate}%")
+    _text(page, 360, y, fmt_amount(inv.tax or Decimal(0), "us"))
+    y += 18
+    _text(page, 200, y, "Total (Tk)", bold=True)
+    _text(page, 360, y, fmt_amount(inv.total, "us"), bold=True)
+    _text(page, 200, y + 30, "Thank you. Please come again.")
+
+
+def text_page(page: pymupdf.Page, title: str, lines: list[str]) -> None:
+    """A plain page that is not an invoice: a letter, terms, a notice."""
+    _text(page, 50, 60, title, 14, bold=True)
+    y = 95
+    for line in lines:
+        _text(page, 50, y, line)
+        y += 16
+
+
 LAYOUTS = {"classic": classic, "modern": modern, "european": european}
+EXTRA_LAYOUTS = {"bangladesh": bangladesh, "receipt": receipt}
 TWO_PAGE = {"classic_two_page": classic_two_page}
 
 
@@ -164,5 +248,6 @@ def invoice_pdf(invoices: list[tuple[Invoice, str]]) -> pymupdf.Document:
         if layout in TWO_PAGE:
             TWO_PAGE[layout](doc, inv)
         else:
-            LAYOUTS[layout](doc.new_page(width=595, height=842), inv)
+            draw = LAYOUTS.get(layout) or EXTRA_LAYOUTS[layout]
+            draw(doc.new_page(width=595, height=842), inv)
     return doc

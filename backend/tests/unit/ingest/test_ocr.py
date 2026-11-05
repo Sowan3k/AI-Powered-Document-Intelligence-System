@@ -98,3 +98,31 @@ def test_decompression_bomb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     with pytest.raises(IngestError) as info:
         image.count_frames(path, Settings())
     assert info.value.code is IngestErrorCode.TOO_LARGE
+
+
+@pytest.mark.tesseract
+def test_upside_down_page_is_read_the_right_way_up(synthetic_dir: Path) -> None:
+    upright = cv2.imread(str(synthetic_dir / "scan_clean.png"), cv2.IMREAD_GRAYSCALE)
+    flipped = ocr.ocr_image(cv2.rotate(upright, cv2.ROTATE_180))
+    assert flipped.confidence is not None and flipped.confidence > 80
+    assert "INVOICE" in flipped.text
+    assert abs(flipped.skew_degrees - 180) < ocr.MAX_SKEW
+    straight = ocr.ocr_image(upright)
+    assert abs(straight.skew_degrees) < ocr.MAX_SKEW  # a good page is never flipped
+
+
+@pytest.mark.tesseract
+def test_a_bengali_page_reads_weakly_so_vision_reads_it() -> None:
+    """English-only Tesseract cannot read Bengali, and must say so with a low
+    confidence, so the page goes to the vision model. The Bengali language pack
+    was rejected: it read "৪০০.০০" as "800.00" with high confidence (D69)."""
+    doc = pymupdf.open()
+    page = doc.new_page(width=595, height=842)
+    page.insert_htmlbox(
+        pymupdf.Rect(40, 40, 555, 300),
+        "<p>চালান নং: KTL/2026/0067 তারিখ: ২২-০৬-২০২৬</p>"
+        "<p>ক্রেতা: কাওসার গার্মেন্টস লিমিটেড</p><p>মোট: ৳ ৪০০.০০</p>",
+    )
+    result = ocr.ocr_image(render_gray(page, 300))
+    assert result.confidence is not None
+    assert result.confidence < Settings().ocr_confidence_threshold

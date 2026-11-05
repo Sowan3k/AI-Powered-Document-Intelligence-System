@@ -4,31 +4,35 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the exit tests on the live site for Phases 4 and 5 (they need the merge to `main`), and the Phase 7 items only Sowan can do.
+**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the storage fix below, the exit tests on the live site for Phases 4 and 5, and the Phase 7 items only Sowan can do.
+
+**Live bug, 5 Nov 12:29 Dhaka:** every upload on the live site failed with `STORAGE_ERROR`. Hosted Supabase Storage needs an `Authorization` header and the client sent `apikey` only. Fixed on branch `ccr-2f4fe3f2-hzma97` (D32): both headers on every call, a fake that enforces the real rules, and `"storage": "ok"` or `"error"` in `GET /api/health`. Not live until that branch is merged into `main`.
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
 
 - Web app: https://docintel-tan-two.vercel.app (Vercel project `docintel`)
 - API: https://docintel-api-y25b.onrender.com (Render service `docintel-api`, Singapore, free plan). Docs at `/api/docs`, health at `/api/health`.
-- Render and Vercel deploy automatically from `main`. All work so far is on the session branch `sowan/admiring-gates-y0oyrm`; **nothing since Phase 0 is live yet.**
+- Render and Vercel deploy automatically from `main`. Phases 1 to 7 were merged into `main` on 4 Nov 2026 (Sowan3k/AI-Powered-Document-Intelligence-System#1, merge commit `d37fe29`).
+- Branches: `ccr-2f4fe3f2-hzma97` holds everything on `sowan/admiring-gates-y0oyrm` (D56 to D70), the phone photo set (D71) and the storage fix. Merging it into `main` deploys all of it.
 
-**Supabase (set up by Sowan):** `vector` and `pg_trgm` in the `extensions` schema, private bucket `documents` (50 MB), Data API disabled. `SUPABASE_SERVICE_ROLE_KEY` holds an `sb_secret_` key, sent only in the `apikey` header (D32).
+**Supabase (set up by Sowan):** `vector` and `pg_trgm` in the `extensions` schema, private bucket `documents` (50 MB), Data API disabled. `SUPABASE_SERVICE_ROLE_KEY` holds an `sb_secret_` key, sent in the `apikey` and `Authorization` headers (D32, fixed 5 Nov).
 
 **Gemini (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` (text), `gemini-3.8-flash` (vision), `gemini-embedding-2` at 768 dimensions. The vision model answered HTTP 503 (overloaded) in every real run; the fallback to the text model read those pages (D44).
 
-**Evaluation (run 4, real Gemini):** 87 of 87 invoices, all 8 fields 100%, line items 211 of 211, planted errors 10 of 10, 1 false flag in 77 clean invoices, all 9 broken files rejected correctly, no failed documents. See `docs/EVALUATION.md`.
+**Evaluation (run 5, real Gemini):** 91 of 91 invoices, all 8 fields 100%, line items 224 of 224, planted errors 12 of 12, 1 false flag in 80 clean invoices, 4 of 4 non-invoice files empty, all 9 broken files rejected correctly, no failed documents. About $0.0015 per invoice at paid Gemini prices. See `docs/EVALUATION.md`.
 
 **Next, for Sowan (in order):**
 
-1. Merge `sowan/admiring-gates-y0oyrm` into `main`. Render and Vercel deploy by themselves.
-2. In Render, check these environment variables: `DEMO_PASSWORD` is set (pick one and put it in the submission email); `STORAGE_BACKEND=supabase` and the new defaults come from `render.yaml` (sync the Blueprint if Render asks). Optional: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` while `gemini-3.8-flash` stays overloaded; weak scans then skip a wait of about a minute.
-3. After the deploy: open the web app on your phone, sign in, upload a few files from the dataset (or your own), and check results, review, a correction, both searches and reconcile. Tell Claude Code what you see, and it will tick the exit tests for Phases 4 and 5.
-4. Record the walkthrough video (3 to 5 minutes) following the Phase 7 list.
-5. Decide repository access (invite the reviewers, or make it public; gitleaks scans the full history on every push and has been green).
-6. Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio.
+1. Merge `ccr-2f4fe3f2-hzma97` into `main` once CI is green. It includes D56 to D71 and the storage fix.
+2. After Render deploys, open https://docintel-api-y25b.onrender.com/api/health and check `"storage": "ok"`. Then upload a few files on the live site.
+3. In Render, check these environment variables: `DEMO_PASSWORD` is set (pick one and put it in the submission email); `STORAGE_BACKEND=supabase` and the new defaults come from `render.yaml` (sync the Blueprint if Render asks). Optional: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` while `gemini-3.8-flash` stays overloaded; weak scans then skip a wait of about a minute.
+4. On the live site, check results, review, a correction, both searches and reconcile. Tell Claude Code what you see, and it will tick the exit tests for Phases 4 and 5.
+5. Record the walkthrough video (3 to 5 minutes) following `docs/WALKTHROUGH.md`.
+6. Decide repository access (invite the reviewers, or make it public; gitleaks scans the full history on every push and has been green).
+7. Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio.
 
-**Blockers:** None.
+**Blockers:** Uploads on the live site fail until the storage fix is merged.
 
 **Note:** Render's free instance hours are shared across the workspace with BahasaBot and grab-realtime-demo.
 
@@ -38,6 +42,34 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Real public invoice samples were not added to the evaluation (licensing and personal data). The report says so.
 
 ## Session log
+
+### 5 Nov 2026, live storage bug, phone photo set (Claude Code)
+
+Sowan uploaded 12 files on the live site at 12:29 Dhaka. All failed with `STORAGE_ERROR`. Supabase's storage log gave the cause: `FST_ERR_VALIDATION`, "headers must have required property 'authorization'". The client sent the secret key in `apikey` only, and the fake transport in the tests never checked headers, so CI stayed green. Fixed (D32): both headers on every call, a fake that answers like hosted Storage (401 without `apikey`, the same 400 without `Authorization`), Storage's error code in our error messages, and a storage check in `GET /api/health` (list one object, 5 s timeout, cached 15 s, 503 on error). The start page now says "file storage unavailable" when that part is down. Supabase's own Python client (2.34.0) sends the same header pair. The sandbox cannot reach supabase.co, so the live health check is the real proof.
+
+Earlier in the session: checked the build against the Care Guide email and brief, and found that `main` lacked the 25 commits on `sowan/admiring-gates-y0oyrm`. Rebuilt this branch on top of them. Added nine phone photos at three levels, scored apart from the main numbers, plus a count of wrong invoices that reached the review queue (D71). Run 7 is requested.
+
+Then rewrote the README in Sowan's style: the brief task by task and the nine deliverables with where each lives, the brief's speed, scale, reliability and security goals with measured numbers, and why the build differs from the suggested stack. Fixed the email draft in `docs/WALKTHROUGH.md`: the subject is "Re: Interview Task Assignment", and the CV checklist now matches the email.
+
+Tested: 412 backend tests (ruff clean), frontend lint, typecheck and build. Seven storage tests fail when the old header code is put back.
+
+### 5 Nov 2026, more files at once, search, safety and scale (Claude Code)
+
+Sowan asked to mark and submit many files of mixed types, plus the other suggestions. Done, each with tests: an upload list that gathers files from several pickers, shows each type, refuses unsupported ones, and uploads the marked ones in batches of 20; checkboxes on the document list with Process again, Download marked for Excel, Compare these two, Delete and Retry all failed (D66). A model that failed after its retries is skipped for five minutes while a fallback exists (D67). Best match search merges keyword and meaning by rank fusion and is the default (D68). The source text highlights where each value was read. Security headers (D63), upside-down scans flipped in OCR (D64), View original and Delete (D65), the walkthrough script and email draft (`docs/WALKTHROUGH.md`), and the `demo-files` CI artifact. The Bengali Tesseract pack was measured and rejected: it read Bengali "৪০০.০০" as "800.00" at high confidence (D69). A load test on the real queue gave 1.0x, 2.0x and 3.8x throughput with 1, 2 and 4 workers (D70). Evaluation run 6 repeated run 5 with 0 thinking tokens and per-call latency (extraction 21 s mean).
+
+Tested: backend suite, frontend lint, typecheck and build, and phone-size browser walk-throughs of the upload list (6 files from two picks, one refused, one unticked, 4 uploaded), bulk export, compare, process again and delete, View original, the highlight and Best match, with no console errors.
+
+### 5 Nov 2026, interview readiness fixes (Claude Code)
+
+Sowan asked whether a non-invoice file is reported, and asked for an interviewer's check of the whole project. Found and fixed, each with tests: Bangladeshi amounts ("Tk 1,25,000/-", lakh grouping, Bengali digits, টাকা) now parse (D56); discounts, delivery and service charges and SD count in the total check, so correct bills are no longer flagged (D57); a sheet that is not invoices gives no invoices, and every empty result says "No invoice found" (D58); a CSV export for Excel with a BOM and a formula-injection guard (D59); prompt version stored per document, and a scheduled ping keeps Supabase from pausing (D60). SECURITY.md now says what is sent to Gemini and why real documents need the paid tier. The dataset gained two Mushak-6.3 style VAT invoices, a restaurant bill, a prompt-injection invoice and four non-invoice files.
+
+Tested: 383 backend tests (coverage 96%), frontend lint, typecheck and build, a fake-model evaluation (4 of 4 non-invoices empty, 3 of 3 adjustment invoices right, 0 of 68 clean invoices flagged), and a phone-size browser walk-through: "No invoice found" on Home and the letter page, discount and delivery on the VAT invoice card with no total error, the CSV download with BOM, no console errors. Evaluation run 5 on real Gemini (44 files, 91 invoices): all fields 100%, line items 224 of 224, planted errors 12 of 12, 1 false flag in 80, 4 of 4 non-invoices empty, the injection ignored, 0 failures; 37,568 input and 48,679 output tokens, about $0.0015 per invoice at paid prices before thinking tokens.
+
+Then, on Sowan's request to cover fallback, rate limiting, async and cost: page windows now run in parallel within the existing limits, and a failed window tries a second model (D61); thinking tokens are recorded, `GEMINI_THINKING_LEVEL` can lower them, and `GET /api/stats` plus a line on Home show rates, time, tokens and cost (D62). 388 tests, coverage 96%, CI run 41 green. Run 6 measures thinking tokens and latency.
+
+### 4 Nov 2026, merge to main and deploy (Claude Code)
+
+Sowan asked for the merge. Opened and merged Sowan3k/AI-Powered-Document-Intelligence-System#1 after CI run 35 was green on `669a6d2`. Merge commit `d37fe29`. Vercel production build: READY. Render deploy: build done, migrations ran (no schema change since Phase 0), API and worker started, `/api/health/live` returns 200. Not yet checked from a browser: sign-in and a real upload on the live site (this sandbox cannot reach Render or Vercel).
 
 ### 4 Nov 2026, frontend redesign and scale check (Claude Code)
 

@@ -101,6 +101,7 @@ class LlmUsage:
     output_tokens: int = 0
     latency_ms: int = 0
     attempts: int = 1
+    thinking_tokens: int = 0  # billed as output by Google (D62)
 
     def as_detail(self) -> dict[str, object]:
         return {
@@ -108,6 +109,7 @@ class LlmUsage:
             "model": self.model,
             "prompt_tokens": self.prompt_tokens,
             "output_tokens": self.output_tokens,
+            "thinking_tokens": self.thinking_tokens,
             "latency_ms": self.latency_ms,
             "attempts": self.attempts,
         }
@@ -156,9 +158,17 @@ class GeminiClient:
         backoff_s: float = 2.0,
         calls_per_minute: int | None = None,
         quota_delay_s: float = QUOTA_DELAY_S,
+        thinking_level: str | None = None,
         sdk: genai.Client | None = None,
     ) -> None:
         self._quota_delay_s = quota_delay_s
+        # None keeps each model's default. Extraction copies text, so a low level
+        # can cut output cost and latency; measure before changing it (D62).
+        self._thinking = (
+            types.ThinkingConfig(thinking_level=types.ThinkingLevel(thinking_level.upper()))
+            if thinking_level
+            else None
+        )
         self._semaphore = threading.BoundedSemaphore(max_concurrency)
         self._rate = CallRateLimiter(calls_per_minute)
         self._max_retries = max_retries
@@ -215,11 +225,12 @@ class GeminiClient:
     def _log(usage: LlmUsage) -> None:
         logger.info(
             "llm call purpose=%s model=%s prompt_tokens=%d output_tokens=%d "
-            "latency_ms=%d attempts=%d",
+            "thinking_tokens=%d latency_ms=%d attempts=%d",
             usage.purpose,
             usage.model,
             usage.prompt_tokens,
             usage.output_tokens,
+            usage.thinking_tokens,
             usage.latency_ms,
             usage.attempts,
         )
@@ -238,6 +249,7 @@ class GeminiClient:
             temperature=0,
             response_mime_type="application/json" if schema else "text/plain",
             response_schema=schema,
+            thinking_config=self._thinking,
         )
         contents = [self._content(t) for t in turns]
         started = time.monotonic()
@@ -255,6 +267,7 @@ class GeminiClient:
             output_tokens=(meta.candidates_token_count or 0) if meta else 0,
             latency_ms=int((time.monotonic() - started) * 1000),
             attempts=attempts,
+            thinking_tokens=(getattr(meta, "thoughts_token_count", None) or 0) if meta else 0,
         )
         self._log(usage)
         return LlmReply(text=response.text or "", usage=usage)
@@ -341,6 +354,7 @@ def get_llm_client(settings: Settings) -> GeminiClient:
         timeout_s=settings.llm_timeout_s,
         max_retries=settings.llm_max_retries,
         calls_per_minute=settings.llm_calls_per_minute,
+        thinking_level=settings.gemini_thinking_level,
     )
 
 

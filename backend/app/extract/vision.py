@@ -21,6 +21,7 @@ import pymupdf
 from PIL import Image, ImageOps, ImageSequence
 
 from app.extract import prompts
+from app.extract.breaker import BREAKER
 from app.extract.llm import ImagePart, LlmClient, LlmError, LlmUsage, Turn
 from app.ingest.pdf import render_gray
 from app.ingest.schemas import FileKind
@@ -80,12 +81,18 @@ class VisionResult:
 def transcribe_with_fallback(llm: LlmClient, models: list[str | None], png: bytes) -> VisionResult:
     """Try each configured model once (each call has its own retries), in order."""
     errors: list[str] = []
-    for model in dict.fromkeys(m for m in models if m):  # unique, in order
+    chain = list(dict.fromkeys(m for m in models if m))  # unique, in order
+    for model in chain:
+        if model not in BREAKER.usable(chain):
+            errors.append(f"{model}: skipped, it failed in the last few minutes")
+            continue
         try:
             text, usage = transcribe(llm, model, png)
         except LlmError as exc:
             logger.warning("vision transcription with %s failed: %s", model, exc)
             errors.append(f"{model}: {exc}")
+            BREAKER.failed(model)
             continue
+        BREAKER.succeeded(model)
         return VisionResult(text, model, usage, errors)
     return VisionResult(None, None, None, errors)

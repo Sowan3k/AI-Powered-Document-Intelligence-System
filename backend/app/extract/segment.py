@@ -66,6 +66,8 @@ def merge_pair(first: LlmInvoice, second: LlmInvoice) -> LlmInvoice:
         page_start=min(first.page_start, second.page_start),
         page_end=max(first.page_end, second.page_end),
         line_items=items,
+        # Discounts and charges sit near the total, which the later view sees.
+        adjustments=second.adjustments or first.adjustments,
         **fields,
     )
 

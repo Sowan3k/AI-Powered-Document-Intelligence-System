@@ -74,7 +74,10 @@ export function ProcessFlow({ item, compact = false }: { item: ActivityItem; com
         <span>
           {item.stage_label}
           {failed && item.error_code ? `: ${item.error_code}` : ""}
-          {item.stage === "done" && ` · ${item.invoice_count} invoice${item.invoice_count === 1 ? "" : "s"}`}
+          {item.stage === "done" && item.invoice_count === 0 && (
+            <span className="font-medium text-amber-700 dark:text-amber-400"> · no invoice found</span>
+          )}
+          {item.stage === "done" && item.invoice_count > 0 && ` · ${item.invoice_count} invoice${item.invoice_count === 1 ? "" : "s"}`}
           {item.stage === "done" && item.needs_review > 0 && ` · ${item.needs_review} to review`}
           {item.attempts > 1 && item.stage !== "done" && !failed && ` · try ${item.attempts}`}
         </span>

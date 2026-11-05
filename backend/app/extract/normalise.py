@@ -5,8 +5,12 @@ caller flags the field for review.
 """
 
 import re
+import unicodedata
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+
+# Bengali digits (U+09E6 to U+09EF) become ASCII before any parsing.
+_BENGALI_DIGITS = str.maketrans("০১২৩৪৫৬৭৮৯", "0123456789")
 
 CURRENCY_CODES = {
     "USD", "EUR", "GBP", "BDT", "INR", "JPY", "CNY", "AUD", "CAD", "SGD", "MYR", "AED",
@@ -16,10 +20,12 @@ CURRENCY_CODES = {
 CURRENCY_SIGNS = {
     "$": "USD", "US$": "USD", "€": "EUR", "£": "GBP", "৳": "BDT", "TK": "BDT", "TAKA": "BDT",
     "₹": "INR", "RS": "INR", "¥": "JPY", "RM": "MYR", "S$": "SGD", "A$": "AUD", "C$": "CAD",
-    "EURO": "EUR", "EUROS": "EUR", "DOLLAR": "USD", "DOLLARS": "USD",
+    "EURO": "EUR", "EUROS": "EUR", "DOLLAR": "USD", "DOLLARS": "USD", "টাকা": "BDT",
 }  # fmt: skip
+# "টাকা" (taka) sits with the symbols: Bengali vowel signs are not word
+# characters, so a \b after it would never match.
 _SIGN_PATTERN = re.compile(
-    r"(US\$|S\$|A\$|C\$|[$€£৳₹¥])|\b("
+    r"(US\$|S\$|A\$|C\$|টাকা|[$€£৳₹¥])|\b("
     + "|".join(sorted(CURRENCY_CODES))
     + r"|TK|TAKA|RS|RM|EUROS?|DOLLARS?)\b\.?",
     re.IGNORECASE,
@@ -36,6 +42,25 @@ MONTHS = {
     )
     for m in names
 }  # fmt: skip
+# Month names as printed on Bengali invoices, with the common spellings.
+MONTHS.update(
+    {
+        unicodedata.normalize("NFC", m): i
+        for i, names in enumerate(
+            [("জানুয়ারি", "জানুয়ারী"), ("ফেব্রুয়ারি", "ফেব্রুয়ারী"), ("মার্চ",),
+             ("এপ্রিল",), ("মে",), ("জুন",), ("জুলাই",), ("আগস্ট", "আগষ্ট"),
+             ("সেপ্টেম্বর",), ("অক্টোবর",), ("নভেম্বর",), ("ডিসেম্বর",)],
+            start=1,
+        )
+        for m in names
+    }
+)  # fmt: skip
+_MONTH_WORD = r"[A-Za-z\u0980-\u09FF]+"
+
+
+def ascii_digits(text: str) -> str:
+    """Bengali digits to ASCII, and one Unicode form, so "১২" and "12" parse alike."""
+    return unicodedata.normalize("NFC", text).translate(_BENGALI_DIGITS)
 
 
 def currencies_in(text: str | None) -> list[str]:
@@ -62,11 +87,12 @@ def parse_amount(text: str | None) -> Decimal | None:
     The last separator is the decimal mark when both "," and "." appear. A
     single "," followed by three digits is a thousands mark ("1,234"), unless
     the whole part is 0 ("0,125"). Digit groups must be well formed, or the
-    result is None.
+    result is None. Lakh grouping ("1,23,456.00"), Bengali digits and the
+    "/-" or "/=" ending used in Bangladesh ("Tk 5,000/-") are accepted.
     """
     if text is None:
         return None
-    s = text.strip()
+    s = re.sub(r"\s*/[-=]\s*$", "", ascii_digits(text).strip())
     trailing_minus = s.endswith("-") and not s.endswith((",-", ".-"))  # "450,-" means 450
     negative = (s.startswith("(") and s.endswith(")")) or s.startswith("-") or trailing_minus
     s = _SIGN_PATTERN.sub(" ", s)
@@ -91,13 +117,44 @@ def parse_amount(text: str | None) -> Decimal | None:
     if decimal and (not fraction.isdigit() or thousands in fraction):
         return None
     groups = whole.split(thousands)
-    if len(groups) > 1 and (not 1 <= len(groups[0]) <= 3 or any(len(g) != 3 for g in groups[1:])):
+    if len(groups) > 1 and not _well_grouped(groups, thousands):
         return None
     try:
         value = Decimal("".join(groups) + ("." + fraction if fraction else ""))
     except InvalidOperation:
         return None
     return -value if negative else value
+
+
+def _well_grouped(groups: list[str], mark: str) -> bool:
+    """Thousands ("1,234,567") or, with commas, lakh grouping ("12,34,567")."""
+    if 1 <= len(groups[0]) <= 3 and all(len(g) == 3 for g in groups[1:]):
+        return True
+    return (
+        mark == ","
+        and len(groups) > 2
+        and 1 <= len(groups[0]) <= 2
+        and all(len(g) == 2 for g in groups[1:-1])
+        and len(groups[-1]) == 3
+    )
+
+
+# Labels of lines that lower the total. Every other adjustment adds to it.
+_LOWERS_TOTAL = re.compile(
+    unicodedata.normalize(
+        "NFC", r"discount|\bdisc\b|\bless\b|rebate|coupon|voucher|promo|deduct|ছাড়|ডিসকাউন্ট"
+    ),
+    re.IGNORECASE,
+)
+
+
+def signed_adjustment(label: str | None, amount: Decimal | None) -> Decimal | None:
+    """A discount lowers the total even when printed without a minus sign."""
+    if amount is None or amount < 0:
+        return amount
+    if label and _LOWERS_TOTAL.search(unicodedata.normalize("NFC", label)):
+        return -amount
+    return amount
 
 
 def parse_quantity(text: str | None) -> Decimal | None:
@@ -108,7 +165,7 @@ def parse_date(text: str | None, day_first: bool = True) -> tuple[date | None, b
     """Return (date, ambiguous). Ambiguous means day and month could swap."""
     if not text:
         return None, False
-    s = " ".join(text.strip().replace(",", " ").split()).rstrip(".")
+    s = " ".join(ascii_digits(text).strip().replace(",", " ").split()).rstrip(".")
     iso = re.fullmatch(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T ].*)?", s)
     if iso:
         return _make(int(iso[1]), int(iso[2]), int(iso[3])), False
@@ -122,10 +179,10 @@ def parse_date(text: str | None, day_first: bool = True) -> tuple[date | None, b
         ambiguous = a != b
         day, month = (a, b) if day_first else (b, a)
         return _make(year, month, day), ambiguous
-    words = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)?[ -]([A-Za-z]+)[ -](\d{2}|\d{4})", s)
+    words = re.fullmatch(rf"(\d{{1,2}})(?:st|nd|rd|th)?[ -]({_MONTH_WORD})[ -](\d{{2}}|\d{{4}})", s)
     if words and words[2].lower() in MONTHS:
         return _make(_year(words[3]), MONTHS[words[2].lower()], int(words[1])), False
-    words = re.fullmatch(r"([A-Za-z]+)[ -](\d{1,2})(?:st|nd|rd|th)?[ -](\d{4})", s)
+    words = re.fullmatch(rf"({_MONTH_WORD})[ -](\d{{1,2}})(?:st|nd|rd|th)?[ -](\d{{4}})", s)
     if words and words[1].lower() in MONTHS:
         return _make(int(words[3]), MONTHS[words[1].lower()], int(words[2])), False
     return None, False
@@ -154,7 +211,7 @@ def norm_invoice_number(text: str | None) -> str | None:
     """Key for duplicate checks: upper case, letters and digits only."""
     if not text:
         return None
-    return re.sub(r"[^A-Z0-9]", "", text.upper()) or None
+    return re.sub(r"[^A-Z0-9]", "", ascii_digits(text).upper()) or None
 
 
 SUPPLIER_SUFFIXES = re.compile(

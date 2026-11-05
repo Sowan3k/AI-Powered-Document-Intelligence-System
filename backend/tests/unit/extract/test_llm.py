@@ -291,3 +291,21 @@ def test_embed_rejects_a_reply_of_the_wrong_shape() -> None:
     c = GeminiClient(SecretStr("k"), sdk=SimpleNamespace(models=OneVector()), backoff_s=0)  # type: ignore[arg-type]
     with pytest.raises(LlmError, match="wrong shape"):
         c.embed(model="m", texts=["a", "b"], dim=4)
+
+
+def test_thinking_tokens_are_counted_and_the_level_is_configurable() -> None:
+    thinking = SimpleNamespace(
+        text='{"total": "5.00"}',
+        usage_metadata=SimpleNamespace(
+            prompt_token_count=300, candidates_token_count=10, thoughts_token_count=250
+        ),
+    )
+    c, models = client([thinking], thinking_level="low")
+    reply = call(c)
+    assert (reply.usage.output_tokens, reply.usage.thinking_tokens) == (10, 250)
+    assert reply.usage.as_detail()["thinking_tokens"] == 250
+    config = models.calls[0]["config"]
+    assert config.thinking_config.thinking_level.value == "LOW"
+    c, models = client([])
+    call(c)
+    assert models.calls[0]["config"].thinking_config is None  # the model's default

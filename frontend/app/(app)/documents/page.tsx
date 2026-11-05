@@ -6,9 +6,12 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { useActivity } from "@/components/activity";
 import { ApproveButton } from "@/components/approve-button";
+import { BulkActions, RetryAllFailed } from "@/components/bulk-actions";
 import { DropZone } from "@/components/drop-zone";
+import { ExportButton } from "@/components/export-button";
 import { SearchIcon } from "@/components/icons";
 import { ProcessFlow } from "@/components/process-flow";
+import { StatsLine } from "@/components/stats-line";
 import { Button, Card, Empty, ErrorBox, Loading, StatusBadge, inputClass } from "@/components/ui";
 import { query } from "@/lib/api";
 import { bytes, dateText, money } from "@/lib/format";
@@ -113,16 +116,28 @@ function NeedsAttention() {
 }
 
 function RecentDocuments() {
-  const { activity } = useActivity();
+  const { activity, refresh } = useActivity();
   const [status, setStatus] = useState("");
   const [offset, setOffset] = useState(0);
   const { data, error, loading, slow, reload } = useApi<Page<DocumentSummary>>(
     `/api/documents${query({ status, limit: PAGE_SIZE, offset })}`,
   );
+  const [marked, setMarked] = useState<string[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
   const changes = `${activity?.active.length ?? 0}:${activity?.recent.length ?? 0}:${activity?.recent[0]?.updated_at ?? ""}`;
   useEffect(() => {
     reload(); // a file started or finished: refresh the list
   }, [changes, reload]);
+
+  const pageIds = data?.items.map((d) => d.id) ?? [];
+  const allOnPage = pageIds.length > 0 && pageIds.every((id) => marked.includes(id));
+  const toggle = (id: string, on: boolean) => setMarked((m) => (on ? [...new Set([...m, id])] : m.filter((x) => x !== id)));
+  const finished = (message: string) => {
+    setNotice(message);
+    setMarked([]);
+    reload();
+    refresh();
+  };
 
   return (
     <section className="flex flex-col gap-2">
@@ -137,6 +152,7 @@ function RecentDocuments() {
               onClick={() => {
                 setStatus(f.value);
                 setOffset(0);
+                setMarked([]);
               }}
               className={`rounded-full px-3 py-1.5 text-xs font-medium ${status === f.value ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"}`}
             >
@@ -148,14 +164,42 @@ function RecentDocuments() {
       {error && <ErrorBox message={error} onRetry={reload} />}
       {loading && !data && <Loading slow={slow} what="Loading documents" />}
       {data && data.items.length === 0 && <Empty>{status ? "Nothing here." : "No documents yet. Add a few files above."}</Empty>}
+      {notice && (
+        <p role="status" className="text-sm text-neutral-700 dark:text-neutral-300">
+          {notice}
+        </p>
+      )}
+      {status === "failed" && data && data.total > 0 && <RetryAllFailed onDone={finished} />}
+      {marked.length > 0 && data && <BulkActions marked={marked} docs={data.items} onDone={finished} />}
+      {data && data.items.length > 0 && (
+        <label className="flex items-center gap-2 px-1 text-xs text-neutral-600 dark:text-neutral-400">
+          <input
+            type="checkbox"
+            className="size-4"
+            checked={allOnPage}
+            onChange={(e) => setMarked((m) => (e.target.checked ? [...new Set([...m, ...pageIds])] : m.filter((id) => !pageIds.includes(id))))}
+          />
+          Mark all on this page
+        </label>
+      )}
       <ul className="flex flex-col divide-y divide-black/5 overflow-hidden rounded-xl border border-black/10 bg-white dark:divide-white/10 dark:border-white/15 dark:bg-neutral-900">
         {data?.items.map((doc) => (
-          <li key={doc.id}>
-            <Link href={`/documents/${doc.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800">
+          <li key={doc.id} className="flex items-center">
+            <input
+              type="checkbox"
+              aria-label={`Mark ${doc.filename}`}
+              checked={marked.includes(doc.id)}
+              onChange={(e) => toggle(doc.id, e.target.checked)}
+              className="ml-4 size-4 shrink-0"
+            />
+            <Link href={`/documents/${doc.id}`} className="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800">
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{doc.filename}</span>
                 <span className="block text-xs text-neutral-500">
-                  {doc.status === "completed" ? `${doc.invoice_count} invoice${doc.invoice_count === 1 ? "" : "s"} · ` : ""}
+                  {doc.status === "completed" && doc.invoice_count === 0 && (
+                    <span className="font-medium text-amber-700 dark:text-amber-400">No invoice found · </span>
+                  )}
+                  {doc.status === "completed" && !!doc.invoice_count && `${doc.invoice_count} invoice${doc.invoice_count === 1 ? "" : "s"} · `}
                   {doc.error_code ? `${doc.error_code} · ` : ""}
                   {bytes(doc.size_bytes)} · {dateText(doc.created_at)}
                 </span>
@@ -178,6 +222,8 @@ function RecentDocuments() {
           </Button>
         </div>
       )}
+      {data && data.total > 0 && <ExportButton />}
+      <StatsLine changes={changes} />
     </section>
   );
 }

@@ -10,6 +10,8 @@ export type HealthResponse = {
   status: "ok" | "degraded";
   database: "connected" | "unavailable";
   database_latency_ms: number | null;
+  // Missing on a backend deployed before D32's fix; treated as "ok".
+  storage?: "ok" | "error";
   environment: string;
   version: string;
 };
@@ -37,13 +39,14 @@ export async function fetchHealth(signal?: AbortSignal): Promise<HealthResult> {
     };
   }
 
-  // The API answers 503 with a JSON body when the database is down.
+  // The API answers 503 with a JSON body when the database or file storage is down.
   if (response.status !== 200 && response.status !== 503) {
     return { kind: "unreachable", reason: `The API answered with status ${response.status}.` };
   }
   try {
     const body = (await response.json()) as HealthResponse;
-    const healthy = body.status === "ok" && body.database === "connected";
+    const healthy =
+      body.status === "ok" && body.database === "connected" && body.storage !== "error";
     return healthy ? { kind: "healthy", body } : { kind: "degraded", body };
   } catch {
     return { kind: "unreachable", reason: "The API sent a response that is not valid JSON." };
@@ -130,6 +133,28 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const body: unknown = text ? safeJson(text) : null;
   if (!response.ok) throw new ApiError(response.status, detailOf(body, response.status));
   return body as T;
+}
+
+// A file from the API (it needs the token, so a plain link cannot fetch it).
+export async function apiBlob(path: string): Promise<Blob> {
+  const headers = new Headers();
+  const token = readToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { headers, cache: "no-store" });
+  } catch {
+    throw new ApiError(0, "The API could not be reached. It may be waking up; try again.");
+  }
+  if (response.status === 401) {
+    clearToken();
+    if (typeof window !== "undefined") window.dispatchEvent(new Event(SIGNED_OUT_EVENT));
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    throw new ApiError(response.status, detailOf(text ? safeJson(text) : null, response.status));
+  }
+  return response.blob();
 }
 
 function safeJson(text: string): unknown {

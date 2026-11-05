@@ -92,3 +92,25 @@ def test_currency_from_amounts_and_mixed_currencies() -> None:
     assert inv.currency.value == "EUR" and "currency_from_amounts" in inv.currency.flags
     mixed = build(currency=fld("USD"), subtotal=fld("EUR 10.00"), total=fld("$11.00"))
     assert set(mixed.currencies_seen) == {"USD", "EUR"}
+
+
+def test_adjustments_are_signed_and_checked() -> None:
+    source = SOURCE + "Discount 10% 12.40\nDelivery charge Tk 60/-\n"
+    inv = build_invoice(
+        LlmInvoice.model_validate(
+            llm_invoice(
+                total=fld("$130.20", "Total:    $130.20"),
+                adjustments=[
+                    {"label": "Discount 10%", "amount": "12.40", "evidence": "Discount 10% 12.40"},
+                    {"label": "Delivery charge", "amount": "Tk 60/-", "evidence": "Tk 60/-"},
+                    {"label": "Rounding", "amount": "-0.20", "evidence": "Rounding -0.20"},
+                ],
+            )
+        ),
+        source,
+    )
+    discount, delivery, rounding = inv.adjustments
+    assert (discount.amount, discount.flags) == (Decimal("-12.40"), [])
+    assert (delivery.amount, delivery.flags) == (Decimal("60"), [])
+    assert rounding.amount == Decimal("-0.20") and rounding.flags == ["evidence_not_found"]
+    assert "BDT" in inv.currencies_seen

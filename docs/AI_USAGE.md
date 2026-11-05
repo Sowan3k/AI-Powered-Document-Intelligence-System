@@ -63,7 +63,7 @@ Prompt: "Phase 0 should be done". Claude Code verified the deploy with the Rende
 
 Prompt: "Read CLAUDE.md, STATUS.md, PHASES.md and DECISIONS.md. Answers to the last session's open items: SUPABASE_SERVICE_ROLE_KEY holds a new-style sb_secret_ key, not a JWT; send it the way Supabase documents for secret keys. The GEMINI_API_KEY GitHub Actions secret is added. The live frontend shows 'API healthy, database connected'. Then start Phase 1 (document ingestion) as written in PHASES.md, including the storage interface from open question 3: Supabase Storage in production, local disk for compose and tests. Update STATUS.md and docs/AI_USAGE.md, then commit and push."
 
-AI-generated: the ingestion package (`backend/app/ingest`), the storage package (`backend/app/storage`), the synthetic dataset generator (`eval/generate/synth`), all new tests, config, compose, Render and CI changes, and decisions D32 to D35. Claude Code checked the header rule for `sb_secret_` keys against Supabase's own documentation (through the Supabase docs connector) instead of relying on memory: the key goes in the `apikey` header only.
+AI-generated: the ingestion package (`backend/app/ingest`), the storage package (`backend/app/storage`), the synthetic dataset generator (`eval/generate/synth`), all new tests, config, compose, Render and CI changes, and decisions D32 to D35. Claude Code checked the header rule for `sb_secret_` keys against Supabase's own documentation (through the Supabase docs connector) instead of relying on memory: the key goes in the `apikey` header only. That reading was wrong for hosted Storage; see the 5 Nov entry on the live storage bug and D32.
 
 How it was verified: ruff, 147 pytest tests including OCR with a real Tesseract and integration tests on Postgres with pgvector, a manifest-driven exit test over 26 generated files, and `alembic check`. The OCR numbers were measured, not assumed. A test caught one real bug (openpyxl rejecting a file without an extension), which was fixed. The Docker build and a real Supabase Storage call were not run in the sandbox.
 
@@ -119,3 +119,21 @@ Prompt (summary): Sowan shared the original brief and asked whether the project 
 
 AI-generated: the redesigned web app (Home, live process view and dock, bottom tabs, one-tap approval), the activity endpoint, per-window progress, the top issue in the review queue, the scale check, and decision D55. Verified with backend tests, a production build and an automated phone-size walk-through with screenshots; the screenshots led to three refinements (dock text, failed-step styling, the dock hidden on Home). The scale check found and fixed a memory peak on scanned PDFs.
 
+
+### 5 Nov 2026, interview readiness review and fixes (Claude Code)
+
+Prompt (summary): Sowan asked whether the system says so when a file is not an invoice, and asked Claude Code to think like an interviewer, check whether the project holds up, and not list the questions.
+
+Claude Code reviewed the code against likely probes and found real gaps, each confirmed in code before any change: Bangladeshi amounts ("Tk 1,25,000/-", Bengali digits) came back unparsed; a staff-list spreadsheet would have become fake invoices; discounts and service charges made R05 flag correct bills; there was no export for Excel; nothing described what is sent to Gemini on the free tier; prompts were not versioned; and the free Supabase project would pause after a week. AI-generated: the fixes (D56 to D60), their tests, the new evaluation files (Bangladeshi VAT invoices, a restaurant bill, a prompt-injection invoice, four non-invoice files) and the scoring for them. Verified with 383 backend tests, a fake-model evaluation run, a production build and a phone-size browser walk-through of the new screens and the CSV download. Gemini prices in the docs come from Google's pricing page, looked up on 5 Nov 2026; real accuracy numbers come only from evaluation run 5 in GitHub Actions.
+
+### 5 Nov 2026, multi-file marking, search, reliability and scale (Claude Code)
+
+Prompt (summary): Sowan asked about cost, fallback, rate limiting and async, then asked to mark and submit many files of mixed types, and to do the other suggested improvements.
+
+AI-generated: parallel page windows and the fallback model (D61), thinking-token and cost measurement with the stats endpoint (D62), security headers (D63), upside-down OCR (D64), View original and Delete (D65), the upload list and bulk actions (D66), the model breaker (D67), Best match search (D68), the evidence highlight, the load test (D70), the walkthrough script and email draft, and their tests. Claude Code also measured the Bengali Tesseract pack, found it produced confident wrong amounts, and reverted it (D69); that finding came from a test, not from the model's own suggestion. Verified with the backend suite, frontend build, browser walk-throughs at phone size, evaluation runs 5 and 6 on real Gemini, and the load test. Prices come from Google's pricing page, looked up on 5 Nov 2026.
+
+### 5 Nov 2026, live storage bug and phone photo set (Claude Code)
+
+Prompt (summary): Sowan shared the Care Guide email and the brief and asked whether the project is done and is what they want, then asked Claude Code to finish what it can, check the README against the email, and write it in Sowan's own style. Mid-session Sowan reported that every live upload failed with `STORAGE_ERROR`, gave the Render and Supabase log lines, and asked for the fix in five steps.
+
+AI-generated: the header fix and storage check (D32), the stricter fake transport and its tests, the health and start-page changes, the phone photo generator and its scoring (D71), and the doc updates. Claude Code made one wrong call on the way: before the live test, it read a Supabase page about the self-hosted gateway and said `apikey` alone was fine. The live upload proved otherwise. The fix was checked three ways: the official `supabase` Python client's source sends both headers, the fake now refuses the old headers with the production error, and the health check reports Storage on the live site after deploy.

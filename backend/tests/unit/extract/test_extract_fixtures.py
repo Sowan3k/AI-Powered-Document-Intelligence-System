@@ -14,11 +14,11 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from synth.layouts import SYMBOLS, fmt_amount, fmt_qty
+from synth.layouts import SYMBOLS, fmt_amount, fmt_lakh, fmt_qty
 
 from app.core.config import Settings
 from app.extract.build import build_invoice
-from app.extract.columns import map_columns, rows_to_invoices
+from app.extract.columns import ALL_FIELDS, map_columns, rows_to_invoices
 from app.extract.normalise import norm_supplier
 from app.extract.schemas import FIELDS, InvoiceData
 from app.extract.service import extract_pages
@@ -35,6 +35,10 @@ PDFS = [
     "planted_missing_customer.pdf",
     "multi_invoice.pdf",
     "long_statement.pdf",
+    "bd_vat_invoice_0.pdf",
+    "bd_vat_invoice_1.pdf",
+    "restaurant_bill.pdf",
+    "injection.pdf",
 ]
 
 
@@ -47,22 +51,22 @@ def printed(truth: dict, layout: str) -> dict[str, object]:
     def money(key: str) -> str | None:
         if truth[key] is None:
             return None
-        v = Decimal(truth[key])
-        if layout == "classic":
-            return f"{SYMBOLS[cur]}{fmt_amount(v, 'us')}"
-        if layout == "modern":
-            return fmt_amount(v, "us")
-        return f"{fmt_amount(v, 'eu')} {cur}"
+        text = money_of(Decimal(truth[key]), layout, cur)
+        return f"{text}/-" if layout == "bangladesh" and key == "total" else text
 
     items = []
     for li in truth["line_items"]:
-        price = {"classic": f"{SYMBOLS[cur]}{li['unit_price']}", "modern": li["unit_price"]}
+        price = {
+            "classic": f"{SYMBOLS[cur]}{li['unit_price']}",
+            "modern": li["unit_price"],
+            "bangladesh": fmt_lakh(Decimal(li["unit_price"])),
+        }
         items.append(
             {
                 "description": li["description"],
                 "quantity": fmt_qty(Decimal(li["quantity"])),
                 "unit_price": price.get(layout),
-                "amount": money_of(Decimal(li["amount"]), layout, cur),
+                "amount": line_money(Decimal(li["amount"]), layout, cur),
             }
         )
     return {
@@ -71,6 +75,8 @@ def printed(truth: dict, layout: str) -> dict[str, object]:
             "classic": d.isoformat(),
             "modern": d.strftime("%d/%m/%Y"),
             "european": d.strftime("%d %b %Y"),
+            "bangladesh": d.strftime("%d-%m-%Y"),
+            "receipt": d.strftime("%d/%m/%Y"),
         }[layout],
         "supplier_name": truth["supplier_name"].upper()
         if layout == "european"
@@ -79,17 +85,33 @@ def printed(truth: dict, layout: str) -> dict[str, object]:
         "subtotal": money("subtotal"),
         "tax": money("tax"),
         "total": money("total"),
-        "currency": cur,
+        "currency": "Tk" if layout in ("bangladesh", "receipt") else cur,
         "line_items": items,
+        "adjustments": [adjustment_printed(a, layout) for a in truth.get("adjustments", [])],
     }
+
+
+def adjustment_printed(adj: dict, layout: str) -> dict[str, str]:
+    amount = Decimal(adj["amount"])
+    if layout == "bangladesh":
+        label = "Less: Discount" if adj["label"] == "Discount" else adj["label"]
+        return {"label": label, "amount": f"Tk {fmt_lakh(abs(amount))}"}
+    return {"label": adj["label"], "amount": fmt_amount(amount, "us")}
 
 
 def money_of(v: Decimal, layout: str, cur: str) -> str:
     if layout == "classic":
         return f"{SYMBOLS[cur]}{fmt_amount(v, 'us')}"
-    if layout == "modern":
+    if layout in ("modern", "receipt"):
         return fmt_amount(v, "us")
+    if layout == "bangladesh":
+        return f"Tk {fmt_lakh(v)}"
     return f"{fmt_amount(v, 'eu')} {cur}"
+
+
+def line_money(v: Decimal, layout: str, cur: str) -> str:
+    """Line amounts: the bill's own format, without the Tk prefix on Bangladeshi invoices."""
+    return fmt_lakh(v) if layout == "bangladesh" else money_of(v, layout, cur)
 
 
 def find_line(text: str, value: str) -> str | None:
@@ -107,7 +129,7 @@ def perfect_reader(truth: dict, page_texts: dict[int, str]):  # type: ignore[no-
     printed but the page lacks means this test's formats are wrong, so it fails.
     """
     ranges = truth.get("pages") or [[1, 1]] * len(truth["invoices"])
-    layouts = truth.get("layouts") or [truth["layout"]] * len(truth["invoices"])
+    layouts = truth.get("layouts") or [truth.get("layout")] * len(truth["invoices"])
 
     def reply(call: FakeCall) -> dict:
         prompt = call.turns[0].parts[0]
@@ -140,6 +162,14 @@ def perfect_reader(truth: dict, page_texts: dict[int, str]):  # type: ignore[no-
                 if page is not None:
                     items.append({**li, "page": page, "confidence": 0.9})
             entry["line_items"] = items
+            adjustments = []
+            for adj in p["adjustments"]:
+                line = find_line(text, adj["amount"])
+                if line is None and whole:
+                    raise AssertionError(f"adjustment {adj!r} is not printed")
+                if line is not None:
+                    adjustments.append({**adj, "evidence": line})
+            entry["adjustments"] = adjustments
             out.append(entry)
         return {"invoices": out}
 
@@ -157,6 +187,8 @@ def assert_matches(got: InvoiceData, want: dict) -> None:
     assert got.currency.value == want["currency"]
     amounts = [li.amount for li in got.line_items]
     assert amounts == [Decimal(li["amount"]) for li in want["line_items"]]
+    signed = [a.amount for a in got.adjustments]
+    assert signed == [Decimal(a["amount"]) for a in want.get("adjustments", [])]
 
 
 @pytest.mark.parametrize("name", PDFS)
@@ -233,6 +265,9 @@ def reader_for_truths(truths: list[dict]):  # type: ignore[no-untyped-def]
     """A perfect reader for several files: picks the file whose invoices the prompt shows."""
 
     def reply(call: FakeCall) -> dict:
+        if call.purpose == "column_mapping":
+            # Registers map by rule; only a sheet that is not invoices reaches the model.
+            return {"lists_invoices": False} | dict.fromkeys(ALL_FIELDS)
         if call.purpose != "extract_invoices":
             raise AssertionError(f"unexpected call {call.purpose}")
         prompt = call.turns[0].parts[0]

@@ -40,3 +40,11 @@ class LocalStorage:
 
     def delete(self, key: str) -> None:
         self._path(key).unlink(missing_ok=True)
+
+    def check(self) -> None:
+        try:
+            self.root.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            raise StorageError("storage check failed: folder cannot be created") from None
+        if not os.access(self.root, os.W_OK):
+            raise StorageError("storage check failed: folder is not writable")

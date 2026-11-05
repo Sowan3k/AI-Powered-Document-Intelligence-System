@@ -15,6 +15,7 @@ import logging
 import tempfile
 import uuid
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -26,9 +27,17 @@ from app.core.config import Settings
 from app.db.enums import DocumentStatus, PageMethod, ReviewStatus, SourceKind
 from app.db.models import Document, Invoice, Job, LineItem, Page, ProcessingEvent, Sheet
 from app.extract import prompts, segment, vision
+from app.extract.breaker import BREAKER
 from app.extract.build import build_invoice
 from app.extract.columns import map_columns, rows_to_invoices
-from app.extract.llm import LlmClient, LlmOutputError, LlmUsage, generate_structured, require_model
+from app.extract.llm import (
+    LlmClient,
+    LlmError,
+    LlmOutputError,
+    LlmUsage,
+    generate_structured,
+    require_model,
+)
 from app.extract.normalise import norm_invoice_number, norm_supplier
 from app.extract.schemas import FIELDS, InvoiceData, LlmExtraction, LlmInvoice
 from app.ingest import reader
@@ -101,6 +110,8 @@ def _store(
         for name in FIELDS
     }
     meta["currencies_seen"] = data.currencies_seen
+    if data.adjustments:
+        meta["adjustments"] = [a.model_dump(mode="json") for a in data.adjustments]
     invoice = Invoice(
         id=uuid.uuid4(),
         document_id=document.id,
@@ -149,33 +160,73 @@ def extract_pages(
 ) -> tuple[list[LlmInvoice], list[LlmUsage]]:
     """Run the windows and merge. `pages` is (page number, text) in order.
 
-    `on_progress(done, total)` is called after each window, so a long PDF can
-    show "window 12 of 143" while it runs.
+    Windows run in parallel, up to `LLM_MAX_CONCURRENCY` at once (D61); the
+    client's semaphore and per-minute limiter still bound every call, so a
+    free-tier quota is respected. Results are merged in page order, whatever
+    order they finish in. `on_progress(done, total)` runs on the calling
+    thread after each window, so a long PDF can show "window 12 of 143" (the
+    callback may use the database session; the worker threads never do).
     """
     texts = dict(pages)
-    results: list[tuple[list[int], list[LlmInvoice]]] = []
-    usages: list[LlmUsage] = []
     all_windows = segment.windows(
         [n for n, _ in pages], settings.segment_window_pages, settings.segment_overlap_pages
     )
-    for done, window in enumerate(all_windows, start=1):
-        if on_progress is not None:
-            on_progress(done - 1, len(all_windows))
-        if not any(texts[n].strip() for n in window):
-            continue  # blank pages: nothing to read, no call
-        found, used = generate_structured(
-            llm,
-            LlmExtraction,
-            purpose="extract_invoices",
-            model=model,
-            system=prompts.EXTRACTION_SYSTEM,
-            parts=[prompts.extraction_prompt([(n, texts[n]) for n in window])],
-            check=segment.page_range_check(window),
-        )
-        usages += used
-        results.append((window, found.invoices))
+    todo = [w for w in all_windows if any(texts[n].strip() for n in w)]  # blank: no call
+    fallback = settings.extraction_fallback_model
+
+    def run(window: list[int]) -> tuple[LlmExtraction, list[LlmUsage]]:
+        def call(m: str) -> tuple[LlmExtraction, list[LlmUsage]]:
+            return generate_structured(
+                llm,
+                LlmExtraction,
+                purpose="extract_invoices",
+                model=m,
+                system=prompts.EXTRACTION_SYSTEM,
+                parts=[prompts.extraction_prompt([(n, texts[n]) for n in window])],
+                check=segment.page_range_check(window),
+            )
+
+        if fallback and BREAKER.is_open(model):
+            return call(fallback)  # the text model failed minutes ago: skip its retries (D67)
+        try:
+            answer = call(model)
+        except LlmOutputError:
+            raise  # a bad reply is final (D40)
+        except LlmError as exc:
+            if not fallback:
+                raise
+            BREAKER.failed(model)
+            logger.warning("window %s: %s failed (%s), trying %s", window[0], model, exc, fallback)
+            return call(fallback)
+        BREAKER.succeeded(model)
+        return answer
+
+    done = len(all_windows) - len(todo)
     if on_progress is not None:
-        on_progress(len(all_windows), len(all_windows))
+        on_progress(done, len(all_windows))
+    answers: dict[int, tuple[LlmExtraction, list[LlmUsage]]] = {}
+    workers = min(settings.llm_max_concurrency, len(todo))
+    if workers <= 1:
+        for i, window in enumerate(todo):
+            answers[i] = run(window)
+            done += 1
+            if on_progress is not None:
+                on_progress(done, len(all_windows))
+    else:
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="extract") as pool:
+            futures = {pool.submit(run, window): i for i, window in enumerate(todo)}
+            try:
+                for future in as_completed(futures):
+                    answers[futures[future]] = future.result()
+                    done += 1
+                    if on_progress is not None:
+                        on_progress(done, len(all_windows))
+            except BaseException:
+                for f in futures:
+                    f.cancel()  # windows not started yet are dropped
+                raise
+    usages = [u for i in range(len(todo)) for u in answers[i][1]]
+    results = [(todo[i], answers[i][0].invoices) for i in range(len(todo))]
     return segment.merge_windows(results), usages
 
 
@@ -271,12 +322,17 @@ def extract_document(
 
     for usage in outcome.usages:
         _event(session, document, job, "llm_call", **usage.as_detail())
+    if outcome.invoices == 0:
+        # Completed, but nothing to extract: the file is not an invoice or receipt.
+        _event(session, document, job, "no_invoice_found")
     _event(
         session,
         document,
         job,
         "extracted",
         invoices=outcome.invoices,
+        model=model,
+        prompt_version=prompts.PROMPT_VERSION,
         vision_pages=outcome.vision_pages,
         prompt_tokens=outcome.prompt_tokens,
         output_tokens=outcome.output_tokens,
@@ -350,7 +406,11 @@ def _extract_sheets(
                 "headers": sheet.headers,
                 "fields": mapping.columns,
                 "by_llm": sorted(mapping.by_llm),
+                "lists_invoices": mapping.lists_invoices,
             }
+        if not mapping.lists_invoices:
+            _event(session, document, None, "sheet_skipped", sheet=sheet.sheet_index,
+                   reason="not_an_invoice_list")  # fmt: skip
         for data in rows_to_invoices(sheet, mapping, day_first=settings.date_day_first):
             raw = {"sheet": sheet.sheet_name, "row_start": data.row_start, "row_end": data.row_end}
             _store(session, document, data, raw, sheet_id=row.id if row is not None else None)

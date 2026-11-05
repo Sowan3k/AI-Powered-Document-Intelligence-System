@@ -45,6 +45,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, glass that answers to tilt and touch (Claude Code)
+
+Sowan described the rest of Apple's material: reflections that follow the gyroscope and a ripple under the finger. Added (D78): the glints and sheen follow the phone's tilt (Chrome on Android, no prompt) or the mouse; a press sends a ring of light and, in Chromium, a wave of distortion through the refraction filter. The light now sits on two small layers inside each piece of glass and moves by transform only.
+
+Tested: lint, typecheck and build; screenshots of a press (three frames) and of a tilt from synthetic orientation events, light and dark, over a local API; CPU slowed four times: Home 60 fps still and 60 fps with constant tilting (35 fps before the layers), opening page 58 fps; no page errors. A negative ring size on the first frame of a ripple was found in testing and fixed.
+
 ### 5 Nov 2026, glass like a drop of water (Claude Code)
 
 Sowan said liquid means the light behind the glass blends as the page scrolls, like a water drop on the screen. Changed (D77): the displacement map is now a dome across each bar, so content under it magnifies and squeezes at the rim as it scrolls; three channel passes leave a thin colour fringe; a CSS scroll-driven animation moves the rim's light with the page (off on the opening page); labels on glass carry a soft halo.

@@ -1039,3 +1039,19 @@ Measured with the CPU slowed four times: Home scrolls at 57 to 58 fps with the g
 **Trade-off:** Three displacement passes cost more graphics work than one; they run only on a few small bars. The refraction and fringe need Chromium; Safari shows the clear glass and the moving highlight without the bending. Strong magnification can make busy content behind a label harder to ignore; the halo is the answer, not more blur.
 
 **In one sentence:** A domed lens with a colour fringe over every bar, and light that moves as the page scrolls, at no cost to the frame rate.
+
+## D78: Glass that answers to tilt and touch, with the light on its own layers
+
+**Alternatives:** Stop at D77, fake the effects with a looping animation, or render the bars in WebGL.
+
+**Why:** Sowan described the rest of Apple's material: its reflections shift with the phone's gyroscope, and a press makes a ripple of distortion under the finger. The changes:
+
+- **Tilt.** Chrome on Android sends the phone's orientation without a permission prompt. The way the phone is held becomes neutral, and the neutral point drifts slowly after the hand, so only a change of angle moves the light. Tilting turns the glints around the rim and slides the sheen across the glass. On a desktop the mouse is the light source. iOS Safari would need a permission prompt, which a reviewer should not see, so iPhones get the scroll-driven light only.
+- **Ripple.** A press sends a ring of light out from the finger in every browser. In Chromium it also sends a wave of distortion: a ring-shaped displacement map grows from the press point inside the same refraction filter and fades in 0.65 s. The wave's filter steps exist only while it runs.
+- **The light on its own layers.** The first version moved the light by changing CSS variables on the glass. With the phone tilting constantly, Home dropped to 35 fps: each change restyled about 20 elements, measured in a browser trace. Now each piece of glass holds two small layers the script adds: a conic gradient of glints behind the rim's mask, and a soft sheen. Tilt changes only their transform, which the graphics chip applies without restyling or repainting the glass and its text. The scroll turn is a CSS scroll-driven `rotate`, which Chrome runs on the compositor thread. The press ring is drawn on the light layer, so a tap does not repaint the glass either.
+
+Measured with the CPU slowed four times while scrolling Home: 60 fps still and 60 fps with the phone tilting constantly (35 fps before the layers). The opening page: 58 fps.
+
+**Trade-off:** Two extra layers per piece of glass use a little graphics memory. The wave needs Chromium. A browser cannot read the pixels behind an element, so the glass "reads the content" only through refraction and its tint, plus the known dark card on the opening page.
+
+**In one sentence:** Light that follows the phone's tilt and a ripple under the finger, moved by the graphics chip alone, so the page stays at 60 fps.

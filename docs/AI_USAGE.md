@@ -168,3 +168,9 @@ Prompt (summary): Sowan explained that liquid glass means the light behind a com
 
 AI-generated: the dome-shaped displacement map, the three-pass colour fringe, the scroll-driven highlight, the vibrancy halo, and decision D77. Claude Code measured each step. A first version of the moving light followed the scroll speed in JavaScript; the frame measurement showed extra style work, a browser trace found the cause (about 50 extra style passes, written out of step with GSAP), and the light moved to CSS. That still cost about 1.7 ms a frame, so it is off on the opening page.
 
+### 5 Nov 2026, glass that answers to tilt and touch (Claude Code)
+
+Prompt (summary): Sowan described Apple's Liquid Glass as a responsive material: it reads the content behind it, refracts and scatters light as you scroll, shifts its reflections with the gyroscope, and makes a ripple where the finger presses.
+
+AI-generated: the tilt and mouse light source, the press ripple (light ring and distortion wave), the light layers, and decision D78. Claude Code measured the worst case, a phone tilting all the time while scrolling, and found the first design dropped Home to 35 fps; a browser trace showed about 20 elements restyled per change. The light moved to its own layers driven by transforms, and the same test then held 60 fps. Testing also caught a negative ring size on a ripple's first frame.
+

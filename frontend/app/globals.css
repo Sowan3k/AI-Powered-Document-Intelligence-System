@@ -64,53 +64,13 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ---------- Liquid glass (D76, D77) ---------- */
-
-/*
- * Light moving over the glass as the page scrolls. A CSS scroll-driven
- * animation turns the rim's highlight and shifts the inner sheen with the
- * scroll position; the browser runs it in its own frame work, with no
- * JavaScript. The two properties are not inherited, so only the glass and its
- * highlight layers restyle, not what is inside them.
- */
-@property --lg-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 135deg;
-}
-@property --lg-shift {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 0%;
-}
-.glass::before,
-.glass::after,
-.glass-strong::before,
-.glass-strong::after {
-  --lg-angle: inherit;
-  --lg-shift: inherit;
-}
-@keyframes lg-sweep {
-  from { --lg-angle: 110deg; --lg-shift: -20%; }
-  to { --lg-angle: 175deg; --lg-shift: 35%; }
-}
-@supports (animation-timeline: scroll()) {
-  @media (prefers-reduced-motion: no-preference) {
-    /* .glass-still opts out: the opening page already animates its hero on scroll. */
-    .glass:not(.glass-still),
-    .glass-strong:not(.glass-still) {
-      animation: lg-sweep linear both alternate;
-      animation-iteration-count: 6;
-      animation-timeline: scroll(root block);
-    }
-  }
-}
+/* ---------- Liquid glass (D76 to D78) ---------- */
 
 /*
  * Clear, not frosted: a light tint and a small blur, so what is behind stays
- * visible. The rim is a thin gradient ring, bright where light would catch
- * curved glass (top left, bottom right). In Chromium, lib/liquid-glass.ts
- * adds refraction at the edges through an SVG displacement map.
+ * visible, with a bright rim and soft inner light. lib/liquid-glass.ts adds
+ * the live parts to bars and pills: refraction in Chromium, and light that
+ * moves with the scroll, the phone's tilt and the finger.
  */
 .glass,
 .glass-strong {
@@ -149,18 +109,26 @@ body {
   -webkit-backdrop-filter: blur(10px) saturate(180%);
   backdrop-filter: blur(10px) saturate(180%);
 }
-/* The rim: a 1 px ring cut out of a gradient with a mask. */
+/* The rim on still glass: a 1 px ring cut out of a gradient with a mask. */
 .glass::before,
 .glass-strong::before,
-.glass-lens::before {
+.glass-lens::before,
+.lg-rim {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   padding: 1px;
   pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.glass::before,
+.glass-strong::before,
+.glass-lens::before {
   background: linear-gradient(
-    var(--lg-angle),
+    135deg,
     var(--glass-rim) 0%,
     var(--glass-rim-dim) 22%,
     transparent 45%,
@@ -168,11 +136,8 @@ body {
     var(--glass-rim-dim) 82%,
     var(--glass-rim) 100%
   );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
-/* Light caught inside the glass, strongest at the top left. */
+/* Light caught inside still glass, strongest at the top left. */
 .glass::after,
 .glass-strong::after {
   content: "";
@@ -181,12 +146,101 @@ body {
   z-index: -1;
   border-radius: inherit;
   pointer-events: none;
-  background: radial-gradient(
-    130% 90% at var(--lg-shift) 0%,
-    rgb(255 255 255 / 0.16),
-    transparent 50%
-  );
+  background: radial-gradient(130% 90% at 0% 0%, rgb(255 255 255 / 0.18), transparent 50%);
 }
+
+/*
+ * Live glass (lib/liquid-glass.ts). The moving light sits on its own small
+ * layers inside the glass, so moving it is a transform the graphics chip
+ * applies: the glass and its text are not restyled or repainted (D78).
+ */
+.lg-live::before,
+.lg-live::after {
+  display: none;
+}
+/* A ripple of light from the finger: its radius and brightness, animated by the browser. */
+@property --lg-ripple {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --lg-ripple-a {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+.lg-light {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at var(--lg-rx, 50%) var(--lg-ry, 50%),
+      transparent calc(var(--lg-ripple) - 26px),
+      rgb(255 255 255 / var(--lg-ripple-a)) var(--lg-ripple),
+      transparent calc(var(--lg-ripple) + 10px)
+    ),
+    radial-gradient(
+      circle at var(--lg-rx, 50%) var(--lg-ry, 50%),
+      rgb(255 255 255 / calc(var(--lg-ripple-a) * 0.45)),
+      transparent calc(var(--lg-ripple) * 0.8 + 1px)
+    );
+}
+/* The sheen: a soft reflection twice the glass's size, slid by the tilt. */
+.lg-sheen {
+  position: absolute;
+  left: -50%;
+  top: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(30% 34% at 36% 32%, rgb(255 255 255 / 0.22), transparent 70%);
+  will-change: transform;
+}
+/*
+ * The glints: a conic gradient behind the rim's mask, with a bright glint
+ * and a softer one opposite. Turning it slides them around the edge. The
+ * script sizes it to cover the glass at any angle.
+ */
+.lg-glint {
+  position: absolute;
+  background: conic-gradient(
+    from -135deg,
+    var(--glass-rim-dim) 0deg,
+    var(--glass-rim) 32deg,
+    var(--glass-rim-dim) 70deg,
+    transparent 115deg,
+    transparent 175deg,
+    var(--glass-rim-dim) 200deg,
+    var(--glass-rim) 218deg,
+    var(--glass-rim-dim) 245deg,
+    transparent 295deg,
+    var(--glass-rim-dim) 360deg
+  );
+  will-change: transform;
+}
+/*
+ * The glints also turn with the scroll position. A scroll-driven animation
+ * of rotate runs on the compositor thread, with no JavaScript. The tilt adds
+ * its own turn through transform, which composes with rotate. Off on the
+ * opening page (.glass-still), where the hero already animates on scroll.
+ */
+@keyframes lg-spin {
+  from { rotate: -30deg; }
+  to { rotate: 40deg; }
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .lg-live:not(.glass-still) .lg-glint {
+      animation: lg-spin linear both alternate;
+      animation-iteration-count: 6;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
+
 /* On a dark backdrop in light mode, such as the opening page's blue card. */
 .glass-on-dark {
   --glass-tint: rgb(255 255 255 / 0.06);

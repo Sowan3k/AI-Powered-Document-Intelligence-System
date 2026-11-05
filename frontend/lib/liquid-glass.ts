@@ -7,8 +7,13 @@
 // displacement map shaped like its own rounded rectangle. Other browsers keep
 // the clear glass from globals.css without the bending.
 //
-// The rim's highlight moves as the page scrolls through a CSS scroll-driven
-// animation in globals.css, so it needs no JavaScript per frame.
+// The light on the glass lives on small layers inside it (D78): glints around
+// the rim that turn with the scroll (a CSS scroll-driven animation on the
+// compositor) and with the phone's tilt or the mouse, and a sheen that slides
+// with the tilt. Moving them is a transform only, so the glass and its text
+// are not restyled or repainted. A press sends a ripple from the finger: a
+// ring of light everywhere, and in Chromium a wave of distortion through the
+// same filter.
 
 import { useCallback } from "react";
 
@@ -112,6 +117,171 @@ type Options = {
   strength?: number;
 };
 
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+// ---- The light layers --------------------------------------------------------
+
+type Live = { root: HTMLSpanElement; sheen: HTMLSpanElement; glint: HTMLSpanElement; w: number; h: number };
+
+/** Adds the light layers to a glass element. They are not React's, so React leaves them alone. */
+function addLayers(el: HTMLElement): Live & { remove: () => void } {
+  const span = (cls: string) => {
+    const node = document.createElement("span");
+    node.className = cls;
+    node.setAttribute("aria-hidden", "true");
+    return node;
+  };
+  const root = span("lg-light");
+  const sheen = span("lg-sheen");
+  root.appendChild(sheen);
+  const rim = span("lg-rim");
+  const glint = span("lg-glint");
+  rim.appendChild(glint);
+  el.append(root, rim);
+  el.classList.add("lg-live");
+  return {
+    root,
+    sheen,
+    glint,
+    w: 0,
+    h: 0,
+    remove: () => {
+      root.remove();
+      rim.remove();
+      el.classList.remove("lg-live");
+    },
+  };
+}
+
+/** The glint layer is a square that covers the glass at any angle, centred on it. */
+function sizeGlint(live: Live, w: number, h: number) {
+  live.w = w;
+  live.h = h;
+  const d = Math.ceil(Math.hypot(w, h));
+  Object.assign(live.glint.style, { width: `${d}px`, height: `${d}px`, left: `${(w - d) / 2}px`, top: `${(h - d) / 2}px` });
+}
+
+// ---- The light source: the phone's tilt, or the mouse ----------------------
+
+const lit = new Set<Live>();
+const target = { a: 0, x: 0, y: 0 };
+const now = { a: 0, x: 0, y: 0 };
+let neutral: { beta: number; gamma: number } | null = null;
+let lightFrame = 0;
+let lightOn = false;
+
+function paintLight() {
+  let moving = false;
+  for (const k of ["a", "x", "y"] as const) {
+    now[k] += (target[k] - now[k]) * 0.12;
+    if (Math.abs(target[k] - now[k]) > 0.01) moving = true;
+  }
+  // Transforms only: the compositor moves these layers without a repaint.
+  for (const live of lit) {
+    live.glint.style.transform = `rotate(${now.a.toFixed(2)}deg)`;
+    live.sheen.style.transform = `translate3d(${(now.x * live.w * 0.3).toFixed(1)}px, ${(now.y * live.h * 0.4).toFixed(1)}px, 0)`;
+  }
+  lightFrame = moving ? requestAnimationFrame(paintLight) : 0;
+}
+
+/** dx and dy run from -1 to 1: where the light has moved, left-right and up-down. */
+function aim(dx: number, dy: number) {
+  target.a = dx * 40;
+  target.x = dx;
+  target.y = dy;
+  if (!lightFrame) lightFrame = requestAnimationFrame(paintLight);
+}
+
+function onTilt(e: DeviceOrientationEvent) {
+  if (e.beta === null || e.gamma === null) return;
+  // The way the phone is held becomes neutral, and the neutral point drifts
+  // slowly after the hand, so only a change of angle moves the light.
+  if (!neutral) neutral = { beta: e.beta, gamma: e.gamma };
+  neutral.beta += (e.beta - neutral.beta) * 0.01;
+  neutral.gamma += (e.gamma - neutral.gamma) * 0.01;
+  aim(clamp((e.gamma - neutral.gamma) / 25, -1, 1), clamp((e.beta - neutral.beta) / 25, -1, 1));
+}
+
+function onPointer(e: PointerEvent) {
+  if (e.pointerType !== "mouse") return;
+  aim((e.clientX / window.innerWidth - 0.5) * 2, (e.clientY / window.innerHeight - 0.5) * 2);
+}
+
+function followLight(live: Live): () => void {
+  if (reducedMotion()) return () => {};
+  lit.add(live);
+  if (!lightOn) {
+    lightOn = true;
+    // Chrome on Android sends these without asking. iOS Safari needs a
+    // permission prompt, which this page does not show, so it gets none.
+    window.addEventListener("deviceorientation", onTilt, { passive: true });
+    window.addEventListener("pointermove", onPointer, { passive: true });
+  }
+  return () => {
+    lit.delete(live);
+    if (lit.size === 0 && lightOn) {
+      lightOn = false;
+      window.removeEventListener("deviceorientation", onTilt);
+      window.removeEventListener("pointermove", onPointer);
+    }
+  };
+}
+
+// ---- Ripples under the finger ----------------------------------------------
+
+let ringUrl = "";
+
+/**
+ * A wave that pushes outward from the centre: a crest near the edge of the
+ * circle and a smaller one behind it, nothing outside the circle (transparent,
+ * which the filter turns into "no pull").
+ */
+function ringMap(): string {
+  if (ringUrl) return ringUrl;
+  const n = 160;
+  const canvas = document.createElement("canvas");
+  canvas.width = n;
+  canvas.height = n;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+  const img = ctx.createImageData(n, n);
+  const data = img.data;
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const u = ((x + 0.5) / n) * 2 - 1;
+      const v = ((y + 0.5) / n) * 2 - 1;
+      const r = Math.hypot(u, v);
+      const i = (y * n + x) * 4;
+      if (r > 1) continue;
+      const wave = clamp(Math.sin(r * Math.PI * 3) * Math.exp(-((r - 0.72) ** 2) / 0.06) * 1.4, -1, 1);
+      const d = r > 0 ? wave / r : 0;
+      data[i] = 128 + u * d * 127;
+      data[i + 1] = 128 + v * d * 127;
+      data[i + 2] = 128;
+      data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  ringUrl = canvas.toDataURL();
+  return ringUrl;
+}
+
+/** The ring of light, in every browser, on the light layer, so the glass does not repaint. */
+function lightRipple(live: Live, x: number, y: number) {
+  const el = live.root;
+  el.style.setProperty("--lg-rx", `${x}px`);
+  el.style.setProperty("--lg-ry", `${y}px`);
+  const reach = Math.hypot(live.w, live.h) * 0.7;
+  el.animate(
+    [
+      { "--lg-ripple": "0px", "--lg-ripple-a": "0.8" },
+      { "--lg-ripple": `${reach}px`, "--lg-ripple-a": "0" },
+    ],
+    { duration: 700, easing: "cubic-bezier(0.2, 0.7, 0.2, 1)" },
+  );
+}
+
 // ---- Refraction ------------------------------------------------------------
 
 /** Keeps one colour channel of a displaced copy, so the three can be added back up. */
@@ -120,58 +290,56 @@ function channel(index: 0 | 1 | 2): string {
   return `${rows.join(" ")} 0 0 0 1 0`;
 }
 
+function fe<K extends keyof SVGElementTagNameMap>(name: K, attrs: Record<string, string>): SVGElementTagNameMap[K] {
+  const node = document.createElementNS(SVG_NS, name);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  return node;
+}
+
 /**
- * Returns a ref for a glass element. In Chromium it adds edge refraction,
- * rebuilt when the element changes size; elsewhere it does nothing.
+ * Returns a ref for a glass element. Everywhere: light layers whose glints
+ * turn with the scroll and the tilt or mouse, and a ring of light on a press.
+ * In Chromium also: the dome refraction with its colour fringe, and the
+ * ripple's wave of distortion. Elements marked .glass-still keep their light
+ * still (the opening page animates its hero on scroll already).
  */
 export function useLiquidGlass<T extends HTMLElement>({ blur = 1.5, strength = 0.85 }: Options = {}) {
   return useCallback(
     (el: T | null) => {
-      if (!el || !canRefract()) return;
+      if (!el) return;
+      const live = addLayers(el);
+      const stopLight = el.classList.contains("glass-still") ? () => {} : followLight(live);
+      const refract = canRefract();
+      const calm = reducedMotion();
 
+      // The refraction filter, Chromium only.
       const id = `lg-${Math.random().toString(36).slice(2, 10)}`;
-      const filter = document.createElementNS(SVG_NS, "filter");
-      filter.setAttribute("id", id);
-      filter.setAttribute("filterUnits", "userSpaceOnUse");
-      filter.setAttribute("primitiveUnits", "userSpaceOnUse");
-      // The map holds plain numbers, not colours: keep it out of linear RGB.
-      filter.setAttribute("color-interpolation-filters", "sRGB");
-      const image = document.createElementNS(SVG_NS, "feImage");
-      image.setAttribute("result", "map");
-      image.setAttribute("preserveAspectRatio", "none");
+      const filter = fe("filter", {
+        id,
+        filterUnits: "userSpaceOnUse",
+        primitiveUnits: "userSpaceOnUse",
+        // The maps hold plain numbers, not colours: keep them out of linear RGB.
+        "color-interpolation-filters": "sRGB",
+      });
+      const image = fe("feImage", { result: "map", preserveAspectRatio: "none" });
       filter.appendChild(image);
-      // Red bends most and blue least, as in water, which leaves a thin
-      // colour fringe at the rim.
+      // Red bends most and blue least, as in water, which leaves a thin colour fringe.
       const bends = ([1, 0.94, 0.88] as const).map((k, i) => {
-        const displace = document.createElementNS(SVG_NS, "feDisplacementMap");
-        displace.setAttribute("in", "SourceGraphic");
-        displace.setAttribute("in2", "map");
-        displace.setAttribute("xChannelSelector", "R");
-        displace.setAttribute("yChannelSelector", "G");
-        displace.setAttribute("result", `d${i}`);
-        const keep = document.createElementNS(SVG_NS, "feColorMatrix");
-        keep.setAttribute("in", `d${i}`);
-        keep.setAttribute("type", "matrix");
-        keep.setAttribute("values", channel(i as 0 | 1 | 2));
-        keep.setAttribute("result", `c${i}`);
+        const displace = fe("feDisplacementMap", { in: "SourceGraphic", in2: "map", xChannelSelector: "R", yChannelSelector: "G", result: `d${i}` });
+        const keep = fe("feColorMatrix", { in: `d${i}`, type: "matrix", values: channel(i as 0 | 1 | 2), result: `c${i}` });
         filter.append(displace, keep);
         return { displace, k };
       });
-      const rg = document.createElementNS(SVG_NS, "feComposite");
-      rg.setAttribute("in", "c0");
-      rg.setAttribute("in2", "c1");
-      rg.setAttribute("operator", "arithmetic");
-      rg.setAttribute("k2", "1");
-      rg.setAttribute("k3", "1");
-      rg.setAttribute("result", "rg");
-      const rgb = document.createElementNS(SVG_NS, "feComposite");
-      rgb.setAttribute("in", "rg");
-      rgb.setAttribute("in2", "c2");
-      rgb.setAttribute("operator", "arithmetic");
-      rgb.setAttribute("k2", "1");
-      rgb.setAttribute("k3", "1");
-      filter.append(rg, rgb);
-      filterHost().appendChild(filter);
+      filter.append(
+        fe("feComposite", { in: "c0", in2: "c1", operator: "arithmetic", k2: "1", k3: "1", result: "rg" }),
+        fe("feComposite", { in: "rg", in2: "c2", operator: "arithmetic", k2: "1", k3: "1" }),
+      );
+      // The ripple's own stage, put in front of the dome only while a ripple runs.
+      const flat = fe("feFlood", { "flood-color": "rgb(128,128,128)", result: "flat" });
+      const ring = fe("feImage", { result: "ring", preserveAspectRatio: "none" });
+      const ringOnFlat = fe("feComposite", { in: "ring", in2: "flat", operator: "over", result: "rmap" });
+      const wave = fe("feDisplacementMap", { in: "SourceGraphic", in2: "rmap", xChannelSelector: "R", yChannelSelector: "G", result: "rippled" });
+      if (refract) filterHost().appendChild(filter);
 
       let last = "";
       let frame = 0;
@@ -179,13 +347,15 @@ export function useLiquidGlass<T extends HTMLElement>({ blur = 1.5, strength = 0
         const w = Math.round(el.offsetWidth);
         const h = Math.round(el.offsetHeight);
         if (w < 8 || h < 8) return;
+        if (w !== live.w || h !== live.h) sizeGlint(live, w, h);
+        if (!refract) return;
         const r = Math.min(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0, w / 2, h / 2);
         const key = `${w}x${h}:${r}`;
         if (key === last) return;
         last = key;
         // The dome spans almost half the short side, so the whole piece is curved.
         const band = Math.max(8, (Math.min(w, h) / 2) * 0.92);
-        for (const node of [filter, image]) {
+        for (const node of [filter, image, flat]) {
           node.setAttribute("x", "0");
           node.setAttribute("y", "0");
           node.setAttribute("width", String(w));
@@ -202,8 +372,55 @@ export function useLiquidGlass<T extends HTMLElement>({ blur = 1.5, strength = 0
       observer.observe(el);
       build();
 
+      // A press: light everywhere, and in Chromium a wave through the filter.
+      let waveFrame = 0;
+      const endWave = () => {
+        cancelAnimationFrame(waveFrame);
+        waveFrame = 0;
+        for (const node of [flat, ring, ringOnFlat, wave]) node.remove();
+        for (const { displace } of bends) displace.setAttribute("in", "SourceGraphic");
+      };
+      const onPress = (e: PointerEvent) => {
+        if (calm) return;
+        const box = el.getBoundingClientRect();
+        const x = e.clientX - box.left;
+        const y = e.clientY - box.top;
+        lightRipple(live, x, y);
+        if (!refract || !last) return;
+        if (!ring.getAttribute("href")) ring.setAttribute("href", ringMap());
+        if (!waveFrame) {
+          filter.insertBefore(flat, bends[0].displace);
+          filter.insertBefore(ring, bends[0].displace);
+          filter.insertBefore(ringOnFlat, bends[0].displace);
+          filter.insertBefore(wave, bends[0].displace);
+          for (const { displace } of bends) displace.setAttribute("in", "rippled");
+        }
+        cancelAnimationFrame(waveFrame);
+        const reach = Math.hypot(box.width, box.height) * 0.75;
+        const start = performance.now();
+        const step = (t: number) => {
+          // A frame's timestamp can be a little before the press was handled.
+          const p = clamp((t - start) / 650, 0, 1);
+          const grow = 1 - (1 - p) ** 3;
+          const size = 18 + grow * reach * 2;
+          ring.setAttribute("x", String(x - size / 2));
+          ring.setAttribute("y", String(y - size / 2));
+          ring.setAttribute("width", String(size));
+          ring.setAttribute("height", String(size));
+          wave.setAttribute("scale", String(34 * (1 - p) ** 1.5));
+          if (p < 1) waveFrame = requestAnimationFrame(step);
+          else endWave();
+        };
+        waveFrame = requestAnimationFrame(step);
+      };
+      el.addEventListener("pointerdown", onPress, { passive: true });
+
       return () => {
+        stopLight();
+        el.removeEventListener("pointerdown", onPress);
+        endWave();
         observer.disconnect();
+        live.remove();
         cancelAnimationFrame(frame);
         filter.remove();
         el.style.backdropFilter = "";

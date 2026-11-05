@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -16,7 +17,7 @@ export default function ReviewPage() {
   return (
     <>
       <PageTitle title="Review" />
-      <p className="-mt-3 text-sm text-neutral-600 dark:text-neutral-400">
+      <p className="-mt-3 text-sm text-muted">
         These invoices have a problem: numbers that do not add up, a missing field, a possible
         duplicate, or a value the AI could not prove. Approve it if it is right, or open it to fix it.
       </p>
@@ -24,8 +25,16 @@ export default function ReviewPage() {
       {loading && !data && <Loading slow={slow} />}
       {data && items.length === 0 && <Empty>All clear. Nothing needs review.</Empty>}
       <ul className="flex flex-col gap-3">
-        {items.map((inv) => (
-          <li key={inv.id}>
+        <AnimatePresence initial={false}>
+        {items.map((inv, i) => (
+          <motion.li
+            key={inv.id}
+            layout
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0, transition: { delay: Math.min(i, 8) * 0.03 } }}
+            exit={{ opacity: 0, x: 80, scale: 0.96, transition: { duration: 0.25 } }}
+            transition={{ type: "spring", stiffness: 380, damping: 34 }}
+          >
             <Card>
               <Link href={`/documents/${inv.document_id}`} className="block">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -54,8 +63,9 @@ export default function ReviewPage() {
                 <ApproveButton invoiceId={inv.id} onDone={() => setDone((d) => [...d, inv.id])} />
               </div>
             </Card>
-          </li>
+          </motion.li>
         ))}
+        </AnimatePresence>
       </ul>
     </>
   );

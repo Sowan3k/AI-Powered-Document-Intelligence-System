@@ -935,3 +935,54 @@ The photos are scored on their own, under "photos" in the report, so the main nu
 **Result (run 7):** 77.8% of fields right on the photos, against 100% on the main set. Every wrong field came from photos Tesseract read with a high page confidence, so they never went to the vision model; the hard photos, read by Gemini, lost one invoice number. Of six invoices with a wrong field, four went to review and two did not. Details in `docs/EVALUATION.md`.
 
 **In one sentence:** Measure the hard case on its own, and count how many mistakes reach a person.
+
+---
+
+## D72: The Compare page suggests pairs, and the picker searches on the server
+
+**Alternatives:** Two dropdowns of the 100 newest documents (the first design), a picker that filters a list loaded once in the browser, or ask the person to tick two documents on Home.
+
+**Why:** Sowan's test on 5 November showed the problem: with a dozen documents, finding the right two in a long dropdown is slow, and he compared the statement with the wrong file. Two changes:
+
+- `GET /api/reconcile/suggestions` pairs completed documents that share invoices, by the same rules reconciliation uses (the same normalised number, or the same supplier, date and total), and ranks pairs by how many they share. A statement PDF and its Excel export appear at the top with "3 shared invoices", and one tap compares them. A PDF or scan reads as side A and a register as side B. The self-join looks only at the 300 newest completed documents, so it stays cheap.
+- Each side opens a sheet with a search box and type filters (PDF, Excel, CSV, photos). The search runs on the server (`GET /api/documents?q=&kind=`), with the user's text as a bound parameter and LIKE wildcards escaped, so it works with any number of documents. A swap button exchanges A and B.
+
+**Trade-off:** Suggestions find only pairs that share invoices. Two documents that should match but share nothing (every number mistyped) are not suggested, and the picker is still there for them.
+
+**In one sentence:** The system proposes the comparisons worth making, and the picker finds any document by name.
+
+---
+
+## D73: Glass, motion and page transitions, with the free server's wake-up in view
+
+**Alternatives:** Keep the flat design, use a component library, or animate everything with one library.
+
+**Why:** The brief asks for a web interface people will use, and Sowan asked for an iOS-like look with motion. The choices:
+
+- **Glass only where something floats.** The top bar, the floating tab bar, the processing dock, sheets and the sign-in card use blur, translucency and a thin top highlight, in light and dark mode. Cards are translucent without blur, because many blurred layers make long lists slow on phones. Glass needs something behind it, so the app sits on a soft, slowly moving field of light with fine grain against banding.
+- **Two motion tools, each for what it does best.** Moving between tabs uses React's `<ViewTransition>`, which this Next.js version supports: the page slides left or right by tab order, and the bars stay still. Inside a page, Motion (14.4.0, the library formerly called Framer Motion) animates the tab highlight, sheets that close with a downward pull, cards that leave the review queue, lists, and counters. Both follow the phone's reduce-motion setting.
+- **The wait for the free server becomes part of the page.** Render's free instance sleeps, so the first reviewer usually waits up to a minute. The sign-in page polls the real health check and shows server, database and file storage turning green, with a small pill at the top of the screen that stays in view. Beside it, a short loop shows one invoice being read and checked: the number, the supplier and the total are picked out, then Python flags 390.00 + 28.75 ≠ 428.75. The visitor can sign in at once.
+- **A background image is one line.** `frontend/lib/brand.ts` holds the path; without one, the page uses its own animated light.
+
+Found while testing in Chromium: a `view-transition-name` on an ancestor of a glass element stops the blur, because the named element becomes the blur's backdrop root. The names now sit on the glass elements themselves.
+
+**Trade-off:** Blur costs GPU time on older phones, and Safari renders some view transitions differently; without support, pages switch without the slide. Motion adds about 40 KB to the bundle.
+
+**In one sentence:** Glass where things float, motion that explains what moved, and a first screen that turns waiting into a demonstration.
+
+## D74: An opening page that wakes the server while it plays
+
+**Alternatives:** Keep the sign-in page as the first screen, show a plain loading screen, or pay for an instance that never sleeps.
+
+**Why:** Render's free instance sleeps, and the first reviewer usually waits up to a minute. Sowan shared a scroll-driven hero (GSAP, in the shadcn layout) and asked for it as the opening page, with the server waking in the background while the visitor watches. The choices:
+
+- **The wake-up starts on page load.** `/` now shows the hero and calls the real health check at once. The wake state lives once per tab, so the sign-in page carries on with the same seconds and does not ask again from zero. The top bar shows the true status the whole time ("Waking the server · 23 s", then "Server ready"), and one glass badge beside the phone mockup shows it too. Nothing pretends the server is faster than it is; the wait just has something to watch.
+- **Sign in is never more than one tap away.** The hero scrolls for about 7,000 pixels, which is long for a reviewer in a hurry, so a fixed top bar holds Sign in from the first second.
+- **The shared component is kept generic.** It lives at `frontend/components/ui/cinematic-hero.tsx` with its content in props and slots (phone screen, badges, buttons); `frontend/components/landing.tsx` fills it with DocIntel's own content. The phone screen shows real behaviour: an invoice flagged by R05, a hybrid search, and the file kinds the system reads. The pasted code stopped part way through the phone, so the rest of the mockup was written to match.
+- **shadcn layout without the CLI.** The project had no `components/ui` folder or `cn()` helper. `components/ui.tsx` moved to `components/ui/index.tsx` (every import stays the same), and `lib/utils.ts` holds `cn()` from clsx 2.1.1 and tailwind-merge 3.7.0. GSAP is 3.15.0, pinned, free to use under its standard license.
+- **Reduced motion gets a still page.** With the phone's reduce-motion setting on, the card shows finished, nothing is pinned, and the call to action sits below it.
+- **An icon in the same style.** A white page with a check on the sky-to-violet gradient, drawn once in SVG. A simpler version with a large check serves the 16 and 32 pixel sizes, where the full drawing turns to noise. The app has `icon.svg`, `favicon.ico`, an Apple touch icon and a web manifest with a maskable icon, so it looks right when added to a phone's home screen.
+
+**Trade-off:** GSAP and ScrollTrigger add about 59 KB (gzipped) to the opening page. A long pinned scroll is a style choice some visitors skip, which is why Sign in is always visible.
+
+**In one sentence:** The first minute on the free plan becomes a short tour, with the real server status in view and sign-in one tap away.

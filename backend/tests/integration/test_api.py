@@ -379,6 +379,42 @@ def test_reconcile_endpoint(env: Env) -> None:
     assert env.post("/api/reconcile", json=missing).status_code == 404
 
 
+def test_reconcile_suggestions_rank_pairs_that_share_invoices(env: Env) -> None:
+    env.login()
+    assert env.get("/api/reconcile/suggestions").json() == {"items": []}
+    env.fake.replies = reader_for_truths([env.truth("recon_statement.pdf")])
+    body = env.upload("recon_statement.pdf", "recon_register.xlsx", "register.csv")
+    statement, register, other = (d["document_id"] for d in body["documents"])
+    env.work()
+    items = env.get("/api/reconcile/suggestions").json()["items"]
+    # The statement and its register share 3 invoices: 2 by number (one with a
+    # changed total) and 1 with no number, matched by supplier, date and total.
+    # register.csv shares nothing with either.
+    assert len(items) == 1
+    pair = items[0]
+    assert pair["document_a"]["id"] == statement  # the PDF reads as side A
+    assert pair["document_b"]["id"] == register
+    assert pair["shared"] == 3
+    assert pair["document_a"]["invoice_count"] == 4
+    assert other not in {pair["document_a"]["id"], pair["document_b"]["id"]}
+    assert env.client.get("/api/reconcile/suggestions").status_code == 401
+
+
+def test_document_list_filters_by_name_and_kind(env: Env) -> None:
+    env.login()
+    env.upload("register.csv", "register.xlsx", "register_semicolon_cp1252.csv")
+
+    def names(params: str) -> set[str]:
+        return {d["filename"] for d in env.get(f"/api/documents?{params}").json()["items"]}
+
+    assert names("q=REGISTER") == {"register.csv", "register.xlsx", "register_semicolon_cp1252.csv"}
+    assert names("kind=csv") == {"register.csv", "register_semicolon_cp1252.csv"}
+    assert names("q=semicolon&kind=csv") == {"register_semicolon_cp1252.csv"}
+    assert names("q=%25") == set()  # a LIKE wildcard is matched literally
+    assert names("q=r_g") == set()
+    assert env.get("/api/documents?kind=word").status_code == 422
+
+
 def test_spreadsheet_needs_no_model_but_a_pdf_does(env: Env) -> None:
     env.login()
     env.worker.llm = None  # like docker compose without a Gemini key

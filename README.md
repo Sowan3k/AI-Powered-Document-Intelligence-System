@@ -9,7 +9,7 @@ I built it for the AI Engineer assessment at Care Guide. The brief is in [docs/B
 - Health: https://docintel-api-y25b.onrender.com/api/health (database and file storage)
 - Walkthrough video: link added before submission
 
-The backend runs on Render's free plan. It sleeps when idle, so the first request can take up to a minute.
+The backend runs on Render's free plan. It sleeps when idle, so the first request can take up to a minute. The web app's opening page starts waking it the moment it loads and shows the real status at the top, with Sign in beside it.
 
 ## The brief, task by task
 
@@ -22,7 +22,7 @@ The backend runs on Render's free plan. It sleeps when idle, so the first reques
 | 5. Database and search | PostgreSQL holds documents, page text, invoices, line items, validation issues, corrections, jobs and the processing history. Search uses full text with filters, vector similarity with pgvector, or both merged. | [docs/SCHEMA.md](docs/SCHEMA.md), `backend/app/search` |
 | 6. Frontend | Next.js. Upload many files at once, watch each move through its steps, inspect fields beside the source text, review and correct issues, search, and compare two documents. | `frontend/` |
 | 7. Testing and evaluation | 412 backend tests in CI on Postgres with Tesseract, plus an evaluation on a labelled dataset with the real Gemini models. | [docs/TEST_REPORT.md](docs/TEST_REPORT.md), [docs/EVALUATION.md](docs/EVALUATION.md) |
-| Cross-verification | PDF against PDF, or PDF against Excel: matched invoices, mismatched fields, and invoices found on one side only. | `backend/app/validate/reconcile.py`, Compare page |
+| Cross-verification | PDF against PDF, or PDF against Excel: matched invoices, mismatched fields, and invoices found on one side only. The Compare page suggests pairs that share invoices. | `backend/app/validate/reconcile.py`, Compare page |
 
 The deliverables:
 
@@ -85,7 +85,7 @@ The brief suggests Node.js or NestJS, Redis with BullMQ, and a vector database, 
 | A separate vector database | pgvector in PostgreSQL | Vectors sit beside the invoices, so one query can filter by supplier, date and amount and rank by meaning (D05). |
 | pandas | openpyxl and xlrd, rows converted in plain Python | The readers already turn every cell into text. pandas would add about 60 MB to the image and more memory on a 512 MB instance, for no gain (D37). |
 
-Every design choice, 71 in all, is in [DECISIONS.md](DECISIONS.md) with the alternatives, the reason and the trade-off.
+Every design choice, 73 in all, is in [DECISIONS.md](DECISIONS.md) with the alternatives, the reason and the trade-off.
 
 ## Run it locally
 

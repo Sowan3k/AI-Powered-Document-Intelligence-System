@@ -242,6 +242,24 @@ class ReconcileRequest(BaseModel):
     document_b: uuid.UUID
 
 
+class PairDocument(BaseModel):
+    id: uuid.UUID
+    filename: str
+    source_kind: SourceKind | None
+    invoice_count: int
+    created_at: datetime
+
+
+class PairSuggestion(BaseModel):
+    document_a: PairDocument
+    document_b: PairDocument
+    shared: int  # invoices that appear in both, by number or by supplier, date and total
+
+
+class PairSuggestions(BaseModel):
+    items: list[PairSuggestion]
+
+
 class ReconcileResponse(ORM):
     id: uuid.UUID
     document_a_id: uuid.UUID

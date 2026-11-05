@@ -5,6 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -119,3 +120,54 @@ def test_hybrid_falls_back_to_keyword_without_the_model(db: Session, corpus: Doc
     assert found == ["INV-2026-0007"]
     with pytest.raises(ValueError):
         numbers(db, mode="hybrid", q=None, llm=None)
+
+
+class FixedQuery:
+    """Embeds every query as the same vector, so the test controls the geometry."""
+
+    def __init__(self, vector: list[float]) -> None:
+        self.vector = vector
+
+    def embed(self, *, model: str, texts: list[str], dim: int):  # type: ignore[no-untyped-def]
+        from app.extract.llm import LlmUsage
+
+        return [self.vector for _ in texts], LlmUsage("embed", model, len(texts), 0)
+
+
+def test_semantic_search_sees_past_dead_index_entries(db: Session) -> None:
+    """Deleted or reprocessed invoices leave dead entries in the HNSW graph until
+    vacuum. An approximate index scan visits a fixed number of candidates
+    (ef_search); if all of them are dead it returns nothing, though a live match
+    exists. That emptied a bare cosine query in a test on 5 Nov 2026. Semantic
+    search ranks exactly today (its plan does not use the HNSW index, even with
+    sequential scans off); this test fails if a change ever makes it rely on it."""
+    dim = SETTINGS.embed_dim
+    query = [1.0] + [0.0] * (dim - 1)
+    doc = Document(id=uuid.uuid4(), filename="live.pdf", sha256="1" * 64, size_bytes=1)
+    db.add(doc)
+    db.add(
+        Invoice(
+            document_id=doc.id, invoice_number="LIVE-1", embedding=[0.6, 0.8] + [0.0] * (dim - 2)
+        )
+    )
+    db.flush()
+    # 300 invoices closer to the query, inserted and rolled back: dead graph entries.
+    ghosts = db.begin_nested()
+    gone = Document(id=uuid.uuid4(), filename="gone.pdf", sha256="2" * 64, size_bytes=1)
+    db.add(gone)
+    for i in range(300):
+        vector = [1.0, 0.001 * i] + [0.0] * (dim - 2)
+        db.add(Invoice(document_id=gone.id, invoice_number=f"GONE-{i}", embedding=vector))
+    db.flush()
+    ghosts.rollback()
+    # On a large table the planner picks the HNSW index; force that here.
+    db.execute(text("SET LOCAL enable_seqscan = off"))
+    hits, _ = search(
+        db,
+        mode="semantic",
+        q="anything",
+        filters=Filters(),
+        settings=SETTINGS,
+        llm=FixedQuery(query),
+    )  # type: ignore[arg-type]
+    assert [h.invoice.invoice_number for h in hits] == ["LIVE-1"]

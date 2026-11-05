@@ -1,4 +1,6 @@
 // Small inline icons (no icon library). Each takes a className for size and color.
+import { useId } from "react";
+
 type P = { className?: string };
 const base = "fill-none stroke-current stroke-2 [stroke-linecap:round] [stroke-linejoin:round]";
 
@@ -38,3 +40,34 @@ export const AlertIcon = ({ className = "size-5" }: P) => (
 export const ChevronIcon = ({ className = "size-4" }: P) => (
   <svg viewBox="0 0 24 24" className={`${base} ${className}`} aria-hidden><path d="M6 15l6-6 6 6" /></svg>
 );
+
+/**
+ * The DocIntel mark, the same drawing as the app icon (D74): a page with a
+ * check on the accent gradient. Ids come from useId, so several marks on one
+ * page never share a gradient.
+ */
+export function Mark({ className = "size-6" }: { className?: string }) {
+  const id = useId();
+  return (
+    <svg viewBox="0 0 512 512" className={className} aria-hidden>
+      <defs>
+        <linearGradient id={`${id}bg`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#38bdf8" />
+          <stop offset="0.55" stopColor="#6366f1" />
+          <stop offset="1" stopColor="#8b5cf6" />
+        </linearGradient>
+        <radialGradient id={`${id}shine`} cx="0.25" cy="0" r="0.95">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.38" />
+          <stop offset="0.55" stopColor="#fff" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" rx="116" fill={`url(#${id}bg)`} />
+      <rect width="512" height="512" rx="116" fill={`url(#${id}shine)`} />
+      <g transform="translate(256 256) scale(1.18) translate(-256 -249)">
+        <path d="M128 74H268L332 138V348a26 26 0 0 1-26 26H128a26 26 0 0 1-26-26V100a26 26 0 0 1 26-26Z" fill="#fff" />
+        <path d="M268 74V116a22 22 0 0 0 22 22H332Z" fill="#c7d2fe" />
+        <path d="M150 262l44 44 88-92" fill="none" stroke="#10b981" strokeWidth="40" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+    </svg>
+  );
+}

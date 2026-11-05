@@ -230,3 +230,14 @@ export type Stats = {
   cost_per_completed_document_usd: number | null;
   prices_checked: string;
 };
+
+export type PairDocument = {
+  id: string;
+  filename: string;
+  source_kind: DocumentSummary["source_kind"];
+  invoice_count: number;
+  created_at: string;
+};
+
+/** Two completed documents that share invoices (GET /api/reconcile/suggestions). */
+export type PairSuggestion = { document_a: PairDocument; document_b: PairDocument; shared: number };

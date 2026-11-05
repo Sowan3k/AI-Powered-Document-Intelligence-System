@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -26,28 +27,40 @@ export function ActivityDock() {
   const waiting = active.length - working.length;
 
   return (
-    <div className="dock-in fixed inset-x-3 bottom-20 z-30 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-96">
-      {open && (
-        <div className="mb-2 max-h-[60vh] overflow-y-auto rounded-2xl border border-black/10 bg-white p-3 shadow-xl dark:border-white/15 dark:bg-neutral-900">
-          <ul className="flex flex-col gap-3">
-            {[...active, ...recent].map((item) => (
-              <li key={item.document_id}>
-                <Link href={`/documents/${item.document_id}`} onClick={() => setOpen(false)} className="block">
-                  <p className="mb-1 truncate text-sm font-medium">{item.filename}</p>
-                  <ProcessFlow item={item} compact />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <button
+    <div
+      className="dock-in fixed inset-x-3 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.75rem)] z-30 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-96"
+    >
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 420, damping: 32 }}
+            className="glass-strong mb-2 max-h-[60vh] origin-bottom overflow-y-auto rounded-3xl p-3"
+          >
+            <ul className="flex flex-col gap-3">
+              {[...active, ...recent].map((item) => (
+                <li key={item.document_id}>
+                  <Link href={`/documents/${item.document_id}`} onClick={() => setOpen(false)} className="block">
+                    <p className="mb-1 truncate text-sm font-medium">{item.filename}</p>
+                    <ProcessFlow item={item} compact />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <motion.button
+        style={{ viewTransitionName: "app-dock" }}
+        whileTap={{ scale: 0.97 }}
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className={`flex w-full items-center gap-3 rounded-full px-4 py-3 text-left text-sm font-medium shadow-lg ${busy ? "bg-sky-600 text-white" : "bg-emerald-600 text-white"}`}
+        className="glass flex w-full items-center gap-3 rounded-full px-4 py-3 text-left text-sm font-medium"
       >
-        <span className="relative grid size-6 place-items-center">
-          {busy && <span className="absolute inset-0 animate-ping rounded-full bg-white/40 motion-reduce:hidden" />}
+        <span className={`relative grid size-7 place-items-center rounded-full text-white ${busy ? "bg-sky-500 shadow-[0_0_16px_rgb(56_189_248/0.7)]" : "bg-emerald-500 shadow-[0_0_16px_rgb(16_185_129/0.6)]"}`}>
+          {busy && <span className="absolute inset-0 animate-ping rounded-full bg-sky-400/50 motion-reduce:hidden" />}
           {busy ? <SparkIcon className="size-4" /> : <CheckIcon className="size-4" />}
         </span>
         <span className="min-w-0 flex-1 truncate">
@@ -58,7 +71,7 @@ export function ActivityDock() {
             : `${recent.length} file${recent.length === 1 ? "" : "s"} finished`}
         </span>
         <ChevronIcon className={`size-4 transition-transform ${open ? "" : "rotate-180"}`} />
-      </button>
+      </motion.button>
     </div>
   );
 }

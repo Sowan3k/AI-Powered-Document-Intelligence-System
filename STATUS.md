@@ -6,7 +6,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the storage fix below, the exit tests on the live site for Phases 4 and 5, and the Phase 7 items only Sowan can do.
 
-**Live bug, 5 Nov 12:29 Dhaka:** every upload on the live site failed with `STORAGE_ERROR`. Hosted Supabase Storage needs an `Authorization` header and the client sent `apikey` only. Fixed on branch `ccr-2f4fe3f2-hzma97` (D32): both headers on every call, a fake that enforces the real rules, and `"storage": "ok"` or `"error"` in `GET /api/health`. Merged into `main` as `534402e` (#2) and deployed on 5 Nov. The live health check then said `"storage": "error"` with `400 (AccessDenied)`: Supabase's gateway does not recognise the value in Render's `SUPABASE_SERVICE_ROLE_KEY` as an `sb_secret_` key (D32). Sowan must re-paste the secret key in Render. The branch also now logs the key's kind and length at startup and strips pasted quotes.
+**Live bug, 5 Nov 12:29 Dhaka, fixed 13:30:** every upload failed with `STORAGE_ERROR`. Two causes: the client sent the key in `apikey` only, and the value in Render's `SUPABASE_SERVICE_ROLE_KEY` was not the project's `sb_secret_` key (D32). The header fix is in `main` (#2, #3), and Sowan re-pasted the key. At 07:30 UTC the live `/api/health` answered `"storage":"ok"`, and Render logged "the Supabase key is an sb_secret key, 41 characters".
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -26,15 +26,15 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next, for Sowan (in order):**
 
-1. Merge `ccr-2f4fe3f2-hzma97` into `main` once CI is green. It includes D56 to D71 and the storage fix.
-2. After Render deploys, open https://docintel-api-y25b.onrender.com/api/health and check `"storage": "ok"`. Then upload a few files on the live site.
+1. ~~Merge the storage fix and D56 to D71~~ Done (#2 and #3). ~~Fix the key in Render~~ Done; live health says storage ok.
+2. Upload a few files on the live site and check they complete.
 3. In Render, check these environment variables: `DEMO_PASSWORD` is set (pick one and put it in the submission email); `STORAGE_BACKEND=supabase` and the new defaults come from `render.yaml` (sync the Blueprint if Render asks). Optional: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` while `gemini-3.8-flash` stays overloaded; weak scans then skip a wait of about a minute.
 4. On the live site, check results, review, a correction, both searches and reconcile. Tell Claude Code what you see, and it will tick the exit tests for Phases 4 and 5.
 5. Record the walkthrough video (3 to 5 minutes) following `docs/WALKTHROUGH.md`.
 6. Decide repository access (invite the reviewers, or make it public; gitleaks scans the full history on every push and has been green).
 7. Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio.
 
-**Blockers:** Uploads on the live site fail until `SUPABASE_SERVICE_ROLE_KEY` in Render holds the project's `sb_secret_` key.
+**Blockers:** None.
 
 **Note:** Render's free instance hours are shared across the workspace with BahasaBot and grab-realtime-demo.
 

@@ -6,7 +6,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the storage fix below, the exit tests on the live site for Phases 4 and 5, and the Phase 7 items only Sowan can do.
 
-**Live bug, 5 Nov 12:29 Dhaka:** every upload on the live site failed with `STORAGE_ERROR`. Hosted Supabase Storage needs an `Authorization` header and the client sent `apikey` only. Fixed on branch `ccr-2f4fe3f2-hzma97` (D32): both headers on every call, a fake that enforces the real rules, and `"storage": "ok"` or `"error"` in `GET /api/health`. Not live until that branch is merged into `main`.
+**Live bug, 5 Nov 12:29 Dhaka:** every upload on the live site failed with `STORAGE_ERROR`. Hosted Supabase Storage needs an `Authorization` header and the client sent `apikey` only. Fixed on branch `ccr-2f4fe3f2-hzma97` (D32): both headers on every call, a fake that enforces the real rules, and `"storage": "ok"` or `"error"` in `GET /api/health`. Merged into `main` as `534402e` (#2) and deployed on 5 Nov. The live health check then said `"storage": "error"` with `400 (AccessDenied)`: Supabase's gateway does not recognise the value in Render's `SUPABASE_SERVICE_ROLE_KEY` as an `sb_secret_` key (D32). Sowan must re-paste the secret key in Render. The branch also now logs the key's kind and length at startup and strips pasted quotes.
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -32,7 +32,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 6. Decide repository access (invite the reviewers, or make it public; gitleaks scans the full history on every push and has been green).
 7. Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio.
 
-**Blockers:** Uploads on the live site fail until the storage fix is merged.
+**Blockers:** Uploads on the live site fail until `SUPABASE_SERVICE_ROLE_KEY` in Render holds the project's `sb_secret_` key.
 
 **Note:** Render's free instance hours are shared across the workspace with BahasaBot and grab-realtime-demo.
 

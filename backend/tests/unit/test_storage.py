@@ -12,7 +12,7 @@ from pydantic import SecretStr
 from app.core.config import Settings
 from app.storage import StorageError, StorageNotFoundError, get_storage, object_key
 from app.storage.local import LocalStorage
-from app.storage.supabase import SupabaseStorage
+from app.storage.supabase import SupabaseStorage, describe_key
 
 # Fake key for tests only; the real value lives in Render's dashboard.
 FAKE_KEY = "sb_secret_test-not-real"
@@ -317,3 +317,55 @@ def test_production_defaults_to_supabase(monkeypatch: pytest.MonkeyPatch) -> Non
     with pytest.raises(RuntimeError, match="SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"):
         get_storage(settings)
     assert Settings(app_env="development").resolved_storage_backend == "local"
+
+
+@pytest.mark.parametrize(
+    ("value", "kind"),
+    [
+        (FAKE_KEY, "an sb_secret key"),
+        ("sb_publishable_abc", "an sb_publishable key"),
+        ("eyJhbGciOi.eyJyb2xlIjoi.c2lnbmF0dXJl", "a legacy JWT key"),
+        ("service_role", "in an unknown format"),
+    ],
+)
+def test_describe_key_names_the_kind_never_the_key(value: str, kind: str) -> None:
+    text = describe_key(SecretStr(value))
+    assert text.startswith(kind)
+    assert text.endswith(f"{len(value)} characters")
+    assert value not in text
+
+
+@pytest.mark.parametrize("pasted", [f" {FAKE_KEY}\n", f'"{FAKE_KEY}"', f"'{FAKE_KEY}' "])
+def test_spaces_and_quotes_around_the_key_are_removed(
+    pasted: str, fake: FakeSupabase, source: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.INFO):
+        storage = SupabaseStorage(
+            "https://project.supabase.co",
+            SecretStr(pasted),
+            "documents",
+            client=httpx.Client(transport=httpx.MockTransport(fake)),
+            backoff_s=0,
+        )
+    storage.upload(KEY, source, "application/pdf")  # the fake refuses anything but the clean key
+    assert fake.requests[-1].headers["apikey"] == FAKE_KEY
+    assert "spaces or quotes" in caplog.text
+    assert "the Supabase key is an sb_secret key" in caplog.text
+    assert FAKE_KEY not in caplog.text
+
+
+def test_a_refused_check_logs_the_key_kind(caplog: pytest.LogCaptureFixture) -> None:
+    def gateway(request: httpx.Request) -> httpx.Response:
+        # Production on 5 Nov: the gateway did not recognise the key and passed it on.
+        return httpx.Response(400, json={"statusCode": "403", "error": "AccessDenied"})
+
+    storage = SupabaseStorage(
+        "https://p.supabase.co",
+        SecretStr("not-a-real-key"),
+        "documents",
+        client=httpx.Client(transport=httpx.MockTransport(gateway)),
+    )
+    with caplog.at_level(logging.WARNING), pytest.raises(StorageError, match="AccessDenied"):
+        storage.check()
+    assert "the key is in an unknown format" in caplog.text
+    assert "not-a-real-key" not in caplog.text

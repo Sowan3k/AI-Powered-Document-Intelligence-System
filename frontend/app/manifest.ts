@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Extract, validate and search invoice data from PDFs, images and spreadsheets.",
     start_url: "/",
     display: "standalone",
-    background_color: "#06070b",
-    theme_color: "#06070b",
+    background_color: "#0b121d",
+    theme_color: "#0b121d",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
       { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },

@@ -31,16 +31,16 @@ export function ScanPreview() {
     <div className="flex flex-col gap-3" aria-label="Preview: an invoice being read and checked">
       <div className="glass relative overflow-hidden rounded-3xl p-5">
         {!reduce && (
-          <span className="scan-beam pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-transparent via-sky-400/25 to-transparent" />
+          <span className="scan-beam pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-transparent via-brand/25 to-transparent" />
         )}
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-semibold tracking-[0.2em] text-muted">INVOICE</p>
+            <p className="type-eyebrow text-muted">INVOICE</p>
             <Field on={shown >= 1} className="mt-1 text-sm font-semibold">
               INV-2026-00004
             </Field>
           </div>
-          <div className="text-right text-[11px] text-muted">
+          <div className="text-right text-2xs text-muted">
             <p>20 Apr 2026</p>
             <p>GBP</p>
           </div>
@@ -56,7 +56,7 @@ export function ScanPreview() {
             </div>
           ))}
         </div>
-        <div className="mt-4 ml-auto flex w-40 flex-col gap-0.5 text-[11px]">
+        <div className="mt-4 ml-auto flex w-40 flex-col gap-0.5 text-2xs">
           <Row label="Subtotal" value="390.00" on={shown >= 3} />
           <Row label="Tax" value="28.75" on={shown >= 3} />
           <Row label="Total" value="428.75" on={shown >= 3} strong />
@@ -85,10 +85,10 @@ export function ScanPreview() {
                 transition={{ type: "spring", stiffness: 420, damping: 30 }}
                 className="glass flex h-[1.85rem] items-center gap-2 rounded-2xl px-3 text-xs"
               >
-                <SparkIcon className="size-3.5 text-sky-500" />
+                <SparkIcon className="size-3.5 text-brand" />
                 <span className="text-muted">{c.label}</span>
                 <span className="min-w-0 flex-1 truncate font-medium">{c.value}</span>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400">{c.conf}</span>
+                <span className="text-2xs text-emerald-600 dark:text-emerald-400">{c.conf}</span>
               </motion.div>
             ))}
           {shown >= 4 && (
@@ -117,8 +117,8 @@ function Field({ on, className, children }: { on: boolean; className?: string; c
   return (
     <motion.span
       animate={{
-        backgroundColor: on ? "rgba(56, 189, 248, 0.18)" : "rgba(56, 189, 248, 0)",
-        boxShadow: on ? "0 0 0 1px rgba(56, 189, 248, 0.55)" : "0 0 0 1px rgba(56, 189, 248, 0)",
+        backgroundColor: on ? "rgba(201, 150, 63, 0.18)" : "rgba(201, 150, 63, 0)",
+        boxShadow: on ? "0 0 0 1px rgba(201, 150, 63, 0.55)" : "0 0 0 1px rgba(201, 150, 63, 0)",
       }}
       transition={{ duration: 0.35 }}
       className={`-mx-1 inline-block rounded-md px-1 ${className ?? ""}`}
@@ -131,7 +131,7 @@ function Field({ on, className, children }: { on: boolean; className?: string; c
 function Row({ label, value, on, strong }: { label: string; value: string; on: boolean; strong?: boolean }) {
   return (
     <motion.div
-      animate={{ backgroundColor: on ? "rgba(56, 189, 248, 0.14)" : "rgba(56, 189, 248, 0)" }}
+      animate={{ backgroundColor: on ? "rgba(201, 150, 63, 0.14)" : "rgba(201, 150, 63, 0)" }}
       transition={{ duration: 0.35 }}
       className={`flex justify-between rounded-md px-1.5 py-0.5 ${strong ? "font-semibold" : "text-muted"}`}
     >

@@ -65,7 +65,7 @@ const INJECTED_STYLES = `
   }
 
   .premium-depth-card {
-      background: linear-gradient(145deg, #162C6D 0%, #0A101D 100%);
+      background: linear-gradient(145deg, #1b2d47 0%, #0a111c 100%);
       box-shadow:
           0 40px 100px -20px rgba(0, 0, 0, 0.9),
           0 20px 40px -20px rgba(0, 0, 0, 0.8),
@@ -309,14 +309,14 @@ export function CinematicHero({
         {/* Behind: the two headline lines */}
         <div className="hero-text-wrapper absolute z-10 flex w-full flex-col items-center justify-center px-4 pb-[18svh] text-center will-change-transform">
           <h1 className="flex flex-col items-center">
-            <span className="text-track gsap-reveal text-3d-matte mb-2 block text-[clamp(2.25rem,9.5vw,6rem)] leading-[1.05] font-bold tracking-tight">{tagline1}</span>
-            <span className="text-days gsap-reveal text-silver-matte block text-[clamp(2.25rem,9.5vw,6rem)] leading-[1.05] font-extrabold tracking-tighter">{tagline2}</span>
+            <span className="text-track gsap-reveal text-3d-matte type-display mb-2 block text-[clamp(2.5rem,10.5vw,6.5rem)] leading-[1.02]">{tagline1}</span>
+            <span className="text-days gsap-reveal text-silver-matte type-display block text-[clamp(2.5rem,10.5vw,6.5rem)] leading-[1.02]">{tagline2}</span>
           </h1>
         </div>
 
         {/* Behind, later: the call to action */}
         <div className="cta-wrapper gsap-reveal pointer-events-auto absolute z-10 flex w-full flex-col items-center justify-center px-4 text-center will-change-transform">
-          <h2 className="text-silver-matte mb-5 text-[clamp(2rem,8vw,4.5rem)] leading-[1.08] font-bold tracking-tight md:mb-6">{ctaHeading}</h2>
+          <h2 className="text-silver-matte type-display mb-5 text-[clamp(2.25rem,9vw,5rem)] md:mb-6">{ctaHeading}</h2>
           {ctaDescription && <p className="mx-auto mb-8 max-w-xl text-base leading-relaxed font-light text-muted-foreground md:mb-12 md:text-xl">{ctaDescription}</p>}
           {ctaActions && <div className="flex flex-row flex-wrap justify-center gap-3 sm:gap-6">{ctaActions}</div>}
         </div>
@@ -331,7 +331,7 @@ export function CinematicHero({
           <div className={cn("relative z-10 mx-auto flex h-full w-full max-w-7xl flex-col items-center justify-evenly px-4 py-6 lg:grid lg:grid-cols-3 lg:gap-8 lg:px-12 lg:py-0", contentClassName)}>
             {/* Top on phones, right on wide screens: the brand */}
             <div className="card-right-text gsap-reveal z-20 order-1 flex w-full justify-center lg:order-3 lg:justify-end">
-              <h2 className="text-card-silver-matte text-5xl font-black tracking-tighter uppercase md:text-7xl lg:text-[4.5rem] xl:text-[5.5rem]">{brandName}</h2>
+              <h2 className="text-card-silver-matte type-display text-6xl tracking-normal uppercase md:text-8xl lg:text-[5rem] xl:text-[6rem]">{brandName}</h2>
             </div>
 
             {/* Middle: the phone */}
@@ -355,16 +355,16 @@ export function CinematicHero({
                         <svg className="absolute inset-0 size-full" viewBox="0 0 160 160" aria-hidden="true">
                           <defs>
                             <linearGradient id="hero-ring" x1="0" y1="0" x2="1" y2="1">
-                              <stop offset="0" stopColor="#38bdf8" />
-                              <stop offset="1" stopColor="#a78bfa" />
+                              <stop offset="0" stopColor="#3dbe8b" />
+                              <stop offset="1" stopColor="#d9a94e" />
                             </linearGradient>
                           </defs>
                           <circle cx="80" cy="80" r="64" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
                           <circle className="progress-ring" cx="80" cy="80" r="64" fill="none" stroke="url(#hero-ring)" strokeWidth="10" />
                         </svg>
                         <div className="text-center">
-                          <span className="counter-val block text-4xl font-extrabold tracking-tighter tabular-nums">0</span>
-                          <span className="mx-auto mt-1 block max-w-[6.5rem] text-[9px] leading-snug font-bold tracking-[0.2em] text-blue-200/50 uppercase">{metricLabel}</span>
+                          <span className="counter-val type-figure block text-5xl">0</span>
+                          <span className="mx-auto mt-1 block max-w-[6.5rem] text-[9px] leading-snug font-bold tracking-[0.2em] text-[#ece6d9]/50 uppercase">{metricLabel}</span>
                         </div>
                       </div>
                       <div className="flex flex-col gap-2.5">{phoneWidgets}</div>
@@ -378,8 +378,8 @@ export function CinematicHero({
 
             {/* Bottom on phones, left on wide screens: the message */}
             <div className="card-left-text gsap-reveal z-20 order-3 flex w-full flex-col justify-center px-2 text-center lg:order-1 lg:px-0 lg:text-left">
-              <h3 className="mb-2 text-2xl font-bold tracking-tight text-white md:text-3xl lg:mb-5 lg:text-4xl">{cardHeading}</h3>
-              <p className="mx-auto line-clamp-4 max-w-md text-sm leading-relaxed text-blue-100/70 md:text-base lg:mx-0 lg:line-clamp-none lg:max-w-none lg:text-lg">{cardDescription}</p>
+              <h3 className="type-display mb-2 text-3xl text-white md:text-4xl lg:mb-5 lg:text-5xl">{cardHeading}</h3>
+              <p className="mx-auto line-clamp-4 max-w-md text-sm leading-relaxed text-[#ece6d9]/75 md:text-base lg:mx-0 lg:line-clamp-none lg:max-w-none lg:text-lg">{cardDescription}</p>
             </div>
           </div>
         </div>

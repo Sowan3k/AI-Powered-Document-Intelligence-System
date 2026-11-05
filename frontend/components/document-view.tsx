@@ -114,7 +114,7 @@ export function DocumentView() {
       {done && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <section className="flex flex-col gap-3">
-            <h2 className="font-semibold">Extracted invoices</h2>
+            <h2 className="type-section">Extracted invoices</h2>
             {results.error && <ErrorBox message={results.error} onRetry={results.reload} />}
             {!invoices && <Loading slow={results.slow} what="Loading results" />}
             {invoices?.length === 0 && (
@@ -179,14 +179,14 @@ function SourceText({ results }: { results: Results | null }) {
   if (!results || results.pages.length === 0) {
     return results ? (
       <section className="flex flex-col gap-3">
-        <h2 className="font-semibold">Source</h2>
+        <h2 className="type-section">Source</h2>
         <Empty>Spreadsheet rows are shown with each invoice&apos;s row numbers.</Empty>
       </section>
     ) : null;
   }
   return (
     <section className="flex flex-col gap-3 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto">
-      <h2 className="font-semibold">Source text</h2>
+      <h2 className="type-section">Source text</h2>
       {results.pages.map((p) => (
         <details key={p.page_number} open={results.pages.length <= 2} className="rounded-xl border border-black/10 bg-white p-3 dark:border-white/15 dark:bg-neutral-900">
           <summary className="flex cursor-pointer flex-wrap items-center gap-2 text-sm">

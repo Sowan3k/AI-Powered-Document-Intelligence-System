@@ -14,7 +14,7 @@ export function Card({ children, className = "" }: { children: ReactNode; classN
 export function PageTitle({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <header className="flex flex-wrap items-end justify-between gap-3">
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="type-page">{title}</h1>
       {children}
     </header>
   );
@@ -24,7 +24,7 @@ const TONES = {
   green: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
   amber: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
   red: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-  blue: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300",
+  blue: "bg-slate-200/70 text-slate-800 dark:bg-slate-700/40 dark:text-slate-200",
   gray: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
 } as const;
 export type Tone = keyof typeof TONES;
@@ -92,7 +92,7 @@ export function Loading({ slow, what = "Loading" }: { slow?: boolean; what?: str
   return (
     <div aria-live="polite" className="py-6 text-sm text-neutral-600 dark:text-neutral-400">
       <p className="flex items-center gap-2">
-        <span className="size-2 animate-pulse rounded-full bg-sky-500" />
+        <span className="size-2 animate-pulse rounded-full bg-foreground/60" />
         {what}…
       </p>
       {slow && (
@@ -115,7 +115,7 @@ export function Empty({ children }: { children: ReactNode }) {
 
 export function TextLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-400">
+    <Link href={href} className="font-medium text-brand underline-offset-2 hover:underline">
       {children}
     </Link>
   );
@@ -131,4 +131,4 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export const inputClass =
-  "min-h-11 w-full rounded-xl border border-black/10 bg-white/70 px-3 text-base outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20 dark:border-white/12 dark:bg-white/5 sm:text-sm";
+  "min-h-11 w-full rounded-xl border border-black/10 bg-white/70 px-3 text-base outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/20 dark:border-white/12 dark:bg-white/5 sm:text-sm";

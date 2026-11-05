@@ -39,7 +39,7 @@ export function Landing() {
       />
       {/* Reduced motion: the hero stays still and shows no call to action, so it comes here. */}
       <section className="hidden flex-col items-center gap-6 px-4 py-20 text-center motion-reduce:flex">
-        <h2 className="text-3xl font-bold tracking-tight">Try it on your own files.</h2>
+        <h2 className="type-display text-4xl">Try it on your own files.</h2>
         <p className="max-w-xl text-muted">
           <CtaText wake={wake} />
         </p>
@@ -90,7 +90,7 @@ function Actions() {
 /** Fixed above the hero, so the status and Sign in never scroll away. */
 function TopBar({ wake }: { wake: Wake }) {
   const lost = wake.steps.some((s) => s.state === "error");
-  const dot = wake.ready ? "bg-emerald-400" : lost ? "bg-rose-400" : "animate-pulse bg-sky-400";
+  const dot = wake.ready ? "bg-emerald-400" : lost ? "bg-rose-400" : "animate-pulse bg-current opacity-60";
   const barRef = useRef<HTMLDivElement | null>(null);
   const glass = useLiquidGlass<HTMLDivElement>();
   const onDark = useOverDarkCard(barRef);
@@ -191,7 +191,7 @@ function ScrollHint() {
           className="pointer-events-none fixed inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+4svh)] z-[60] flex justify-center motion-reduce:hidden"
         >
           <span ref={pillGlass} className="glass glass-still glass-on-dark flex items-center gap-2.5 rounded-full py-2.5 pr-5 pl-3 text-sm font-semibold">
-            <span className="relative grid size-7 place-items-center overflow-hidden rounded-full bg-gradient-to-b from-sky-400 to-violet-500 text-white">
+            <span className="relative grid size-7 place-items-center overflow-hidden rounded-full bg-brand text-white">
               <motion.svg
                 viewBox="0 0 24 24"
                 className="size-4 fill-none stroke-current stroke-[2.5]"
@@ -241,7 +241,7 @@ function PhoneWidgets() {
       </div>
       <div className={widget}>
         <div className="flex items-center gap-2 rounded-xl bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/75">
-          <SearchIcon className="size-3.5 text-sky-300" />
+          <SearchIcon className="size-3.5 text-emerald-300" />
           printer supplies
         </div>
         <p className="mt-2 text-[11px] text-white/50">3 matches · keyword and meaning</p>
@@ -266,11 +266,11 @@ function Badges({ wake }: { wake: Wake }) {
     <>
       <div className="absolute top-[14%] right-1/2 z-30 mr-[100px] md:mr-[120px] lg:mr-[150px]">
         <div className="floating-badge floating-ui-badge flex items-center gap-3 rounded-2xl py-3 pr-4 pl-3 text-white">
-          <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${wake.ready ? "bg-emerald-400/20" : "bg-sky-400/15"}`}>
+          <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${wake.ready ? "bg-emerald-400/20" : "bg-white/10"}`}>
             {wake.ready ? (
               <CheckIcon className="size-4 text-emerald-300" />
             ) : (
-              <span className="size-4 animate-spin rounded-full border-2 border-sky-300/30 border-t-sky-300" aria-hidden />
+              <span className="size-4 animate-spin rounded-full border-2 border-white/25 border-t-white" aria-hidden />
             )}
           </span>
           <span className="flex flex-col">
@@ -281,7 +281,7 @@ function Badges({ wake }: { wake: Wake }) {
       </div>
       <div className="absolute bottom-[16%] left-1/2 z-30 ml-[100px] md:ml-[120px] lg:ml-[150px]">
         <div className="floating-badge floating-ui-badge flex items-center gap-3 rounded-2xl py-3 pr-4 pl-3 text-white">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-violet-400/20 text-sm font-bold text-violet-200">2×</span>
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-amber-300/15 text-sm font-bold text-amber-200">2×</span>
           <span className="flex flex-col">
             <span className="text-[10px] font-semibold tracking-[0.16em] text-white/45 uppercase">Duplicate caught</span>
             <span className="text-sm font-semibold whitespace-nowrap">Same bill, new layout</span>

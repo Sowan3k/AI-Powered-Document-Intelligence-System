@@ -33,12 +33,12 @@ export function LoginScreen() {
             <Mark className="size-9" />
             <span className="text-2xl font-semibold tracking-tight">DocIntel</span>
           </div>
-          <h1 className="mt-5 hidden text-5xl leading-[1.1] font-semibold tracking-tight lg:block">
+          <h1 className="type-display mt-5 hidden text-6xl lg:block">
             Invoices in.
             <br />
-            <span className="bg-gradient-to-r from-sky-400 via-indigo-400 to-violet-400 bg-clip-text text-transparent">Checked data out.</span>
+            <span className="text-brand">Checked data out.</span>
           </h1>
-          <p className="mt-4 hidden max-w-md text-[15px] text-muted lg:block">
+          <p className="mt-4 hidden max-w-md text-base text-muted lg:block">
             DocIntel reads invoices from PDFs, scans, photos and spreadsheets. Python checks every number,
             and a person sees only what needs a look.
           </p>
@@ -52,7 +52,7 @@ export function LoginScreen() {
           className="glass-strong flex flex-col gap-5 rounded-[2rem] p-6 sm:p-7 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center"
         >
           <div>
-            <h2 className="text-lg font-semibold tracking-tight">Sign in</h2>
+            <h2 className="type-section">Sign in</h2>
             <p className="mt-1 text-sm text-muted">Use the demo account from the submission email.</p>
           </div>
           <WakeTimeline wake={wake} />
@@ -67,7 +67,7 @@ export function LoginScreen() {
         </motion.section>
 
         <motion.div custom={2} variants={rise} initial="hidden" animate="show" className="lg:col-start-1 lg:row-start-2">
-          <p className="mb-3 text-xs font-semibold tracking-[0.16em] text-muted uppercase lg:hidden">What happens to an invoice</p>
+          <p className="type-eyebrow mb-3 text-muted lg:hidden">What happens to an invoice</p>
           <ScanPreview />
         </motion.div>
       </main>
@@ -89,7 +89,7 @@ function Backdrop() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-[1] overflow-hidden">
       <motion.div
-        className="absolute -top-40 left-1/2 size-[42rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgb(56_189_248/0.35),transparent)]"
+        className="absolute -top-40 left-1/2 size-[42rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgb(13_122_86/0.22),rgb(196_150_62/0.1)_55%,transparent)]"
         animate={{ scale: [1, 1.12, 1], opacity: [0.8, 1, 0.8] }}
         transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
       />

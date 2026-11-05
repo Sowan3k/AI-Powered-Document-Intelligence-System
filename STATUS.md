@@ -45,6 +45,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, finance palette and type system (Claude Code)
+
+Sowan said the blue and purple looked AI-generated, asked about finance fonts and consistent sizes, and shared a red, cream and navy type specimen. Changed (D80): ink navy, warm paper, a ledger green brand, brass for decoration, amber and red kept for review and problems; IBM Plex Sans, Barlow Semi Condensed and IBM Plex Mono from the app; six type roles in `globals.css`; about 100 blue and purple uses replaced in 19 files; the app icon redrawn. The glass is unchanged.
+
+Tested: lint, typecheck and build; every main screen at phone size in light and dark (opening page at three points, sign-in, Home, Home list, Review, Compare) and desktop (opening page, sign-in, Home) on a local API; the fonts load from the app; no page errors. CPU slowed four times: Home 60 fps, opening page 57 fps. A search for raw colour values found two leftovers (the sign-in glow and the preview highlight), both fixed.
+
 ### 5 Nov 2026, upload box light and the comparison list (Claude Code)
 
 Sowan asked for a rotating light on the upload box's border and a better way to show a comparison. Built (D79): a light that travels around the upload box with a soft glow, run by the graphics chip and paused off screen; the Compare result as one list with a share bar, counts that filter, one line per invoice with problems first, and mismatched pairs opened to show A, B and the exact change.

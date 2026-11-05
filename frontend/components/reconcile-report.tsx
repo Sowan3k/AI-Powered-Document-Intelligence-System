@@ -18,7 +18,7 @@ type Row = { key: string; kind: Kind; a: ReconcileSide | null; b: ReconcileSide 
 const KINDS: { kind: Kind; label: string; dot: string; tile: string; bar: string }[] = [
   { kind: "mismatched", label: "Mismatched", dot: "bg-rose-500", tile: "text-rose-700 dark:text-rose-300", bar: "bg-rose-500" },
   { kind: "only_in_a", label: "Only in A", dot: "bg-amber-500", tile: "text-amber-700 dark:text-amber-300", bar: "bg-amber-400" },
-  { kind: "only_in_b", label: "Only in B", dot: "bg-violet-500", tile: "text-violet-700 dark:text-violet-300", bar: "bg-violet-400" },
+  { kind: "only_in_b", label: "Only in B", dot: "bg-slate-500", tile: "text-slate-700 dark:text-slate-300", bar: "bg-slate-400" },
   { kind: "matched", label: "Matched", dot: "bg-emerald-500", tile: "text-emerald-700 dark:text-emerald-300", bar: "bg-emerald-500" },
 ];
 
@@ -55,7 +55,7 @@ export function ReconcileReport({ report, nameA, nameB }: { report: Reconciliati
         </div>
 
         <div>
-          <p className="text-base font-semibold tracking-tight">
+          <p className="type-section">
             {pairs === 0
               ? "No invoice appears in both."
               : `${pairs} ${pairs === 1 ? "pair" : "pairs"} found, ${s.matched} agree on every field.`}
@@ -94,7 +94,7 @@ export function ReconcileReport({ report, nameA, nameB }: { report: Reconciliati
                   <span className={`size-2 rounded-full ${k.dot}`} aria-hidden />
                   {k.label}
                 </span>
-                <span className="mt-0.5 block text-2xl font-semibold tracking-tight tabular-nums">
+                <span className="type-figure mt-0.5 block text-3xl">
                   <CountUp value={s[k.kind]} />
                 </span>
               </button>
@@ -127,7 +127,7 @@ export function ReconcileReport({ report, nameA, nameB }: { report: Reconciliati
 function Doc({ tag, name, count }: { tag: "A" | "B"; name?: string; count: number }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-sky-400 to-violet-500 text-xs font-bold text-white">{tag}</span>
+      <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-foreground text-xs font-bold text-background">{tag}</span>
       <span className="min-w-0 truncate font-medium">{name ?? `Document ${tag}`}</span>
       <span className="shrink-0 text-muted">
         {count} {count === 1 ? "invoice" : "invoices"}
@@ -139,8 +139,8 @@ function Doc({ tag, name, count }: { tag: "A" | "B"; name?: string; count: numbe
 const MARKS: Record<Kind, { icon: React.ReactNode; tone: string }> = {
   matched: { icon: <CheckIcon className="size-3.5" />, tone: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
   mismatched: { icon: <AlertIcon className="size-3.5" />, tone: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
-  only_in_a: { icon: <span className="text-[10px] font-bold">A</span>, tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
-  only_in_b: { icon: <span className="text-[10px] font-bold">B</span>, tone: "bg-violet-500/15 text-violet-700 dark:text-violet-300" },
+  only_in_a: { icon: <span className="text-2xs font-bold">A</span>, tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300" },
+  only_in_b: { icon: <span className="text-2xs font-bold">B</span>, tone: "bg-slate-500/15 text-slate-700 dark:text-slate-300" },
 };
 
 /** One invoice: its number and total, the supplier, then the date and where it was found. */
@@ -162,7 +162,7 @@ function Line({ row }: { row: Row }) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="min-w-0 truncate font-mono text-[13px] font-medium">{main.invoice_number ?? "no number"}</p>
+            <p className="min-w-0 truncate font-mono text-sm font-medium">{main.invoice_number ?? "no number"}</p>
             <p className="shrink-0 text-sm font-semibold tabular-nums">{money(main.total)}</p>
           </div>
           <p className="text-sm">{main.supplier_name ?? "unknown supplier"}</p>
@@ -180,7 +180,7 @@ function Line({ row }: { row: Row }) {
 function Differences({ row }: { row: Row }) {
   return (
     <div className="mt-2.5 overflow-hidden rounded-2xl border border-rose-500/20 bg-rose-500/[0.04] text-sm">
-      <div className="grid grid-cols-[minmax(5rem,auto)_1fr_1fr] gap-x-3 border-b border-rose-500/15 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase">
+      <div className="grid grid-cols-[minmax(5rem,auto)_1fr_1fr] gap-x-3 border-b border-rose-500/15 px-3 py-1.5 type-eyebrow text-muted">
         <span>Field</span>
         <span>A</span>
         <span>B</span>

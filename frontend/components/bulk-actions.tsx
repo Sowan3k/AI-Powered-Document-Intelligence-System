@@ -57,7 +57,7 @@ export function BulkActions({
   }
 
   return (
-    <div role="region" aria-label="Actions on marked documents" className="flex flex-col gap-2 rounded-xl border border-sky-200 bg-sky-50 p-3 dark:border-sky-900 dark:bg-sky-950/40">
+    <div role="region" aria-label="Actions on marked documents" className="flex flex-col gap-2 rounded-xl border border-brand/25 bg-brand/[0.06] p-3">
       <p className="text-sm font-medium">{marked.length} marked</p>
       <div className="flex flex-wrap gap-2">
         <Button

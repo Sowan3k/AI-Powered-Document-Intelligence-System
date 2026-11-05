@@ -1070,3 +1070,22 @@ Measured with the CPU slowed four times while scrolling Home: 60 fps still and 6
 **Trade-off:** A blurred, always-moving light uses some graphics work while the upload box is on screen. One list is longer to scroll than separate cards when a comparison is large; the filter is the answer to that.
 
 **In one sentence:** A light that circles the upload box without costing a frame, and a comparison that reads like a statement, problems first.
+
+## D80: A finance palette and a type system
+
+**Alternatives:** Keep the sky-to-violet gradients and the system font; Inter for everything; a serif for headlines; red as the brand colour.
+
+**Why:** Sowan said the blue and purple made the site look AI-generated, asked which fonts finance products use, and asked for consistent sizes. He shared a type specimen in red, cream and navy. The choices:
+
+- **Colour: the palette of financial print.** Ink navy (#0F1B2D) for text and for the main action on each screen, warm paper (#F3EFE6) instead of cool grey, a deep ledger green (#0D7A56) as the brand colour, brass (#A97A26) as a warm accent, and the usual signals: green for checked, amber for "needs review", red for a problem. The specimen's red stays where finance readers expect it, on problems, so a red button never looks like an error and a mismatch keeps its meaning. Green is the brand because the product's promise is checked data. Brass is decoration only: the light around the upload box, the hero's ring, search matches and fields the model picked out. In dark mode the ink becomes the background and the cream the text. "Only in B" moved from violet to slate.
+- **Type: three faces with fixed jobs.** IBM Plex Sans for text: its digits are all one width, so amounts line up in columns without extra work, and IBM made it for enterprise data. Barlow Semi Condensed for headings and big numbers: a DIN-like grotesk close to the specimen, firm at weight 700. IBM Plex Mono for invoice numbers. Inter was the obvious choice and part of the generic look. All three are under the SIL Open Font License, served from the app (`frontend/app/fonts/`, with the licence), so the strict CSP stays.
+- **Sizes: roles, not guesses.** Page title 30 px, section 20 px, card title 18 px, body 14 px, captions 12 px, labels 11 px, inputs 16 px so phones do not zoom. They are utilities in `globals.css` (`type-page`, `type-section`, `type-card`, `type-eyebrow`, `type-display`, `type-figure`), so a page cannot drift. The one-off 9, 10, 11, 13 and 15 px sizes are gone outside the phone mockup.
+- **The glass did not change.** It is clear, so it takes the new colours from what is behind it.
+
+The app icon was redrawn in the same palette: a cream page with a green check on ink, with a brass scan line.
+
+Measured after the change, CPU slowed four times: Home 60 fps, the opening page 57 fps. The fonts add about 120 KB, loaded once.
+
+**Trade-off:** A warm paper background reads less "tech" than white; that is the point. Two type families need care to stay apart: Barlow only for headings and figures.
+
+**In one sentence:** Ink, paper and a ledger green with red kept for problems, Plex for reading and Barlow for headings, at a fixed scale.

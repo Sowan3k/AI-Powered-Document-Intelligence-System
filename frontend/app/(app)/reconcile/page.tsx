@@ -102,7 +102,7 @@ function Reconcile() {
 
       {pairs.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold">Suggested pairs</h2>
+          <h2 className="type-section">Suggested pairs</h2>
           <p className="-mt-1 text-xs text-muted">These documents share invoices. One tap compares them.</p>
           <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
             {pairs.map((p, i) => (
@@ -119,7 +119,7 @@ function Reconcile() {
                 className="glass flex w-72 shrink-0 snap-start flex-col gap-2 rounded-3xl p-4 text-left"
               >
                 <MiniDoc doc={p.document_a} tag="A" />
-                <span className="flex items-center gap-2 pl-3 text-xs font-medium text-sky-600 dark:text-sky-400">
+                <span className="flex items-center gap-2 pl-3 text-xs font-medium text-brand">
                   <span className="h-4 w-px bg-current opacity-40" />
                   {p.shared} shared invoice{p.shared === 1 ? "" : "s"}
                 </span>
@@ -150,7 +150,7 @@ function Reconcile() {
             whileTap={{ scale: 0.98 }}
             disabled={!a || !b || busy}
             onClick={() => a && b && compare(a, b)}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 px-4 font-semibold text-white shadow-[0_10px_30px_-12px_rgb(99_102_241/0.8)] transition disabled:opacity-40 disabled:shadow-none"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl btn-primary px-4 font-semibold transition disabled:opacity-40 disabled:shadow-none"
           >
             {busy ? (
               <>
@@ -192,7 +192,7 @@ function Slot({ side, doc, onOpen }: { side: "A" | "B"; doc: Picked | null; onOp
       onClick={onOpen}
       className={`surface flex min-h-20 flex-1 items-center gap-3 rounded-3xl p-4 text-left ${doc ? "" : "border-dashed"}`}
     >
-      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-violet-400 text-xs font-bold text-white">{side}</span>
+      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-foreground text-xs font-bold text-background">{side}</span>
       <AnimatePresence mode="popLayout" initial={false}>
         {doc ? (
           <motion.span key={doc.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={spring} className="flex min-w-0 flex-1 items-center gap-3">
@@ -204,7 +204,7 @@ function Slot({ side, doc, onOpen }: { side: "A" | "B"; doc: Picked | null; onOp
                 {shortWhen(doc.created_at)}
               </span>
             </span>
-            <span className="text-xs font-medium text-sky-600 dark:text-sky-400">Change</span>
+            <span className="text-xs font-medium text-brand">Change</span>
           </motion.span>
         ) : (
           <motion.span key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 text-sm text-muted">
@@ -222,7 +222,7 @@ function MiniDoc({ doc, tag }: { doc: PairDocument; tag: string }) {
       <KindBadge kind={doc.source_kind} className="size-8" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{doc.filename}</span>
-        <span className="block text-[11px] text-muted">
+        <span className="block text-2xs text-muted">
           {tag} · {doc.invoice_count} invoice{doc.invoice_count === 1 ? "" : "s"}
         </span>
       </span>

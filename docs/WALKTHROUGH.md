@@ -13,7 +13,7 @@ A 4 to 5 minute phone screen recording that shows every task in the brief workin
 | Time | Screen | Do | Say |
 |---|---|---|---|
 | 0:00 | Start page | Sign in | "DocIntel reads invoices in any form a finance team gets: PDFs, scans, phone photos, Excel and CSV. It extracts the fields with Gemini, checks every number in Python, and flags what a person must review." |
-| 0:20 | Home | Tap the drop zone, pick 7 files at once (all but the reconciliation pair) | "I pick several files. Upload starts at once; there is no second button." |
+| 0:20 | Home | Tap the drop zone, pick the PDFs from Files; tap again and add the photo and the Excel file; untick one; tap Upload | "I can mix PDFs, photos, Excel and CSV, even from different places on the phone. Each file shows its type; I untick what I do not want, and upload the rest together." |
 | 0:35 | Home | Point at the live steps and at `encrypted.pdf` | "Each file moves through upload, read, AI extract, check and done. A broken file fails alone with a clear code; the rest carry on." |
 | 0:55 | Another tab | Open Search, show the floating dock | "The progress follows me to every screen. Model calls go through one client with a rate limiter, retries and a fallback model, so a busy model does not fail a document." |
 | 1:15 | Home | Point at `payment_letter.pdf` | "A letter is not an invoice, so nothing is invented. The system says: no invoice found." |
@@ -22,7 +22,8 @@ A 4 to 5 minute phone screen recording that shows every task in the brief workin
 | 2:00 | Home, Needs attention | Open `planted_wrong_total.pdf` | "Here the total does not match subtotal plus tax. The model only reads; Python does the arithmetic and flags it." |
 | 2:15 | Invoice card | Tap Fix, correct the total, save | "I correct it. The change is recorded with my name, the rules run again, and search updates." |
 | 2:35 | `photo_upside_down.jpg` | Open it | "A phone photo taken upside down. OCR cleans it, flips it, and reads it." |
-| 2:45 | Search | Type an invoice number, then switch to meaning and type "printer supplies" | "Keyword search finds exact codes and names. Semantic search finds invoices by meaning, with pgvector." |
+| 2:45 | Search | Type an invoice number, then "printer supplies", both in Best match | "Best match combines full-text search, for exact codes and names, with meaning search on pgvector, and merges the two rankings. One box handles both." |
+| 3:00 | Home, document list | Tick two files, tap Compare these two; or tick several and Download marked for Excel | "I can mark several documents and act on them at once: process again, export, compare or delete." |
 | 3:05 | Compare | Upload the reconciliation pair if not yet done, choose both | "PDF against Excel: matched, a changed total, a row with no number matched by supplier, date and total, and invoices on one side only." |
 | 3:30 | Home | Tap Download invoices for Excel, show the stats line | "Everything exports to Excel. The line at the bottom shows the success rate, average time, tokens and what they cost at paid Gemini prices." |
 | 3:45 | Browser: `/api/docs` | Scroll the endpoint list | "Every action is a REST endpoint: upload, status, results, search, corrections, reprocessing, export, stats." |

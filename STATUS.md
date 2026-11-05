@@ -21,7 +21,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next, for Sowan (in order):**
 
-1. ~~Merge `sowan/admiring-gates-y0oyrm` into `main`.~~ Done 4 Nov 2026. The 5 Nov fixes (D56 to D60) are on the branch and need a second merge.
+1. ~~Merge `sowan/admiring-gates-y0oyrm` into `main`.~~ Done 4 Nov 2026. Everything since (D56 to D70) is on the branch and needs a second merge; ask Claude Code to merge when ready.
 2. In Render, check these environment variables: `DEMO_PASSWORD` is set (pick one and put it in the submission email); `STORAGE_BACKEND=supabase` and the new defaults come from `render.yaml` (sync the Blueprint if Render asks). Optional: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` while `gemini-3.8-flash` stays overloaded; weak scans then skip a wait of about a minute.
 3. After the deploy: open the web app on your phone, sign in, upload a few files from the dataset (or your own), and check results, review, a correction, both searches and reconcile. Tell Claude Code what you see, and it will tick the exit tests for Phases 4 and 5.
 4. Record the walkthrough video (3 to 5 minutes) following the Phase 7 list.
@@ -38,6 +38,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Real public invoice samples were not added to the evaluation (licensing and personal data). The report says so.
 
 ## Session log
+
+### 5 Nov 2026, more files at once, search, safety and scale (Claude Code)
+
+Sowan asked to mark and submit many files of mixed types, plus the other suggestions. Done, each with tests: an upload list that gathers files from several pickers, shows each type, refuses unsupported ones, and uploads the marked ones in batches of 20; checkboxes on the document list with Process again, Download marked for Excel, Compare these two, Delete and Retry all failed (D66). A model that failed after its retries is skipped for five minutes while a fallback exists (D67). Best match search merges keyword and meaning by rank fusion and is the default (D68). The source text highlights where each value was read. Security headers (D63), upside-down scans flipped in OCR (D64), View original and Delete (D65), the walkthrough script and email draft (`docs/WALKTHROUGH.md`), and the `demo-files` CI artifact. The Bengali Tesseract pack was measured and rejected: it read Bengali "৪০০.০০" as "800.00" at high confidence (D69). A load test on the real queue gave 1.0x, 2.0x and 3.8x throughput with 1, 2 and 4 workers (D70). Evaluation run 6 repeated run 5 with 0 thinking tokens and per-call latency (extraction 21 s mean).
+
+Tested: backend suite, frontend lint, typecheck and build, and phone-size browser walk-throughs of the upload list (6 files from two picks, one refused, one unticked, 4 uploaded), bulk export, compare, process again and delete, View original, the highlight and Best match, with no console errors.
 
 ### 5 Nov 2026, interview readiness fixes (Claude Code)
 

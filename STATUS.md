@@ -20,6 +20,8 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Gemini (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` (text), `gemini-3.8-flash` (vision), `gemini-embedding-2` at 768 dimensions. The vision model answered HTTP 503 (overloaded) in every real run; the fallback to the text model read those pages (D44).
 
+**Evaluation run 7 (5 Nov):** main set again 100% on 92 of 92 invoices; nine phone photos 77.8% of fields (mild 83.3%, medium 83.3%, hard 66.7%). Every wrong field came from photos Tesseract read with high page confidence, so they never reached vision; 4 of 6 wrong photo invoices went to review. Next fix to consider: send phone photos to vision. See `docs/EVALUATION.md`.
+
 **Evaluation (run 5, real Gemini):** 91 of 91 invoices, all 8 fields 100%, line items 224 of 224, planted errors 12 of 12, 1 false flag in 80 clean invoices, 4 of 4 non-invoice files empty, all 9 broken files rejected correctly, no failed documents. About $0.0015 per invoice at paid Gemini prices. See `docs/EVALUATION.md`.
 
 **Next, for Sowan (in order):**

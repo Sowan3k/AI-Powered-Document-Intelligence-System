@@ -932,4 +932,6 @@ The photos are scored on their own, under "photos" in the report, so the main nu
 
 **Trade-off:** These are still synthetic photos of synthetic invoices. They have no folds, stamps, handwriting or creased thermal paper. Nine photos is a small sample, so one misread moves the photo accuracy by several points.
 
+**Result (run 7):** 77.8% of fields right on the photos, against 100% on the main set. Every wrong field came from photos Tesseract read with a high page confidence, so they never went to the vision model; the hard photos, read by Gemini, lost one invoice number. Of six invoices with a wrong field, four went to review and two did not. Details in `docs/EVALUATION.md`.
+
 **In one sentence:** Measure the hard case on its own, and count how many mistakes reach a person.

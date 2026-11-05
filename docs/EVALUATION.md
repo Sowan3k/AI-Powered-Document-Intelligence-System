@@ -120,6 +120,41 @@ Run 6 ([GitHub Actions run 41891540199](https://github.com/Sowan3k/AI-Powered-Do
 - **Output length sets the latency.** An extraction call writes about 1,350 tokens (every value with its confidence and evidence), at roughly 65 tokens a second. Fewer fields per call or shorter evidence would make calls faster and cheaper; the evidence stays because it proves each value (D10).
 - **The overloaded vision model cost time.** The one weak scan took 235 s, most of it retrying `gemini-3.8-flash` (HTTP 503) before the text model read it. A model that keeps failing is now skipped for a few minutes (D67), so the next page goes straight to the fallback.
 
+### Run 7: phone photos
+
+Run 7 ([GitHub Actions run 41982062470](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/actions/runs/41982062470), 5 November) ran the main set again, plus nine phone photos of new invoices scored apart from it (D71). The photos come in three levels, one per layout at each level. Mild photos are sharp and full size. Medium ones are smaller and have a soft shadow over part of the page. Hard ones are smaller still, with a dark shadow, a hand shake blur and strong JPEG compression.
+
+The main set repeated the earlier runs: 92 of 92 invoices with every field right, line items 228 of 228, 11 of 11 planted errors caught, 2 false flags (both R04) in 81 clean invoices, all 9 broken files rejected with the right code, 4 of 4 non-invoice files empty, the injection ignored, and every job on its first attempt. A digital PDF took 14.5 s on average, down from 23.2 s in run 5, because page windows now run in parallel (D61).
+
+The photos are the first weaker numbers in this report.
+
+| Field | Accuracy on photos |
+|---|---|
+| Invoice number | 88.9% |
+| Invoice date | 77.8% |
+| Supplier | 77.8% |
+| Customer | 66.7% |
+| Subtotal | 77.8% |
+| Tax | 66.7% |
+| Total | 77.8% |
+| Currency | 88.9% |
+| **All fields (72 values)** | **77.8%** |
+
+| Level | Read by | Field accuracy |
+|---|---|---|
+| Mild | Tesseract (page confidence 92 to 94) | 83.3% |
+| Medium | Tesseract (page confidence 79 to 84) | 83.3% |
+| Hard | Gemini, after Tesseract scored 42 to 53 | 66.7% |
+
+The page confidences come from rebuilding the same photos in the sandbox, since the generator is seeded. All nine photos completed, and line items matched 27 of 31 (87.1%).
+
+- **Every wrong field came from the OCR path.** The six mild and medium photos were read by Tesseract with high page confidence, so none of them went to the vision model. But single words were wrong. Rebuilding the same photos in the sandbox (the generator is seeded) shows what Tesseract read: "Sundarban Foods Lid" for "Ltd", "Green Vattey School" and "Green Valicy School" for "Valley", "BOT" for "BDT", a date printed as "2026.04.14", and, on the European layout's shaded top band, a supplier line turned into noise. A page score of 90 hides a wrong letter in the one word that matters.
+- **The evidence check cannot see these errors.** It checks that a value appears in the source text (D10), and the source text is the OCR output, which holds the same wrong letters.
+- **The vision model read the hard photos well.** Two of the three were read perfectly. On the third, the invoice number came out wrong, so the scoring could not pair it with its label and it counts as missed on all eight fields. That one miss is the whole drop at the hard level. `gemini-3.8-flash` answered HTTP 503 again, and the text model read them through the fallback. A vision page took 97 s on average (p95 272 s), most of it spent retrying the busy model.
+- **The review queue caught most, not all.** Six of the eight paired invoices had at least one wrong field. The rules sent four of them to review, each through R02 (a value that does not parse). Two passed as correct. A misread name, or a misread amount that still adds up, breaks no rule.
+
+What it means: on photos, Tesseract's page confidence is the wrong signal for sending a page to the vision model. Two changes would address it, in order of cost. Send every phone photo (JPEG and PNG, not scanned PDFs) to the vision model when one is available, or use Tesseract's per-word confidence on the words a field was read from. Neither is built yet.
+
 ## What the earlier runs found
 
 The first real runs were not clean, and each one led to a fix that later runs measure:
@@ -132,13 +167,15 @@ The first real runs were not clean, and each one led to a fix that later runs me
 | 4 | 87 of 87 invoices, all fields 100%, 10 of 10 planted errors, 1 false flag, 0 failures; 75,048 tokens | The first clean run. |
 | 5 | This report | Adds Bangladeshi VAT invoices, discounts and charges, files that are not invoices, a prompt-injection invoice, and the input and output token split for cost. |
 | 6 | Same results as run 5; 0 thinking tokens; latency per call | After parallel windows and the fallback model (D61). Every job on its first attempt. |
+| 7 | Main set again 100%; phone photos 77.8% of fields | Nine phone photos at three levels, scored apart (D71). OCR misreads single words on photos it scores highly. |
 
 Before these runs, the manual smoke test had also found the vision model overloaded, which led to the fallback chain in D44.
 
 ## Weak spots
 
 - **Synthetic data.** 100% on clean synthetic layouts says the pipeline is sound; it does not predict accuracy on real invoices, which have noisier layouts, logos, stamps and handwriting.
-- **The vision path is barely measured.** Only one page needed vision, and the vision model was overloaded in every run, so that page was read by the text model through the fallback. The quality of `gemini-3.8-flash` on poor scans is untested.
+- **Phone photos read by OCR.** Run 7 got 77.8% of fields right on nine synthetic phone photos, and every error came from photos Tesseract read with high confidence, which therefore never reached the vision model. Two of six wrong invoices passed review unflagged.
+- **The vision model itself is untested.** `gemini-3.8-flash` was overloaded in every run, so every vision page, including run 7's hard photos, was read by the text model through the fallback.
 - **Line items are matched by amount.** A misread quantity or unit price does not lower the line item score; R04 catches it instead, as it did once here.
 - **Speed under the free tier.** About 25 seconds per document is the quota at work. Large batches will take a long time on the free tier.
 - **Bangladeshi documents are synthetic too.** The two VAT invoices and the restaurant bill follow common local formats, but real local invoices also carry Bengali text, stamps and handwriting. Bengali digits and month names parse (D56); Tesseract has only English installed, so a scanned Bengali page relies on the vision fallback.

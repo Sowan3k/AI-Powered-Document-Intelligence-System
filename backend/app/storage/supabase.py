@@ -43,7 +43,7 @@ class SupabaseStorage:
         self._root = f"{base_url.rstrip('/')}/storage/v1/object"
         self._base = f"{self._root}/{bucket}"
         self._bucket = bucket
-        self._key = secret_key
+        self._key = _clean_key(secret_key)
         self._backoff_s = backoff_s
         self._client = client or httpx.Client(timeout=timeout_s)
 
@@ -93,6 +93,9 @@ class SupabaseStorage:
             raise StorageError("storage check failed: network error") from None
         if response.status_code >= 400:
             status = response.status_code
+            if status in (400, 401, 403):
+                # The gateway only swaps keys it recognises; say which kind ours is.
+                logger.warning("storage check refused; the key is %s", describe_key(self._key))
             raise StorageError(f"storage check failed with HTTP {status}" + _code(response))
 
     def upload(self, key: str, source: Path, content_type: str) -> None:
@@ -165,3 +168,30 @@ def _code(response: httpx.Response) -> str:
         if isinstance(value, str) and ERROR_CODE.fullmatch(value):
             return f" ({value})"
     return ""
+
+
+def describe_key(key: SecretStr) -> str:
+    """What kind of key this is, for logs: never the key, nor any part of it."""
+    value = key.get_secret_value()
+    if value.startswith("sb_secret_"):
+        kind = "an sb_secret key"
+    elif value.startswith("sb_publishable_"):
+        kind = "an sb_publishable key, which cannot write to a private bucket"
+    elif value.startswith("eyJ") and value.count(".") == 2:
+        kind = "a legacy JWT key"
+    else:
+        kind = "in an unknown format (expected it to start with sb_secret_)"
+    return f"{kind}, {len(value)} characters"
+
+
+def _clean_key(key: SecretStr) -> SecretStr:
+    """Drop spaces and one pair of quotes pasted around the key in a dashboard."""
+    raw = key.get_secret_value()
+    value = raw.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1].strip()
+    if value != raw:
+        logger.warning("storage key had spaces or quotes around it; they were removed")
+    cleaned = SecretStr(value)
+    logger.info("storage: the Supabase key is %s", describe_key(cleaned))
+    return cleaned

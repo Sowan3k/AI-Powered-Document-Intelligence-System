@@ -62,7 +62,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Evaluation run 5 used the real Gemini models on 44 synthetic files with 91 labelled invoices. All eight fields were right on all 91 invoices, and line items matched 224 of 224. Every planted error was caught (12 of 12), with 1 false flag in 80 clean invoices. All 9 broken files got the right error code, all 4 files that are not invoices produced no invoice, and no document failed. Run 6 repeated these results. At paid Gemini prices an invoice costs about $0.0015.
 
-The data is synthetic and cleaner than real invoices, so real accuracy will be lower. Run 7 adds nine phone photos at three levels of difficulty, scored apart from the main set. [docs/EVALUATION.md](docs/EVALUATION.md) has the method, every number, and the weak spots.
+The data is synthetic and cleaner than real invoices, so real accuracy will be lower. Run 7 shows how much. It repeated 100% on the main set, then read nine phone photos at three levels of difficulty and got 77.8% of their fields right. Every error came from photos that Tesseract read with high confidence, which kept them away from the vision model: "Ltd" read as "Lid", "Valley" as "Vattey". Of the six photo invoices with a wrong field, the rules sent four to review. [docs/EVALUATION.md](docs/EVALUATION.md) has the method, every number, and the weak spots.
 
 ## Speed, scale, reliability and security
 
@@ -148,6 +148,7 @@ CI runs ruff, the backend tests, the frontend build, gitleaks, and a Docker Comp
 ## Known limitations
 
 - The invoices and photos are synthetic. They have no stamps, folds or handwriting, so the accuracy figures are likely optimistic. No real invoices were added, because of licences and personal data.
+- On phone photos, a page goes to the vision model only when Tesseract's page confidence is low. Run 7 shows that a high page score can still hide a misread name or date.
 - The free Render instance sleeps and has 512 MB of memory for the API and the worker together. Large scanned files process slowly.
 - The vision model `gemini-3.8-flash` was overloaded in every test run. Weak scans then go to the text model, which still reads them, after a delay.
 - Uploading the same invoices twice on purpose, for reconciliation, triggers the duplicate rule (D50).

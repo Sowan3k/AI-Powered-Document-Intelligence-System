@@ -415,6 +415,8 @@ CI missed it because the fake Storage transport checked paths and bodies but not
 
 The lesson: a fake must copy the real service's rules, not only its happy path, and a rule taken from documentation should be confirmed against the real service before release. Here the health check confirms it on every deploy.
 
+**The health check's first live answer (5 November, after the merge).** `/api/health` said `"storage": "error"`, and the Render log named the cause: `storage check failed with HTTP 400 (AccessDenied)`. The headers were now right, but Supabase's gateway log showed it had not recognised the key. A value that starts with `sb_` is logged under `request.sb.apikey` with its first few characters; ours was only tried as a JWT ("Not a JWT, too short signature") and passed on untouched, so Storage refused it. The value stored in Render's `SUPABASE_SERVICE_ROLE_KEY` does not start with `sb_secret_`. It may be quoted, cut short, or a different key. The client now drops spaces and one pair of quotes around the key, and logs which kind of key it holds (`sb_secret`, `sb_publishable`, legacy JWT or unknown) and its length, never the key itself. The real fix is in the Render dashboard: paste the secret key from Supabase, Project Settings, API Keys.
+
 **Trade-off:** Local and Supabase backends can drift apart in behaviour. The fake copies only the rules we have seen; the health check is the backstop for the rest. `/api/health` now makes one outbound call every 15 seconds at most, and a Storage outage marks the API as degraded even while the database is fine. A missing Supabase setting fails when storage is first used, not at startup; the health check reports it as `"storage": "error"`.
 
 **In one sentence:** Callers see one small interface, production files live in the private bucket, the key travels the way Supabase's own clients send it, and the health check proves it on the live site.
@@ -929,5 +931,7 @@ The backend gained `GET /api/activity` (each document's stage from its latest hi
 The photos are scored on their own, under "photos" in the report, so the main numbers stay comparable from run to run. Both groups now also report whether the system catches its own mistakes: of the invoices with any wrong field, how many ended in the review queue. A wrong invoice that passes as correct is the failure that matters most to a finance team. Real invoices from the internet were left out because of licences and personal data. Making the existing scans harder would have changed every earlier number.
 
 **Trade-off:** These are still synthetic photos of synthetic invoices. They have no folds, stamps, handwriting or creased thermal paper. Nine photos is a small sample, so one misread moves the photo accuracy by several points.
+
+**Result (run 7):** 77.8% of fields right on the photos, against 100% on the main set. Every wrong field came from photos Tesseract read with a high page confidence, so they never went to the vision model; the hard photos, read by Gemini, lost one invoice number. Of six invoices with a wrong field, four went to review and two did not. Details in `docs/EVALUATION.md`.
 
 **In one sentence:** Measure the hard case on its own, and count how many mistakes reach a person.

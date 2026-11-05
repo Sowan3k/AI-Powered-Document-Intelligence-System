@@ -21,10 +21,13 @@ def _write_truth(path: Path, invoices: list[Invoice], **extra: object) -> None:
     path.with_name(path.name + ".json").write_text(json.dumps(truth, indent=2))
 
 
-def build(out: Path, seed: int = 7, scale: int = 1) -> list[dict]:
+def build(out: Path, seed: int = 7, scale: int = 1, photos: int = 0) -> list[dict]:
     """Write the dataset into `out` and return the manifest entries.
 
     scale=1 is the small set the unit tests use. Phase 6 raises it.
+    photos adds that many phone photos of invoices, a harder set that the
+    evaluation scores on its own. They come last, so every other file stays
+    the same whatever the number.
     """
     out.mkdir(parents=True, exist_ok=True)
     rng = random.Random(seed)
@@ -339,6 +342,25 @@ def build(out: Path, seed: int = 7, scale: int = 1) -> list[dict]:
         scan_invs[1:],
     )  # fmt: skip
     cv2.imwrite(str(path), cv2.rotate(scans.degrade(clean[1], rng, "light"), cv2.ROTATE_180))
+
+    # Phone photos of single invoices. Nine photos cover every pair of layout
+    # (classic, modern, european) and difficulty (mild, medium, hard).
+    photo_rng = random.Random(seed * 1000 + 1)
+    levels = list(scans.PHOTO_LEVELS)
+    for i in range(photos):
+        inv, layout, level = new(), layout_names[i % 3], levels[(i // 3) % 3]
+        doc = layouts.invoice_pdf([(inv, layout)])
+        image = scans.photo(scans.render(doc[0], dpi=200), photo_rng, level)
+        path = add(
+            f"photo_{level}_{layout}_{i}.jpg",
+            {"kind": "jpeg", "pages": 1, "methods": ["ocr"]},
+            [inv],
+            layout=layout,
+            group="photo",
+            level=level,
+        )
+        quality = photo_rng.randint(*scans.PHOTO_LEVELS[level]["jpeg"])
+        cv2.imwrite(str(path), image, [cv2.IMWRITE_JPEG_QUALITY, quality])
 
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     return manifest

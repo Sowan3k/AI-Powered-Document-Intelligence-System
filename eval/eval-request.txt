@@ -1,4 +1,5 @@
 # Changing this file and pushing runs the Evaluation workflow with the real
 # Gemini API (it spends tokens). Keep a short note of why each run was asked for.
 scale=2
-reason=run 6: measure thinking tokens and per-call latency, parallel page windows and the fallback model (D61, D62), 5 Nov 2026
+photos=9
+reason=run 7 adds nine phone photos at three difficulty levels, scored apart (D71), 5 Nov 2026

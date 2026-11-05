@@ -10,6 +10,9 @@ on:
       scale:
         description: "Dataset scale (1 is about 32 files)"
         default: "2"
+      photos:
+        description: "Phone photos to add, scored apart (D71)"
+        default: "9"
   push:
     paths:
       - eval/eval-request.txt
@@ -80,6 +83,7 @@ jobs:
       - name: Run the evaluation
         run: |
           scale="${{ github.event.inputs.scale }}"
+          photos="${{ github.event.inputs.photos }}"
           if [ -z "$scale" ]; then
             scale=$(grep -oE '^scale=[0-9]+' ../eval/eval-request.txt | cut -d= -f2 || true)
           fi
@@ -89,7 +93,10 @@ jobs:
             export GEMINI_THINKING_LEVEL="$thinking"
             echo "thinking level: $thinking"
           fi
-          python ../eval/run_eval.py --scale "${scale:-1}" --out ../eval/reports
+          if [ -z "$photos" ]; then
+            photos=$(grep -oE '^photos=[0-9]+' ../eval/eval-request.txt | cut -d= -f2 || true)
+          fi
+          python ../eval/run_eval.py --scale "${scale:-1}" --photos "${photos:-0}" --out ../eval/reports
 
       - name: Upload the report
         if: always()

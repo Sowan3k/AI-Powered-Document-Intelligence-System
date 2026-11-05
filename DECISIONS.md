@@ -902,3 +902,21 @@ The backend gained `GET /api/activity` (each document's stage from its latest hi
 **Trade-off:** Workers run as threads in one process, which is fair for waiting on the model but not for OCR-heavy batches, where separate processes or containers would be needed (`docker compose up --scale worker=3`).
 
 **In one sentence:** Twice the workers, twice the documents a minute, measured rather than claimed.
+
+---
+
+## D71: A harder set of phone photos, scored apart from the main numbers
+
+**Alternatives:** Keep only the clean synthetic set (runs 4 to 6 scored 100% on every field), add real invoices from the internet, or make every existing scan harder.
+
+**Why:** A perfect score on synthetic data the project made itself proves that the pipeline is sound, not that it reads hard input. The brief names poor image quality, and few pages in runs 4 to 6 reached the vision path. The one phone photo in the set (`photo_upside_down.jpg`, D64) is a light scan turned over, read by OCR. `--photos N` adds N phone photos of new invoices: the page on a desk, seen at an angle, lit from one side, out of focus, with sensor noise and JPEG compression. They come in three levels, cycling through the three layouts:
+
+- mild: a sharp photo, full size (Tesseract confidence 92 to 95 in the sandbox);
+- medium: smaller, a soft shadow over part of the page (80 to 90; OCR misread one invoice number);
+- hard: smaller still, a dark shadow, a hand shake blur and strong JPEG (35 to 55, so every one goes to the vision fallback).
+
+The photos are scored on their own, under "photos" in the report, so the main numbers stay comparable from run to run. Both groups now also report whether the system catches its own mistakes: of the invoices with any wrong field, how many ended in the review queue. A wrong invoice that passes as correct is the failure that matters most to a finance team. Real invoices from the internet were left out because of licences and personal data. Making the existing scans harder would have changed every earlier number.
+
+**Trade-off:** These are still synthetic photos of synthetic invoices. They have no folds, stamps, handwriting or creased thermal paper. Nine photos is a small sample, so one misread moves the photo accuracy by several points.
+
+**In one sentence:** Measure the hard case on its own, and count how many mistakes reach a person.

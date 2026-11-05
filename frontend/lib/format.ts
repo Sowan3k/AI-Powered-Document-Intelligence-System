@@ -91,3 +91,26 @@ export const EVENT_LABELS: Record<string, string> = {
   job_recovered: "Recovered after a worker stop",
   job_retry_requested: "Retry requested",
 };
+
+/**
+ * b minus a for two decimal strings, exact, for display only: "1105.15" and
+ * "1150.15" give "+45.00". It works in whole units of the smallest decimal
+ * place with BigInt, so no floating point touches money. Returns null when
+ * either side is not a plain number.
+ */
+export function decimalChange(a: unknown, b: unknown): string | null {
+  const plain = /^-?\d+(\.\d+)?$/;
+  if (typeof a !== "string" || typeof b !== "string" || !plain.test(a) || !plain.test(b)) return null;
+  const places = Math.max(a.split(".")[1]?.length ?? 0, b.split(".")[1]?.length ?? 0);
+  const units = (s: string) => {
+    const negative = s.startsWith("-");
+    const [whole, fraction = ""] = (negative ? s.slice(1) : s).split(".");
+    const n = BigInt(whole + fraction.padEnd(places, "0"));
+    return negative ? -n : n;
+  };
+  const d = units(b) - units(a);
+  const negative = d < BigInt(0);
+  const digits = (negative ? -d : d).toString().padStart(places + 1, "0");
+  const text = places ? `${digits.slice(0, -places)}.${digits.slice(-places)}` : digits;
+  return `${negative ? "−" : "+"}${money(text)}`;
+}

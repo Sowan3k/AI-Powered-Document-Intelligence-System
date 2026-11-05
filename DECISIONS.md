@@ -1057,3 +1057,16 @@ Measured with the CPU slowed four times while scrolling Home: 60 fps still and 6
 **In one sentence:** Light that follows the phone's tilt and a ripple under the finger, moved by the graphics chip alone, so the page stays at 60 fps.
 
 **Found after release (5 Nov):** Sowan saw the bars drift toward the screen's edge while scrolling. The glint layer is a square larger than its piece of glass, and turning it widened the page by a few pixels at some scroll positions (measured: 3 px on Home), so a thumb could pan the page sideways. The light layers are now clipped to their glass (`overflow: hidden`, `contain: paint`), and `html` has `overflow-x: clip` so the app can never scroll sideways; `clip` keeps `position: sticky` working. Measured after the fix: no extra width on any page at any scroll position, with the phone tilted.
+
+## D79: A moving light around the upload box, and the comparison as one list
+
+**Alternatives:** Keep the dashed border; an animated dashed border; for the comparison, keep four stacked cards or use a wide table.
+
+**Why:** Sowan asked for a rotating light on the upload box's border and a better way to read a comparison.
+
+- **The border.** A faint gradient ring, and a light that travels around it with a soft glow: a conic gradient twice the box's size, turned by a CSS animation of `rotate` and cut down to the ring by a mask, plus a blurred copy for the glow. The graphics chip runs it, so it costs the page nothing per frame (Home measured at 60 fps with it, CPU slowed four times). An IntersectionObserver pauses it when the box is off screen. It speeds up while a file is dragged over the box, and stands still under reduced motion.
+- **The comparison.** Four stacked cards made a reader jump between sections, and long lines cut supplier names short. Now: a sentence ("3 pairs found, 2 agree on every field"), one bar with the share of each outcome, and four counts that are also the filter. Below them, every invoice is one line, like a bank statement: a status mark, the number and total, the supplier, then the date and where it was found in A and B ("A page 2 ↔ B row 5 · same number"). Problems come first. A mismatched pair opens to show each differing field with A's value, B's value and, for amounts, the exact change ("+25.00"). The change is worked out in whole cents with BigInt, so no floating point touches money; the backend's own comparison stays the authority.
+
+**Trade-off:** A blurred, always-moving light uses some graphics work while the upload box is on screen. One list is longer to scroll than separate cards when a comparison is large; the filter is the answer to that.
+
+**In one sentence:** A light that circles the upload box without costing a frame, and a comparison that reads like a statement, problems first.

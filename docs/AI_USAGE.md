@@ -180,3 +180,9 @@ Prompt (summary): Sowan said the blur was right, but elements moved while scroll
 
 Claude Code measured the page width while scrolling and found the cause in its own D78 change: the rotating glint layers widened the page by 3 px at some positions. AI-generated: the clipping fix, the sideways-scroll guard, and the checks that sticky elements still stick.
 
+### 5 Nov 2026, upload box light and the comparison list (Claude Code)
+
+Prompt (summary): Sowan sent screenshots of the upload box and the comparison result and asked for a rotating light around the border and a better way to show the data.
+
+AI-generated: the border light, the new comparison list with its filter and share bar, the exact decimal change helper, and decision D79. Claude Code checked both in Chromium at phone size in light and dark mode, and measured Home's frame rate with the light running. The first screenshots showed supplier names cut short on a phone, which led to giving the supplier its own line.
+

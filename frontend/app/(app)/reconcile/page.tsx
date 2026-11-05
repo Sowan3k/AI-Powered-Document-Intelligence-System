@@ -4,14 +4,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 
-import { CountUp } from "@/components/count-up";
 import { DocPicker } from "@/components/doc-picker";
 import { CompareIcon } from "@/components/icons";
 import { KindBadge } from "@/components/kind-badge";
-import { Badge, Card, Empty, ErrorBox, Loading, PageTitle } from "@/components/ui";
+import { ReconcileReport } from "@/components/reconcile-report";
+import { Empty, ErrorBox, Loading, PageTitle } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { dateText, label, money } from "@/lib/format";
-import type { DocumentDetail, DocumentSummary, PairDocument, PairSuggestion, Page, ReconcileSide, Reconciliation } from "@/lib/types";
+import type { DocumentDetail, DocumentSummary, PairDocument, PairSuggestion, Page, Reconciliation } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 type Picked = Pick<PairDocument, "id" | "filename" | "source_kind" | "created_at"> & { invoice_count: number | null };
@@ -170,7 +169,7 @@ function Reconcile() {
 
       {error && <ErrorBox message={error} />}
       <div ref={results} className="scroll-mt-20">
-        <AnimatePresence mode="wait">{report && <Report key={report.id} report={report} />}</AnimatePresence>
+        <AnimatePresence mode="wait">{report && <ReconcileReport key={report.id} report={report} nameA={a?.filename} nameB={b?.filename} />}</AnimatePresence>
       </div>
 
       <DocPicker
@@ -227,107 +226,6 @@ function MiniDoc({ doc, tag }: { doc: PairDocument; tag: string }) {
           {tag} · {doc.invoice_count} invoice{doc.invoice_count === 1 ? "" : "s"}
         </span>
       </span>
-    </span>
-  );
-}
-
-const TILES = [
-  { key: "matched", label: "Matched", tone: "from-emerald-500/20 text-emerald-700 dark:text-emerald-300" },
-  { key: "mismatched", label: "Mismatched", tone: "from-rose-500/20 text-rose-700 dark:text-rose-300" },
-  { key: "only_in_a", label: "Only in A", tone: "from-amber-500/20 text-amber-700 dark:text-amber-300" },
-  { key: "only_in_b", label: "Only in B", tone: "from-amber-500/20 text-amber-700 dark:text-amber-300" },
-] as const;
-
-function Report({ report }: { report: Reconciliation }) {
-  const r = report.result;
-  const s = r.summary;
-  const block = (i: number) => ({
-    initial: { opacity: 0, y: 14 },
-    animate: { opacity: 1, y: 0, transition: { ...spring, delay: 0.06 * i } },
-  });
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -8 }} className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {TILES.map((t, i) => (
-          <motion.div key={t.key} {...block(i)} className={`surface rounded-3xl bg-gradient-to-br to-transparent p-4 ${t.tone}`}>
-            <p className="text-3xl font-semibold tracking-tight">
-              <CountUp value={s[t.key]} />
-            </p>
-            <p className="mt-1 text-xs font-medium opacity-80">{t.label}</p>
-          </motion.div>
-        ))}
-      </div>
-
-      {r.mismatched.length > 0 && (
-        <motion.div {...block(4)}>
-          <Card>
-            <h2 className="mb-3 font-semibold">Mismatched</h2>
-            <ul className="flex flex-col gap-4">
-              {r.mismatched.map((m, i) => (
-                <li key={i} className="flex flex-col gap-2">
-                  <Side s={m.a} />
-                  <div className="overflow-hidden rounded-2xl border border-black/10 text-sm dark:border-white/10">
-                    <div className="grid grid-cols-3 bg-black/5 px-3 py-1.5 text-xs font-medium text-muted dark:bg-white/5">
-                      <span>Field</span>
-                      <span>A</span>
-                      <span>B</span>
-                    </div>
-                    {m.differences.map((d) => (
-                      <div key={d.field} className="grid grid-cols-3 border-t border-black/5 px-3 py-2 dark:border-white/5">
-                        <span className="font-medium">{label(d.field)}</span>
-                        <span className="tabular-nums">{String(d.a ?? "empty")}</span>
-                        <span className="font-semibold text-rose-600 tabular-nums dark:text-rose-400">{String(d.b ?? "empty")}</span>
-                      </div>
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </motion.div>
-      )}
-
-      {(["only_in_a", "only_in_b"] as const).map((key, i) =>
-        r[key].length > 0 ? (
-          <motion.div key={key} {...block(5 + i)}>
-            <Card>
-              <h2 className="mb-2 font-semibold">{key === "only_in_a" ? "Only in A" : "Only in B"}</h2>
-              <ul className="flex flex-col gap-1.5">
-                {r[key].map((x) => (
-                  <li key={x.invoice_id}>
-                    <Side s={x} />
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </motion.div>
-        ) : null,
-      )}
-
-      {r.matched.length > 0 && (
-        <motion.div {...block(7)}>
-          <Card>
-            <h2 className="mb-2 font-semibold">Matched</h2>
-            <ul className="flex flex-col gap-1.5">
-              {r.matched.map((m, i) => (
-                <li key={i} className="flex flex-wrap items-center gap-2">
-                  <Side s={m.a} />
-                  <Badge tone="green">{m.matched_on === "invoice_number" ? "by number" : "by supplier, date, total"}</Badge>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </motion.div>
-      )}
-    </motion.div>
-  );
-}
-
-function Side({ s }: { s: ReconcileSide }) {
-  return (
-    <span className="text-sm">
-      <span className="font-medium">{s.invoice_number ?? "no number"}</span> · {s.supplier_name ?? "?"} · {dateText(s.invoice_date)} ·{" "}
-      <span className="tabular-nums">{money(s.total)}</span> <span className="text-xs text-muted">({s.where})</span>
     </span>
   );
 }

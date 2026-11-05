@@ -45,6 +45,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, upload box light and the comparison list (Claude Code)
+
+Sowan asked for a rotating light on the upload box's border and a better way to show a comparison. Built (D79): a light that travels around the upload box with a soft glow, run by the graphics chip and paused off screen; the Compare result as one list with a share bar, counts that filter, one line per invoice with problems first, and mismatched pairs opened to show A, B and the exact change.
+
+Tested: lint, typecheck and build; screenshots on a local API with a pair that has every outcome (1 mismatched, 1 only in A, 1 only in B, 2 matched), light and dark, with the "Only in A" filter on; the border light at two moments; no page errors, no sideways overflow; Home at 60 fps with the light running, CPU slowed four times. The exact change helper was checked by hand on six pairs of amounts, including signs and different decimal places.
+
 ### 5 Nov 2026, bars drifting while scrolling (Claude Code)
 
 Sowan saw elements move toward the screen's edge while scrolling. Cause, measured: the rotating glint layers were larger than their glass and widened the page by 3 px at some scroll positions, so the page could be panned sideways. Fixed (D78 note): the light layers are clipped to their glass, and the page cannot scroll sideways (`overflow-x: clip` on `html`). Tested: extra page width 0 on Home, Review, Search, Compare and the opening page at five scroll positions with the phone tilted; the app's top bar and the opening page's stage still stick.

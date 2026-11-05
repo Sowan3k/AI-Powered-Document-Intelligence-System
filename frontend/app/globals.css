@@ -303,6 +303,91 @@ body {
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
+/* ---------- A border of moving light (the upload box, D79) ---------- */
+
+/*
+ * A faint ring, and a light that travels around it with a soft glow. The
+ * light is a conic gradient twice the box's size, turned by a CSS animation
+ * of rotate, which the graphics chip runs. Masks cut it down to the ring.
+ * The component pauses it when the box is off screen.
+ */
+.glow-border {
+  position: relative;
+  isolation: isolate;
+  background: var(--surface);
+}
+.glow-border::before,
+.glow-ring,
+.glow-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+/* The ring itself, always there. */
+.glow-border::before {
+  content: "";
+  padding: 1.5px;
+  background: linear-gradient(135deg, rgb(56 189 248 / 0.45), rgb(167 139 250 / 0.35));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.glow-ring {
+  padding: 2.5px;
+  overflow: hidden;
+  contain: paint;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+/* The same light, blurred, a little outside and inside the ring. */
+.glow-halo {
+  filter: blur(12px);
+  opacity: 0.9;
+}
+.glow-halo .glow-ring {
+  padding: 6px;
+}
+.glow-ring::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 200%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 170deg,
+    rgb(56 189 248 / 0.25) 230deg,
+    #38bdf8 290deg,
+    #818cf8 320deg,
+    #c084fc 340deg,
+    #ffffff 354deg,
+    transparent 360deg
+  );
+  animation: glow-spin 4.5s linear infinite;
+  animation-play-state: var(--glow-play, running);
+  will-change: rotate;
+}
+.glow-border[data-active="true"] .glow-ring::before {
+  animation-duration: 1.4s;
+}
+.glow-border[data-active="true"] .glow-halo {
+  opacity: 1;
+}
+@keyframes glow-spin {
+  to { rotate: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glow-ring::before {
+    animation: none;
+    rotate: 40deg;
+  }
+}
+
 /* ---------- Ambient light behind the app ---------- */
 
 .ambient {

@@ -157,6 +157,18 @@ The brief says PDFs can run to about 1,000 pages. Measured in the coding sandbox
 - A 1,000-page document needs 143 extraction calls (windows of 8 pages, 1 page of overlap). At the free-tier pace of 12 calls a minute (D53) that is about 12 minutes of model calls, plus about 13 minutes of OCR if every page is scanned (at this sandbox's CPU speed; Render's free CPU is slower). The document page shows progress as "window 12 of 143" while it runs.
 - Not measured: a full 1,000-page run through Gemini, which would spend a large share of the free-tier daily quota.
 
+## Scale check: more workers
+
+`eval/load_test.py` (D70) uploads 24 digital invoices and lets 1, 2 and 4 workers drain the real Postgres queue at once. The model is the test suite's perfect reader with a fixed 2 seconds per call, close to Gemini's measured latency (run 6), and the per-minute limit is lifted as on a paid tier. Measured in the coding sandbox on 5 November:
+
+| Workers | Wall time | Documents a minute | Speed-up |
+|---|---|---|---|
+| 1 | 49.8 s | 29 | 1.0x |
+| 2 | 25.2 s | 57 | 2.0x |
+| 4 | 13.2 s | 109 | 3.8x |
+
+Every document completed in every round, and no job ran twice: `FOR UPDATE SKIP LOCKED` hands each job to one worker (D02). Throughput grows almost in step with workers because the time is spent waiting for the model, not in the database. At 4 workers that is about 6,500 single-page invoices an hour, if the Gemini quota allows it; the free tier's 12 calls a minute (D53) is the real limit in this deployment.
+
 ## The dataset
 
 `eval/generate/synth` builds the dataset with a fixed seed, and writes ground truth JSON beside each file. At scale 2 it holds 44 files:

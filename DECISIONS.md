@@ -892,3 +892,13 @@ The backend gained `GET /api/activity` (each document's stage from its latest hi
 **Trade-off:** Bengali scans cost a vision call each and wait for it; on the free tier that can be slow when the vision model is busy (D67 shortens the wait).
 
 **In one sentence:** A slower correct reading beats a fast confident wrong one.
+
+## D70: Scaling is measured with a load test on the real queue
+
+**Alternatives:** Claim scalability from the design alone; a load test against the live free instance.
+
+**Why:** The brief asks for scalability, and the claim that more workers mean more throughput should be a number. `eval/load_test.py` uploads the same 24 invoices for 1, 2 and 4 workers and times how long they take to drain the real Postgres queue, with a fake model that waits 2 seconds a call (Gemini's measured latency, D62). Result: 1.0x, 2.0x, 3.8x. It also asserts that every document completed, so a lost or doubled job would fail the run. The live free instance is not used: it has one CPU and a shared monthly allowance, and its numbers would measure the free plan, not the design.
+
+**Trade-off:** Workers run as threads in one process, which is fair for waiting on the model but not for OCR-heavy batches, where separate processes or containers would be needed (`docker compose up --scale worker=3`).
+
+**In one sentence:** Twice the workers, twice the documents a minute, measured rather than claimed.

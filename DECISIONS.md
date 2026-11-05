@@ -1004,3 +1004,21 @@ Result, measured the same way over the same time: 58 to 59 frames a second, the 
 **Trade-off:** The film grain and the badge blur are gone, and the card no longer grows from a smaller card to a full screen; it rises at full size. A shorter scroll also means each step passes faster.
 
 **In one sentence:** Only transforms and opacity on scroll, a native sticky stage, half the scroll with nothing empty, and the form where the thumb expects it.
+
+## D76: Liquid glass instead of frosted glass
+
+**Alternatives:** Keep the frosted glass of D73, drop the blur and use flat translucent bars, or use a glass library.
+
+**Why:** Sowan pointed out that the glass looked frosted, not like iOS liquid glass. He was right: D73 used 16 to 24 px of blur and a milky tint, which hides what is behind. Liquid glass is nearly clear, its rim catches light, and its thick edge bends what is behind it. The choices:
+
+- **Clear material.** Bars, tabs, pills and the dock use a light tint and 3 px of blur, with a boost in saturation, so the content behind stays readable through the glass. Sheets and the sign-in card hold forms and lists, so they keep 10 px. The rim is a 1 px gradient ring cut out with a mask, bright at the top left and bottom right, with a soft inner light along the edges.
+- **Refraction where the browser can draw it.** `frontend/lib/liquid-glass.ts` builds a displacement map for each glass bar, shaped like its own rounded rectangle: no pull in the middle, rising toward the rim, pointing inward. An SVG filter applies it to the element's backdrop, so the content behind bends at the edges like light through the thick edge of a lens. Only Chromium renders a `url()` filter in `backdrop-filter`. Chrome on Android, which Sowan uses, gets the bending; Safari and Firefox keep the clear glass without it. The map is rebuilt only when the element changes size.
+- **The iOS top.** The app's top bar is no longer one strip. A scroll edge blurs and fades the content as it slides under, and the brand, the tabs and the account buttons float above it as separate pieces of glass. Each piece has its own transition name, because a name on a shared parent would stop the blur (D73).
+- **Text that follows the backdrop.** Clear glass shows what is behind it, so on the opening page the bar switches to light text while the dark card is under it. An IntersectionObserver reports when the card crosses the bar, so this costs no work per frame.
+- **Accessibility.** With "reduce transparency" on, glass falls back to a solid tint and the refraction is off.
+
+Measured with the CPU slowed four times, scrolling the opening page: 59 fps, as before this change. A first version checked the colour under the bar on every frame and added about 260 ms of script; the IntersectionObserver removed it.
+
+**Trade-off:** Clearer glass gives text on it less contrast over busy content; the tint and the small blur are set for legibility on the app's own screens, not for any backdrop. Refraction appears only in Chromium browsers, so iPhone users see clear glass without the bending.
+
+**In one sentence:** Nearly clear glass with a bright rim, real edge refraction where Chromium can draw it, and floating controls over a scroll edge, as iOS does it.

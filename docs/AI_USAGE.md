@@ -156,3 +156,9 @@ Prompt (summary): Sowan tested the opening page on his phone and reported lag, t
 
 AI-generated: the reworked hero, the scroll hint, the new sign-in order, and decision D75. Claude Code measured before changing anything: it scrolled the hero in Chromium with the CPU slowed four times and recorded every frame, then found the causes in the code (layout and blur on every frame, a JavaScript pin, a full-screen blended grain). The same measurement after the change showed 59 fps. A screenshot check after the rewrite found one more fault, an injected `position: relative` that overrode the card's full-screen size, which the numbers alone would have missed.
 
+### 5 Nov 2026, liquid glass (Claude Code)
+
+Prompt (summary): Sowan said the blur looked like frosted glass, not iOS-style liquid glass with transparency.
+
+AI-generated: the new glass material, the refraction hook that draws a displacement map for each element's shape, the floating top bar over a scroll edge, the text colour that follows the backdrop on the opening page, and decision D76. Claude Code checked the result over real screens from a local API with demo data, in light and dark mode, and measured the opening page's frame rate again. That measurement caught a cost in the first version (a hit test on every frame) and led to the IntersectionObserver.
+

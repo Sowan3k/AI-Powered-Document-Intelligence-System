@@ -45,6 +45,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, liquid glass (Claude Code)
+
+Sowan said the glass looked frosted, not like iOS liquid glass. Rebuilt the material (D76): a light tint, 3 px of blur on bars and pills, a bright gradient rim, and in Chromium real edge refraction from a displacement map per element (`frontend/lib/liquid-glass.ts`). The app's top bar is now floating glass pieces over a fading scroll edge. On the opening page the bar's text turns light over the dark card.
+
+Tested: frontend lint, typecheck and build; screenshots at 412 by 860 in light and dark over real content from a local API with 42 demo documents (Home, Search, the opening page), desktop at 1280 by 800 (Home, Review, sign-in), a page change with the bar pieces held still, and no page errors. Scroll on the opening page, CPU slowed four times: 59 fps.
+
 ### 5 Nov 2026, opening page fixes after Sowan's phone test (Claude Code)
 
 Sowan tested the live opening page on his phone: the scroll lagged, long stretches showed an empty blue card, there was no sign to scroll, and on `/login` the form sat below the preview. Fixed (D75): the hero animates only transforms and opacity, sticks with CSS `position: sticky` instead of a GSAP pin, and scrolls two screens instead of 7,000 pixels, with the content inside the card the whole time. The card peeks up at rest with a "Swipe up to see it work" pill. On a phone the sign-in form now comes first.

@@ -27,7 +27,7 @@ A 4 to 5 minute phone screen recording that shows every task in the brief workin
 | 3:05 | Compare | Upload the reconciliation pair if not yet done, choose both | "PDF against Excel: matched, a changed total, a row with no number matched by supplier, date and total, and invoices on one side only." |
 | 3:30 | Home | Tap Download invoices for Excel, show the stats line | "Everything exports to Excel. The line at the bottom shows the success rate, average time, tokens and what they cost at paid Gemini prices." |
 | 3:45 | Browser: `/api/docs` | Scroll the endpoint list | "Every action is a REST endpoint: upload, status, results, search, corrections, reprocessing, export, stats." |
-| 4:00 | GitHub: Actions | Show a green CI run and the Evaluation run | "Every push runs lint, 388 tests on Postgres, a secret scan and a Docker smoke test. The evaluation runs the whole pipeline with real Gemini on a labelled dataset." |
+| 4:00 | GitHub: Actions | Show a green CI run and the Evaluation run | "Every push runs lint, 412 backend tests on Postgres, a secret scan and a Docker smoke test. The evaluation runs the whole pipeline with real Gemini on a labelled dataset." |
 | 4:15 | GitHub: `docs/EVALUATION.md` | Show the results and cost tables | "Run 5: all eight fields correct on 91 of 91 invoices, every planted error caught, no failed documents, about $0.0015 per invoice at paid Gemini prices. The data is synthetic, so real accuracy will be lower; the report lists the weak spots." |
 | 4:35 | GitHub: `DECISIONS.md` | Scroll | "Every design choice is written down with its alternatives and trade-off. Thank you." |
 
@@ -39,9 +39,14 @@ A 4 to 5 minute phone screen recording that shows every task in the brief workin
 
 ## Submission email (draft)
 
-Reply All to the original Care Guide email. Keep apply@careguidebd.com in the recipients. Attach the updated CV (with the two professional references: an academic supervisor or department head, and a former HR manager, both with official email addresses) and link the portfolio.
+Reply All to the original Care Guide email ("Interview Task Assignment", 3 Nov 2026). Do not start a new thread. Keep apply@careguidebd.com in the recipients. The email asks for:
 
-> Subject: Re: AI Engineer Task 1.3
+- the updated CV with educational qualifications (institution, subject, year, result) and work experience (company, position, responsibilities, duration);
+- two professional references: a university department head or academic supervisor, and a former HR manager or HR representative, each with an official institutional email address (personal references are not accepted);
+- the portfolio with relevant work samples;
+- the completed assessment task.
+
+> Subject: Re: Interview Task Assignment
 >
 > Dear Care Guide team,
 >

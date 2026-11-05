@@ -49,7 +49,9 @@ Sowan uploaded 12 files on the live site at 12:29 Dhaka. All failed with `STORAG
 
 Earlier in the session: checked the build against the Care Guide email and brief, and found that `main` lacked the 25 commits on `sowan/admiring-gates-y0oyrm`. Rebuilt this branch on top of them. Added nine phone photos at three levels, scored apart from the main numbers, plus a count of wrong invoices that reached the review queue (D71). Run 7 is requested.
 
-Tested: 400 backend tests before the fix and the full suite after it (below), ruff clean, frontend lint, typecheck and build. Seven storage tests fail when the old header code is put back.
+Then rewrote the README in Sowan's style: the brief task by task and the nine deliverables with where each lives, the brief's speed, scale, reliability and security goals with measured numbers, and why the build differs from the suggested stack. Fixed the email draft in `docs/WALKTHROUGH.md`: the subject is "Re: Interview Task Assignment", and the CV checklist now matches the email.
+
+Tested: 412 backend tests (ruff clean), frontend lint, typecheck and build. Seven storage tests fail when the old header code is put back.
 
 ### 5 Nov 2026, more files at once, search, safety and scale (Claude Code)
 

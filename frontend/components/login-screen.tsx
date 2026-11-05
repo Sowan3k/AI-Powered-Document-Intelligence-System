@@ -9,6 +9,7 @@ import { ScanPreview } from "@/components/scan-preview";
 import { WakeIsland, WakeTimeline, useServerWake } from "@/components/server-wake";
 import { API_BASE_URL } from "@/lib/api";
 import { SIGN_IN_BACKGROUND } from "@/lib/brand";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const rise: Variants = {
   hidden: { opacity: 0, y: 14 },
@@ -26,6 +27,10 @@ export function LoginScreen() {
     <div className="relative flex min-h-dvh flex-1 flex-col">
       <Backdrop />
       <WakeIsland wake={wake} />
+      {/* Light and dark start here; the opening page keeps to the phone's setting (D81). */}
+      <div className="fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 z-50">
+        <ThemeToggle className="glass text-foreground" />
+      </div>
       {/* Phones: the form comes first, the pitch and preview below it (D75). Wide screens: side by side. */}
       <main className="mx-auto grid w-full max-w-5xl flex-1 content-start gap-6 px-4 pt-[calc(max(0.75rem,env(safe-area-inset-top))+3.75rem)] pb-10 lg:grid-cols-[1.1fr_1fr] lg:content-center lg:gap-x-14 lg:gap-y-6">
         <motion.header custom={0} variants={rise} initial="hidden" animate="show" className="lg:col-start-1 lg:row-start-1">

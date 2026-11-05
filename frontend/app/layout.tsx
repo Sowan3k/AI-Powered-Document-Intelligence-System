@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 
 import { Ambient, Providers } from "@/components/providers";
+import { THEME_SCRIPT } from "@/lib/theme";
 
 // Type (D80): IBM Plex Sans for text (its digits are all one width, so amounts
 // line up), Barlow Semi Condensed for headings and figures, IBM Plex Mono for
@@ -47,7 +48,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${plex.variable} ${barlow.variable} ${plexMono.variable} h-full antialiased`}>
+    // The theme script sets data-theme before React runs, so React must not
+    // complain that <html> differs from the server's copy (D81).
+    <html lang="en" suppressHydrationWarning className={`${plex.variable} ${barlow.variable} ${plexMono.variable} h-full antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
         <Ambient />
         <Providers>{children}</Providers>

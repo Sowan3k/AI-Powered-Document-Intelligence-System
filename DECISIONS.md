@@ -1089,3 +1089,18 @@ Measured after the change, CPU slowed four times: Home 60 fps, the opening page 
 **Trade-off:** A warm paper background reads less "tech" than white; that is the point. Two type families need care to stay apart: Barlow only for headings and figures.
 
 **In one sentence:** Ink, paper and a ledger green with red kept for problems, Plex for reading and Barlow for headings, at a fixed scale.
+
+## D81: A light and dark toggle, from the sign-in page on
+
+**Alternatives:** Follow the phone's setting only (as before); a three-way switch (light, dark, system); a toggle on the opening page too.
+
+**Why:** Sowan asked for a light and dark toggle on the sign-in page and inside the app, not on the opening page.
+
+- **One switch for the whole app.** The theme lives in `data-theme` on `<html>`. The colour tokens and Tailwind's `dark:` variant (98 uses) read it instead of the phone's media query, so nothing had to change screen by screen. A short script in `<head>` sets it before the first paint, from the saved choice or, without one, the phone's setting, so the page never flashes the wrong theme. With no choice saved, the app keeps following the phone, live.
+- **A two-way toggle.** A sun or moon button: one tap switches, and the choice is saved in the browser. A third "system" state would need a menu, and the default already follows the phone.
+- **Where it sits.** At the top right of the sign-in page, and in the account capsule of the app's top bar. The opening page has none, as asked, but it uses the saved choice.
+- **The switch itself.** The new theme spreads from the button in a circle, through the View Transitions API. For that moment the page is one snapshot, so the bars do not switch ahead of the circle. With reduced motion, or in a browser without the API, the switch is instant. The browser's own bars change colour too (theme-color).
+
+**Trade-off:** The choice is kept per browser, not per account. The `<html>` element differs between the server's copy and the page, so React's hydration warning is turned off for that one element.
+
+**In one sentence:** One attribute drives every colour, set before the first paint, and a sun-and-moon button flips it with a circle that spreads from your finger.

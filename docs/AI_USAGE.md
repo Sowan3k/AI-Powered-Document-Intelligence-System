@@ -192,3 +192,9 @@ Prompt (summary): Sowan asked about fonts and size rules for this kind of produc
 
 AI-generated: the palette, the type roles, the font setup, the recoloured components and icon, and decision D80. Claude Code checked the candidate fonts' files before choosing (IBM Plex Sans has equal-width digits; Barlow has tabular figures on request), counted every blue and purple use before replacing them, and searched for raw colour values afterwards, which found two that a class search had missed.
 
+### 5 Nov 2026, light and dark toggle (Claude Code)
+
+Prompt (summary): Sowan asked for a light and dark toggle, starting from the sign-in page, not on the opening page.
+
+AI-generated: the theme script, the toggle with its circle reveal, the switch of the colour tokens and the dark variant to an attribute, and decision D81. Claude Code checked the whole path in Chromium: following the phone with no choice, switching, saving, a reload, the opening page and the app's own toggle.
+

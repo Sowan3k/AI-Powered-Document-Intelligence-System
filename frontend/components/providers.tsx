@@ -3,9 +3,16 @@
 import { MotionConfig } from "motion/react";
 import type { ReactNode } from "react";
 
+import { ThemeSync } from "@/components/theme-toggle";
+
 /** Motion follows the phone's "reduce motion" setting everywhere (D73). */
 export function Providers({ children }: { children: ReactNode }) {
-  return <MotionConfig reducedMotion="user">{children}</MotionConfig>;
+  return (
+    <MotionConfig reducedMotion="user">
+      <ThemeSync />
+      {children}
+    </MotionConfig>
+  );
 }
 
 /** The soft field of light the glass surfaces blur. Purely decorative. */

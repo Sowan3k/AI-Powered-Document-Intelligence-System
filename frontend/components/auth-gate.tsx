@@ -11,6 +11,7 @@ import { CompareIcon, HomeIcon, Mark, ReviewIcon, SearchIcon } from "@/component
 import { direction } from "@/components/page-transition";
 import { API_BASE_URL, SIGNED_OUT_EVENT, clearToken, readToken } from "@/lib/api";
 import { useLiquidGlass } from "@/lib/liquid-glass";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const TABS = [
   { href: "/documents", label: "Home", Icon: HomeIcon },
@@ -120,6 +121,7 @@ function TopBar({ pathname }: { pathname: string }) {
             })}
           </nav>
           <div ref={actionsGlass} style={{ viewTransitionName: "app-actions" }} className="glass ml-auto flex items-center rounded-full p-1">
+            <ThemeToggle className="size-8" />
             <a href={`${API_BASE_URL}/api/docs`} target="_blank" rel="noreferrer" className="hidden rounded-full px-3 py-1.5 text-muted transition-colors hover:text-foreground sm:block">
               API docs
             </a>

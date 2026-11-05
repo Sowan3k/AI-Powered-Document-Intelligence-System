@@ -1,6 +1,13 @@
 @import "tailwindcss";
 
 /*
+ * Light and dark follow data-theme on <html> (D81), set before the first
+ * paint from the toggle's saved choice or, without one, the phone's setting.
+ * Tailwind's dark: variant reads the same attribute.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
  * Design tokens (D73, D76, D80). The palette is the one of financial print:
  * ink navy on warm paper, a ledger green for the brand and for "checked",
  * brass as a warm accent for decoration only, amber for "needs review" and
@@ -8,6 +15,7 @@
  * is liquid glass: clear, so it takes its colour from what is behind it.
  */
 :root {
+  color-scheme: light;
   --background: #f3efe6;
   --foreground: #0f1b2d;
   --muted: #5b6271;
@@ -30,29 +38,28 @@
   --aurora-3: rgb(15 27 45 / 0.1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b121d;
-    --foreground: #ece6d9;
-    --muted: #9ca3ae;
-    --surface: rgb(19 28 42 / 0.74);
-    --surface-border: rgb(236 230 217 / 0.08);
-    --brand: #3dbe8b;
-    --brand-strong: #5fd3a2;
-    --brass: #d9a94e;
-    --glass-tint: rgb(255 255 255 / 0.04);
-    --glass-tint-strong: rgb(24 26 34 / 0.55);
-    --glass-rim: rgb(255 255 255 / 0.55);
-    --glass-rim-dim: rgb(255 255 255 / 0.08);
-    --glass-inner: rgb(255 255 255 / 0.12);
-    --glass-edge: rgb(0 0 0 / 0.5);
-    --glass-shadow: 0 16px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px -2px rgb(0 0 0 / 0.4);
-    --lens-bg: rgb(255 255 255 / 0.14);
-    --glass-halo: rgb(0 0 0 / 0.6);
-    --aurora-1: rgb(29 140 100 / 0.22);
-    --aurora-2: rgb(190 140 50 / 0.16);
-    --aurora-3: rgb(70 100 140 / 0.18);
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0b121d;
+  --foreground: #ece6d9;
+  --muted: #9ca3ae;
+  --surface: rgb(19 28 42 / 0.74);
+  --surface-border: rgb(236 230 217 / 0.08);
+  --brand: #3dbe8b;
+  --brand-strong: #5fd3a2;
+  --brass: #d9a94e;
+  --glass-tint: rgb(255 255 255 / 0.04);
+  --glass-tint-strong: rgb(24 26 34 / 0.55);
+  --glass-rim: rgb(255 255 255 / 0.55);
+  --glass-rim-dim: rgb(255 255 255 / 0.08);
+  --glass-inner: rgb(255 255 255 / 0.12);
+  --glass-edge: rgb(0 0 0 / 0.5);
+  --glass-shadow: 0 16px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px -2px rgb(0 0 0 / 0.4);
+  --lens-bg: rgb(255 255 255 / 0.14);
+  --glass-halo: rgb(0 0 0 / 0.6);
+  --aurora-1: rgb(29 140 100 / 0.22);
+  --aurora-2: rgb(190 140 50 / 0.16);
+  --aurora-3: rgb(70 100 140 / 0.18);
 }
 
 @theme inline {
@@ -570,6 +577,21 @@ body {
 ::view-transition-new(app-tabs),
 ::view-transition-new(app-dock) {
   animation: none;
+}
+
+/*
+ * A theme switch (D81): the whole page is one snapshot, and the new theme
+ * spreads from the toggle in a circle (the clip-path is animated by the
+ * script). Names are dropped for that moment, or the bars would switch on
+ * their own ahead of the circle.
+ */
+:root[data-theming] * {
+  view-transition-name: none !important;
+}
+:root[data-theming]::view-transition-old(root),
+:root[data-theming]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }
 
 /* ---------- Small keyframes used by components ---------- */

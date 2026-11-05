@@ -45,6 +45,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, light and dark toggle (Claude Code)
+
+Sowan asked for a light and dark toggle from the sign-in page on, not on the opening page. Built (D81): the theme lives in `data-theme` on `<html>`, set before the first paint; the colour tokens and Tailwind's `dark:` variant read it; a sun and moon button on the sign-in page and in the app's top bar switches it with a circle reveal and saves the choice.
+
+Tested: build, lint and typecheck; in Chromium at phone size: with no choice the theme follows the phone; a tap on the sign-in page switches to dark (screenshot mid-circle), saves it, survives a reload and applies on the opening page, which shows no toggle; the app's toggle switches back; the browser's theme-color follows; no console errors or hydration warnings.
+
 ### 5 Nov 2026, finance palette and type system (Claude Code)
 
 Sowan said the blue and purple looked AI-generated, asked about finance fonts and consistent sizes, and shared a red, cream and navy type specimen. Changed (D80): ink navy, warm paper, a ledger green brand, brass for decoration, amber and red kept for review and problems; IBM Plex Sans, Barlow Semi Condensed and IBM Plex Mono from the app; six type roles in `globals.css`; about 100 blue and purple uses replaced in 19 files; the app icon redrawn. The glass is unchanged.

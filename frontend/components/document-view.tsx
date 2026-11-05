@@ -140,7 +140,42 @@ export function DocumentView() {
   );
 }
 
+function evidenceOf(results: Results): string[] {
+  const out = new Set<string>();
+  for (const inv of results.invoices) {
+    for (const meta of Object.values(inv.field_meta)) {
+      const m = meta as { evidence?: string | null; flags?: string[] } | null;
+      if (m?.evidence && m.evidence.trim().length >= 3 && !m.flags?.includes("corrected")) out.add(m.evidence.trim());
+    }
+  }
+  return [...out];
+}
+
+// Marks the text each extracted value came from, so a reviewer sees where it was
+// read. Whitespace may differ between the model's copy and the page, so runs of
+// spaces match any whitespace. React escapes the text; nothing is injected as HTML.
+function Highlighted({ text, snippets }: { text: string; snippets: string[] }) {
+  if (snippets.length === 0) return <>{text}</>;
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  const pattern = new RegExp(`(${[...snippets].sort((a, b) => b.length - a.length).map(escape).join("|")})`, "g");
+  const parts = text.split(pattern);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <mark key={i} className="rounded bg-amber-200 px-0.5 text-inherit dark:bg-amber-700/60">
+            {part}
+          </mark>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
 function SourceText({ results }: { results: Results | null }) {
+  const evidence = results ? evidenceOf(results) : [];
   if (!results || results.pages.length === 0) {
     return results ? (
       <section className="flex flex-col gap-3">
@@ -159,7 +194,9 @@ function SourceText({ results }: { results: Results | null }) {
             <Badge tone={p.method === "digital" ? "green" : p.method === "vision" ? "blue" : "gray"}>{p.method}</Badge>
             {p.ocr_confidence !== null && <span className="text-xs text-neutral-500">OCR {Math.round(p.ocr_confidence)}%</span>}
           </summary>
-          <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed">{p.text || "(no text)"}</pre>
+          <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed">
+            {p.text ? <Highlighted text={p.text} snippets={evidence} /> : "(no text)"}
+          </pre>
         </details>
       ))}
     </section>
@@ -170,7 +207,8 @@ function History({ doc }: { doc: DocumentDetail }) {
   const events = doc.history.filter((e) => e.event !== "llm_call");
   const calls = doc.history.filter((e) => e.event === "llm_call");
   const tokens = calls.reduce(
-    (sum, e) => sum + Number(e.detail?.prompt_tokens ?? 0) + Number(e.detail?.output_tokens ?? 0),
+    (sum, e) =>
+      sum + Number(e.detail?.prompt_tokens ?? 0) + Number(e.detail?.output_tokens ?? 0) + Number(e.detail?.thinking_tokens ?? 0),
     0,
   );
   return (

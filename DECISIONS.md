@@ -872,3 +872,23 @@ The backend gained `GET /api/activity` (each document's stage from its latest hi
 **Trade-off:** For five minutes the preferred model is not tried even if it recovers sooner, so a few pages may be read by the fallback model when the better one was available.
 
 **In one sentence:** Stop waiting on a model that is down; come back to it in five minutes.
+
+## D68: Best match search merges keyword and meaning by reciprocal rank fusion
+
+**Alternatives:** Keep two separate modes only; a weighted sum of the full-text rank and the cosine similarity.
+
+**Why:** People type both exact codes ("INV-2026-00007") and loose descriptions ("printer supplies"). Full text finds codes and words; embeddings find meaning; neither does both. `mode=hybrid` takes the top 50 of each, filtered the same way, and scores each invoice by the sum of 1 / (60 + its rank) in each list. Ranks, not raw scores, are merged, because a `ts_rank` and a cosine similarity are not on the same scale and a weighted sum would need tuning against relevance labels we do not have. An invoice found by both lists rises to the top. Without the embedding model (no key, or Gemini down) it returns the keyword results instead of failing. It is the web app's default, called Best match; an empty query lists everything that fits the filters.
+
+**Trade-off:** Each hybrid search runs both queries and one embedding call, so it costs a little more than either alone. Only the top 50 of each list can appear.
+
+**In one sentence:** Codes and descriptions both find what they mean, with no weights to tune.
+
+## D69: Bengali scans go to the vision model, not to a Bengali Tesseract pack
+
+**Alternatives:** Install Tesseract's Bengali pack and read pages with `eng+ben`.
+
+**Why:** Measured on 5 November. With the Bengali pack, a Bengali invoice page read at 86 to 90% confidence and names came out right, but Bengali digits on short amount lines were read as Latin look-alikes: "৪০০.০০" became "800.00" and "১,৪০,২৫০.০০" became "$,80,2¢0.00", while the page confidence stayed high. A high-confidence page never reaches the vision model, so a confident wrong amount would go straight into the data. With English only, Tesseract reads a Bengali page at about 35% confidence, below the 60% threshold, and Gemini vision reads it, digits included. The change was reverted, and a test now checks that a Bengali page reads weakly so it takes the vision path. Bengali digits and month names already parse once read (D56).
+
+**Trade-off:** Bengali scans cost a vision call each and wait for it; on the free tier that can be slow when the vision model is busy (D67 shortens the wait).
+
+**In one sentence:** A slower correct reading beats a fast confident wrong one.

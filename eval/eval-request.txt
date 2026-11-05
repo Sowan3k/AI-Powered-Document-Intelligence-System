@@ -2,4 +2,4 @@
 # Gemini API (it spends tokens). Keep a short note of why each run was asked for.
 scale=2
 photos=9
-reason=run 7 adds nine phone photos at three difficulty levels, scored apart (D71), 5 Nov 2026
+reason=run 8 sends every phone photo (JPEG, PNG) to the vision model, whatever Tesseract's confidence (D82), 6 Nov 2026

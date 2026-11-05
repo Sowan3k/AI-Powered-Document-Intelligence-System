@@ -43,13 +43,15 @@ def _png(gray) -> bytes:  # type: ignore[no-untyped-def]
 
 
 def page_images(
-    path: Path, kind: FileKind, numbers: set[int], dpi: int
+    path: Path, kind: FileKind, numbers: set[int], dpi: int, turned: frozenset[int] = frozenset()
 ) -> Iterator[tuple[int, bytes]]:
-    """PNG images of the wanted pages, one at a time."""
+    """PNG images of the wanted pages, one at a time. Pages in `turned` were read
+    upside down by Tesseract and are sent the right way up (D82)."""
     if kind is FileKind.PDF:
         with pymupdf.open(path, filetype="pdf") as doc:
             for n in sorted(numbers):
-                yield n, _png(render_gray(doc.load_page(n - 1), dpi))
+                gray = render_gray(doc.load_page(n - 1), dpi)
+                yield n, _png(gray[::-1, ::-1] if n in turned else gray)
         return
     import numpy as np
 
@@ -57,7 +59,7 @@ def page_images(
         for n, frame in enumerate(ImageSequence.Iterator(img), start=1):
             if n in numbers:
                 gray = np.asarray(ImageOps.exif_transpose(frame).convert("L"))
-                yield n, _png(gray)
+                yield n, _png(gray[::-1, ::-1] if n in turned else gray)
 
 
 def transcribe(llm: LlmClient, model: str, png: bytes) -> tuple[str, LlmUsage]:

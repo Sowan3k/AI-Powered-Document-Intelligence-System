@@ -103,6 +103,9 @@ def _save_pages(
                 ocr_confidence=page.ocr_confidence,
             )
         )
+        if page.skew_degrees is not None and abs(page.skew_degrees) >= 90:
+            # Tesseract read it upside down (D64); the vision step turns it the same way (D82).
+            _event(session, document, "page_turned", job, page=page.page_number)
         pending += 1
         if job is not None:
             job.progress_done = page.page_number

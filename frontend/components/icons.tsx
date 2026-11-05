@@ -38,3 +38,20 @@ export const AlertIcon = ({ className = "size-5" }: P) => (
 export const ChevronIcon = ({ className = "size-4" }: P) => (
   <svg viewBox="0 0 24 24" className={`${base} ${className}`} aria-hidden><path d="M6 15l6-6 6 6" /></svg>
 );
+
+/** The DocIntel mark: a page with a check, in the accent gradient. */
+export function Mark({ className = "size-6" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <defs>
+        <linearGradient id="mark-g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#38bdf8" />
+          <stop offset="1" stopColor="#a78bfa" />
+        </linearGradient>
+      </defs>
+      <rect x="3" y="2" width="18" height="20" rx="5" fill="url(#mark-g)" />
+      <path d="M7.5 8h9M7.5 11.5h6" stroke="white" strokeOpacity="0.75" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M8.5 16l2.2 2.2 4.8-4.8" fill="none" stroke="white" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

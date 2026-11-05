@@ -1,9 +1,10 @@
 "use client";
 
+import { motion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-import { Button, ErrorBox, Field, inputClass } from "@/components/ui";
+import { ErrorBox, Field, inputClass } from "@/components/ui";
 import { api, ApiError, saveToken } from "@/lib/api";
 
 export function LoginForm() {
@@ -51,15 +52,27 @@ export function LoginForm() {
       <Field label="Password">
         <input name="password" type="password" autoComplete="current-password" required className={inputClass} />
       </Field>
-      {error && <ErrorBox message={error} />}
-      <Button type="submit" disabled={busy}>
-        {busy ? "Signing in…" : "Sign in"}
-      </Button>
-      {slow && (
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          The backend is waking up from sleep. This can take up to a minute.
-        </p>
+      {error && (
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0, x: [0, -6, 6, -3, 3, 0] }} transition={{ duration: 0.4 }}>
+          <ErrorBox message={error} />
+        </motion.div>
       )}
+      <motion.button
+        type="submit"
+        disabled={busy}
+        whileTap={{ scale: 0.97 }}
+        className="relative inline-flex min-h-12 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 px-4 font-semibold text-white shadow-[0_10px_30px_-10px_rgb(99_102_241/0.8)] transition disabled:opacity-70"
+      >
+        {busy && (
+          <motion.span
+            className="size-4 rounded-full border-2 border-white/40 border-t-white"
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+          />
+        )}
+        {busy ? "Signing in…" : "Sign in"}
+      </motion.button>
+      {slow && <p className="text-sm text-muted">The server is still waking up. Your sign-in will go through when it is ready.</p>}
     </form>
   );
 }

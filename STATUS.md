@@ -45,6 +45,14 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, premium interface and Compare picker (Claude Code)
+
+Sowan's review after his live test: picking documents to compare from a long list is slow, the sign-in page is plain although it is where a reviewer waits for the free server, and the app should feel like iOS with motion. Built (D72, D73): suggested pairs on the Compare page from a new `GET /api/reconcile/suggestions`, a search-and-filter picker sheet backed by `q` and `kind` on `GET /api/documents`, a swap button and animated results; glass bars, tab bar, dock and sheets on a field of soft light; page slides with React ViewTransition and in-page motion with Motion 14.4.0; a sign-in page with a wake-up pill and timeline from the real health check and a looping preview of one invoice being read and checked. The background image slot is `frontend/lib/brand.ts`.
+
+Found and fixed on the way: a transition name on a wrapper stopped the glass blur; and an existing test, `test_embedding_supports_cosine_distance`, failed once the new tests ran first, because rolled-back inserts left dead entries in the HNSW graph and the approximate index scan returned no row. The test now ranks without the index. The same effect can hide real search results after many deletes, which the next change addresses.
+
+Tested: backend suite, frontend lint, typecheck and build, and Chromium at iPhone 13 size in dark and light mode against the real API on seeded data: sign-in while the server "wakes" (health delayed 7 s), sign-in, Home, Review, Compare suggestions, the picker with search and the Excel filter, a comparison with the expected 2 matched, 1 mismatched, 1 only in A and 1 only in B. No console errors, no sideways scrolling.
+
 ### 5 Nov 2026, live storage bug, phone photo set (Claude Code)
 
 Sowan uploaded 12 files on the live site at 12:29 Dhaka. All failed with `STORAGE_ERROR`. Supabase's storage log gave the cause: `FST_ERR_VALIDATION`, "headers must have required property 'authorization'". The client sent the secret key in `apikey` only, and the fake transport in the tests never checked headers, so CI stayed green. Fixed (D32): both headers on every call, a fake that answers like hosted Storage (401 without `apikey`, the same 400 without `Authorization`), Storage's error code in our error messages, and a storage check in `GET /api/health` (list one object, 5 s timeout, cached 15 s, 503 on error). The start page now says "file storage unavailable" when that part is down. Supabase's own Python client (2.34.0) sends the same header pair. The sandbox cannot reach supabase.co, so the live health check is the real proof.

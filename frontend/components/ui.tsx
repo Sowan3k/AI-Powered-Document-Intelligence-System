@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <section
-      className={`w-full rounded-xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/15 dark:bg-neutral-900 ${className}`}
+      className={`surface w-full rounded-2xl p-4 ${className}`}
     >
       {children}
     </section>
@@ -62,12 +62,12 @@ export function Button({
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" }) {
   const styles = {
     primary: "bg-neutral-900 text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200",
-    secondary: "border border-black/15 bg-white hover:bg-neutral-50 dark:border-white/20 dark:bg-neutral-900 dark:hover:bg-neutral-800",
+    secondary: "surface hover:brightness-110",
     ghost: "hover:bg-neutral-100 dark:hover:bg-neutral-800",
   }[variant];
   return (
     <button
-      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${styles} ${className}`}
+      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 ${styles} ${className}`}
       {...props}
     >
       {children}
@@ -107,7 +107,7 @@ export function Loading({ slow, what = "Loading" }: { slow?: boolean; what?: str
 
 export function Empty({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded-lg border border-dashed border-black/15 p-6 text-center text-sm text-neutral-600 dark:border-white/20 dark:text-neutral-400">
+    <p className="rounded-2xl border border-dashed border-black/15 p-6 text-center text-sm text-muted dark:border-white/15">
       {children}
     </p>
   );
@@ -131,4 +131,4 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export const inputClass =
-  "min-h-10 w-full rounded-lg border border-black/15 bg-white px-3 text-base dark:border-white/20 dark:bg-neutral-950 sm:text-sm";
+  "min-h-11 w-full rounded-xl border border-black/10 bg-white/70 px-3 text-base outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20 dark:border-white/12 dark:bg-white/5 sm:text-sm";

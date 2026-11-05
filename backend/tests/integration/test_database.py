@@ -68,6 +68,10 @@ def test_embedding_supports_cosine_distance(db: Session) -> None:
     db.flush()
 
     query = [0.9, 0.1] + [0.0] * (EMBED_DIM - 2)
+    # This checks the operator, not the HNSW index. Rolled-back inserts from other
+    # tests leave dead entries in the graph, and an approximate index scan may then
+    # return no live row at all (seen on 5 Nov 2026). Exact ranking needs no index.
+    db.execute(text("SET LOCAL enable_indexscan = off"))
     best = db.scalars(
         select(Invoice.invoice_number).order_by(Invoice.embedding.cosine_distance(query)).limit(1)
     ).one()

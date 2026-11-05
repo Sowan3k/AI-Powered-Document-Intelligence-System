@@ -935,3 +935,37 @@ The photos are scored on their own, under "photos" in the report, so the main nu
 **Result (run 7):** 77.8% of fields right on the photos, against 100% on the main set. Every wrong field came from photos Tesseract read with a high page confidence, so they never went to the vision model; the hard photos, read by Gemini, lost one invoice number. Of six invoices with a wrong field, four went to review and two did not. Details in `docs/EVALUATION.md`.
 
 **In one sentence:** Measure the hard case on its own, and count how many mistakes reach a person.
+
+---
+
+## D72: The Compare page suggests pairs, and the picker searches on the server
+
+**Alternatives:** Two dropdowns of the 100 newest documents (the first design), a picker that filters a list loaded once in the browser, or ask the person to tick two documents on Home.
+
+**Why:** Sowan's test on 5 November showed the problem: with a dozen documents, finding the right two in a long dropdown is slow, and he compared the statement with the wrong file. Two changes:
+
+- `GET /api/reconcile/suggestions` pairs completed documents that share invoices, by the same rules reconciliation uses (the same normalised number, or the same supplier, date and total), and ranks pairs by how many they share. A statement PDF and its Excel export appear at the top with "3 shared invoices", and one tap compares them. A PDF or scan reads as side A and a register as side B. The self-join looks only at the 300 newest completed documents, so it stays cheap.
+- Each side opens a sheet with a search box and type filters (PDF, Excel, CSV, photos). The search runs on the server (`GET /api/documents?q=&kind=`), with the user's text as a bound parameter and LIKE wildcards escaped, so it works with any number of documents. A swap button exchanges A and B.
+
+**Trade-off:** Suggestions find only pairs that share invoices. Two documents that should match but share nothing (every number mistyped) are not suggested, and the picker is still there for them.
+
+**In one sentence:** The system proposes the comparisons worth making, and the picker finds any document by name.
+
+---
+
+## D73: Glass, motion and page transitions, with the free server's wake-up in view
+
+**Alternatives:** Keep the flat design, use a component library, or animate everything with one library.
+
+**Why:** The brief asks for a web interface people will use, and Sowan asked for an iOS-like look with motion. The choices:
+
+- **Glass only where something floats.** The top bar, the floating tab bar, the processing dock, sheets and the sign-in card use blur, translucency and a thin top highlight, in light and dark mode. Cards are translucent without blur, because many blurred layers make long lists slow on phones. Glass needs something behind it, so the app sits on a soft, slowly moving field of light with fine grain against banding.
+- **Two motion tools, each for what it does best.** Moving between tabs uses React's `<ViewTransition>`, which this Next.js version supports: the page slides left or right by tab order, and the bars stay still. Inside a page, Motion (14.4.0, the library formerly called Framer Motion) animates the tab highlight, sheets that close with a downward pull, cards that leave the review queue, lists, and counters. Both follow the phone's reduce-motion setting.
+- **The wait for the free server becomes part of the page.** Render's free instance sleeps, so the first reviewer usually waits up to a minute. The sign-in page polls the real health check and shows server, database and file storage turning green, with a small pill at the top of the screen that stays in view. Beside it, a short loop shows one invoice being read and checked: the number, the supplier and the total are picked out, then Python flags 390.00 + 28.75 ≠ 428.75. The visitor can sign in at once.
+- **A background image is one line.** `frontend/lib/brand.ts` holds the path; without one, the page uses its own animated light.
+
+Found while testing in Chromium: a `view-transition-name` on an ancestor of a glass element stops the blur, because the named element becomes the blur's backdrop root. The names now sit on the glass elements themselves.
+
+**Trade-off:** Blur costs GPU time on older phones, and Safari renders some view transitions differently; without support, pages switch without the slide. Motion adds about 40 KB to the bundle.
+
+**In one sentence:** Glass where things float, motion that explains what moved, and a first screen that turns waiting into a demonstration.

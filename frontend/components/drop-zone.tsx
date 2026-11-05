@@ -123,9 +123,9 @@ export function DropZone() {
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         disabled={progress !== null}
-        className={`flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-4 ${picked.length ? "py-4" : "py-8"} text-center transition ${dragging ? "border-sky-500 bg-sky-50 dark:bg-sky-950/30" : "border-sky-300 bg-white hover:border-sky-500 hover:bg-sky-50/50 dark:border-sky-800 dark:bg-neutral-900"}`}
+        className={`flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-4 ${picked.length ? "py-4" : "py-8"} text-center transition ${dragging ? "scale-[1.01] border-sky-400 bg-sky-400/10" : "border-sky-400/40 bg-[var(--surface)] hover:border-sky-400 hover:bg-sky-400/5"}`}
       >
-        <span className="grid size-12 place-items-center rounded-full bg-sky-600 text-white">
+        <span className="grid size-12 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 text-white shadow-[0_8px_24px_-8px_rgb(99_102_241/0.8)]">
           <UploadIcon className="size-6" />
         </span>
         <span className="text-base font-semibold">{picked.length ? "Add more files" : "Tap to add files"}</span>
@@ -147,7 +147,7 @@ export function DropZone() {
       />
 
       {picked.length > 0 && (
-        <section aria-label="Files to upload" className="flex flex-col gap-2 rounded-xl border border-black/10 bg-white p-3 dark:border-white/15 dark:bg-neutral-900">
+        <section aria-label="Files to upload" className="surface flex flex-col gap-2 rounded-2xl p-3">
           <div className="flex items-center justify-between gap-2">
             <label className="flex items-center gap-2 text-sm font-medium">
               <input type="checkbox" checked={allMarked} onChange={(e) => setAll(e.target.checked)} className="size-4" />

@@ -29,7 +29,7 @@ from app.api.schemas import (
     UploadResult,
 )
 from app.core.config import Settings, get_settings
-from app.db.enums import DocumentStatus
+from app.db.enums import DocumentStatus, SourceKind
 from app.db.models import Document, Invoice, Job, Page, ProcessingEvent
 from app.db.session import get_db
 from app.ingest.errors import IngestError
@@ -122,6 +122,8 @@ def upload(
 @router.get("", response_model=DocumentPage)
 def list_documents(
     status_filter: DocumentStatus | None = Query(None, alias="status"),
+    q: str | None = Query(None, max_length=100, description="part of the file name"),
+    kind: SourceKind | None = Query(None, description="pdf, image, spreadsheet or csv"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -129,6 +131,12 @@ def list_documents(
     query = select(Document)
     if status_filter:
         query = query.where(Document.status == status_filter)
+    if kind:
+        query = query.where(Document.source_kind == kind)
+    if q and q.strip():
+        # A bound parameter, with LIKE wildcards in the user's text escaped.
+        needle = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query = query.where(Document.filename.ilike(f"%{needle}%", escape="\\"))
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     docs = list(db.scalars(query.order_by(Document.created_at.desc()).limit(limit).offset(offset)))
     ids = [d.id for d in docs]

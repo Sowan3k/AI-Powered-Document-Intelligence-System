@@ -108,7 +108,7 @@ function TopBar({ wake }: { wake: Wake }) {
         initial={{ opacity: 0, y: -14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 30, delay: 0.2 }}
-        className={`glass mx-auto flex max-w-5xl items-center justify-between gap-2 rounded-full py-1.5 pr-1.5 pl-3 transition-colors duration-300 ${onDark ? "glass-on-dark" : ""}`}
+        className={`glass glass-still mx-auto flex max-w-5xl items-center justify-between gap-2 rounded-full py-1.5 pr-1.5 pl-3 transition-colors duration-300 ${onDark ? "glass-on-dark" : ""}`}
       >
         <span className="flex items-center gap-2">
           <Mark className="size-7" />
@@ -190,7 +190,7 @@ function ScrollHint() {
           aria-hidden
           className="pointer-events-none fixed inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+4svh)] z-[60] flex justify-center motion-reduce:hidden"
         >
-          <span ref={pillGlass} className="glass glass-on-dark flex items-center gap-2.5 rounded-full py-2.5 pr-5 pl-3 text-sm font-semibold">
+          <span ref={pillGlass} className="glass glass-still glass-on-dark flex items-center gap-2.5 rounded-full py-2.5 pr-5 pl-3 text-sm font-semibold">
             <span className="relative grid size-7 place-items-center overflow-hidden rounded-full bg-gradient-to-b from-sky-400 to-violet-500 text-white">
               <motion.svg
                 viewBox="0 0 24 24"

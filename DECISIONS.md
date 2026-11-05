@@ -1022,3 +1022,20 @@ Measured with the CPU slowed four times, scrolling the opening page: 59 fps, as 
 **Trade-off:** Clearer glass gives text on it less contrast over busy content; the tint and the small blur are set for legibility on the app's own screens, not for any backdrop. Refraction appears only in Chromium browsers, so iPhone users see clear glass without the bending.
 
 **In one sentence:** Nearly clear glass with a bright rim, real edge refraction where Chromium can draw it, and floating controls over a scroll edge, as iOS does it.
+
+## D77: Glass that acts like a drop of water
+
+**Alternatives:** Keep the edge-only bending of D76, use a WebGL canvas behind the whole page, or animate a fake shine without real refraction.
+
+**Why:** Sowan explained what he meant by liquid: the light behind a piece of glass should blend and move as the page scrolls, like a real water drop on the screen. D76 bent only a thin band at the rim, so while scrolling it barely showed. The changes:
+
+- **A dome, not a bevel.** The displacement map now describes a curved surface across almost half of the element's short side: its height follows a circle, flat on top and steep at the rim. The pull follows the slope, so what scrolls under a bar is gently magnified in the middle and squeezed hard at the edge, and it visibly flows through the lens as the page moves.
+- **A colour fringe.** Water bends red light a little more than blue. The filter now displaces the backdrop three times, by 100%, 94% and 88% of the pull, keeps one colour channel from each, and adds them back up, which leaves a thin rainbow at the rim.
+- **Light that moves with the page.** A CSS scroll-driven animation turns the rim's highlight and slides the inner sheen as the page scrolls. A JavaScript version that followed the scroll speed was tried first; a browser trace showed it forced about 50 extra style passes on the opening page, because it wrote styles at a different moment than GSAP. The CSS version costs about 1.7 ms a frame on a slowed CPU, so it runs in the app and is off on the opening page, where the hero already animates on scroll.
+- **Vibrancy.** Clear, magnifying glass puts busy content behind the labels, so text and icons on glass carry a soft halo in the glass's own tone, as iOS does.
+
+Measured with the CPU slowed four times: Home scrolls at 57 to 58 fps with the glass bars over a moving list; the opening page at 58 fps.
+
+**Trade-off:** Three displacement passes cost more graphics work than one; they run only on a few small bars. The refraction and fringe need Chromium; Safari shows the clear glass and the moving highlight without the bending. Strong magnification can make busy content behind a label harder to ignore; the halo is the answer, not more blur.
+
+**In one sentence:** A domed lens with a colour fringe over every bar, and light that moves as the page scrolls, at no cost to the frame rate.

@@ -45,6 +45,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, glass like a drop of water (Claude Code)
+
+Sowan said liquid means the light behind the glass blends as the page scrolls, like a water drop on the screen. Changed (D77): the displacement map is now a dome across each bar, so content under it magnifies and squeezes at the rim as it scrolls; three channel passes leave a thin colour fringe; a CSS scroll-driven animation moves the rim's light with the page (off on the opening page); labels on glass carry a soft halo.
+
+Tested: lint, typecheck and build; close-ups of the tab bar over a moving list from a local API, light and dark; a browser trace that ruled out a JavaScript version of the moving light (about 50 extra style passes); CPU slowed four times: Home 57 to 58 fps, opening page 58 fps.
+
 ### 5 Nov 2026, liquid glass (Claude Code)
 
 Sowan said the glass looked frosted, not like iOS liquid glass. Rebuilt the material (D76): a light tint, 3 px of blur on bars and pills, a bright gradient rim, and in Chromium real edge refraction from a displacement map per element (`frontend/lib/liquid-glass.ts`). The app's top bar is now floating glass pieces over a fading scroll edge. On the opening page the bar's text turns light over the dark card.

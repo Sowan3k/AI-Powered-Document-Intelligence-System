@@ -1,10 +1,14 @@
 "use client";
 
-// Refraction for liquid glass (D76). A thick curved edge bends what is behind
-// it. Chromium can run an SVG filter on an element's backdrop, so each glass
-// element gets a displacement map shaped like its own rounded rectangle: zero
-// in the middle, rising toward the rim, where the backdrop is pulled inward.
-// Other browsers keep the clear glass from globals.css without the bending.
+// Liquid glass (D76, D77). Each glass element behaves like a drop of water on
+// the screen: a domed lens that magnifies what scrolls under it, squeezes it
+// hard at the rim, and splits the colours slightly at the edge. Chromium can
+// run an SVG filter on an element's backdrop, so each element gets a
+// displacement map shaped like its own rounded rectangle. Other browsers keep
+// the clear glass from globals.css without the bending.
+//
+// The rim's highlight moves as the page scrolls through a CSS scroll-driven
+// animation in globals.css, so it needs no JavaScript per frame.
 
 import { useCallback } from "react";
 
@@ -41,10 +45,11 @@ function filterHost(): SVGSVGElement {
 }
 
 /**
- * Red and green hold the x and y pull (128 is none). Inside a band along the
- * rim the pull rises smoothly to its full strength at the edge and points
- * inward, along the edge's normal, so the rim shows the backdrop squeezed
- * like the thick edge of a lens.
+ * Red and green hold the x and y pull (128 is none). The surface is a dome:
+ * across a band almost as wide as half the element, its height follows a
+ * circle, flat on top and steep at the rim. The pull follows the slope and
+ * points inward, so the middle is gently magnified and the rim squeezes the
+ * backdrop, as a drop of water does.
  */
 function displacementMap(w: number, h: number, r: number, band: number): string {
   const canvas = document.createElement("canvas");
@@ -68,7 +73,7 @@ function displacementMap(w: number, h: number, r: number, band: number): string 
       const depth = -(corner + Math.min(Math.max(qx, qy), 0) - r);
       let dx = 0;
       let dy = 0;
-      if (depth < band) {
+      if (depth < band && depth > -1) {
         let nx: number;
         let ny: number;
         if (qx > 0 && qy > 0 && corner > 0) {
@@ -83,8 +88,9 @@ function displacementMap(w: number, h: number, r: number, band: number): string 
         }
         nx *= px < 0 ? -1 : 1;
         ny *= py < 0 ? -1 : 1;
-        const t = 1 - Math.max(depth, 0) / band;
-        const m = t * t * (3 - 2 * t);
+        const t = Math.min(Math.max(depth, 0) / band, 1);
+        const sag = 1 - Math.sqrt(1 - (1 - t) * (1 - t));
+        const m = 0.7 * sag + 0.3 * (1 - t);
         dx = -nx * m;
         dy = -ny * m;
       }
@@ -102,18 +108,27 @@ function displacementMap(w: number, h: number, r: number, band: number): string 
 type Options = {
   /** Blur after the bend, in px. Small keeps the glass clear. */
   blur?: number;
-  /** How far the rim pulls, relative to the band width. */
+  /** How far the rim pulls, relative to the dome's width. */
   strength?: number;
 };
+
+// ---- Refraction ------------------------------------------------------------
+
+/** Keeps one colour channel of a displaced copy, so the three can be added back up. */
+function channel(index: 0 | 1 | 2): string {
+  const rows = [0, 1, 2].map((r) => (r === index ? [0, 1, 2].map((c) => (c === index ? 1 : 0)).join(" ") + " 0 0" : "0 0 0 0 0"));
+  return `${rows.join(" ")} 0 0 0 1 0`;
+}
 
 /**
  * Returns a ref for a glass element. In Chromium it adds edge refraction,
  * rebuilt when the element changes size; elsewhere it does nothing.
  */
-export function useLiquidGlass<T extends HTMLElement>({ blur = 2, strength = 1.3 }: Options = {}) {
+export function useLiquidGlass<T extends HTMLElement>({ blur = 1.5, strength = 0.85 }: Options = {}) {
   return useCallback(
     (el: T | null) => {
       if (!el || !canRefract()) return;
+
       const id = `lg-${Math.random().toString(36).slice(2, 10)}`;
       const filter = document.createElementNS(SVG_NS, "filter");
       filter.setAttribute("id", id);
@@ -124,12 +139,38 @@ export function useLiquidGlass<T extends HTMLElement>({ blur = 2, strength = 1.3
       const image = document.createElementNS(SVG_NS, "feImage");
       image.setAttribute("result", "map");
       image.setAttribute("preserveAspectRatio", "none");
-      const displace = document.createElementNS(SVG_NS, "feDisplacementMap");
-      displace.setAttribute("in", "SourceGraphic");
-      displace.setAttribute("in2", "map");
-      displace.setAttribute("xChannelSelector", "R");
-      displace.setAttribute("yChannelSelector", "G");
-      filter.append(image, displace);
+      filter.appendChild(image);
+      // Red bends most and blue least, as in water, which leaves a thin
+      // colour fringe at the rim.
+      const bends = ([1, 0.94, 0.88] as const).map((k, i) => {
+        const displace = document.createElementNS(SVG_NS, "feDisplacementMap");
+        displace.setAttribute("in", "SourceGraphic");
+        displace.setAttribute("in2", "map");
+        displace.setAttribute("xChannelSelector", "R");
+        displace.setAttribute("yChannelSelector", "G");
+        displace.setAttribute("result", `d${i}`);
+        const keep = document.createElementNS(SVG_NS, "feColorMatrix");
+        keep.setAttribute("in", `d${i}`);
+        keep.setAttribute("type", "matrix");
+        keep.setAttribute("values", channel(i as 0 | 1 | 2));
+        keep.setAttribute("result", `c${i}`);
+        filter.append(displace, keep);
+        return { displace, k };
+      });
+      const rg = document.createElementNS(SVG_NS, "feComposite");
+      rg.setAttribute("in", "c0");
+      rg.setAttribute("in2", "c1");
+      rg.setAttribute("operator", "arithmetic");
+      rg.setAttribute("k2", "1");
+      rg.setAttribute("k3", "1");
+      rg.setAttribute("result", "rg");
+      const rgb = document.createElementNS(SVG_NS, "feComposite");
+      rgb.setAttribute("in", "rg");
+      rgb.setAttribute("in2", "c2");
+      rgb.setAttribute("operator", "arithmetic");
+      rgb.setAttribute("k2", "1");
+      rgb.setAttribute("k3", "1");
+      filter.append(rg, rgb);
       filterHost().appendChild(filter);
 
       let last = "";
@@ -142,7 +183,8 @@ export function useLiquidGlass<T extends HTMLElement>({ blur = 2, strength = 1.3
         const key = `${w}x${h}:${r}`;
         if (key === last) return;
         last = key;
-        const band = Math.max(6, Math.min(h * 0.4, w * 0.4, 20));
+        // The dome spans almost half the short side, so the whole piece is curved.
+        const band = Math.max(8, (Math.min(w, h) / 2) * 0.92);
         for (const node of [filter, image]) {
           node.setAttribute("x", "0");
           node.setAttribute("y", "0");
@@ -150,7 +192,7 @@ export function useLiquidGlass<T extends HTMLElement>({ blur = 2, strength = 1.3
           node.setAttribute("height", String(h));
         }
         image.setAttribute("href", displacementMap(w, h, r, band));
-        displace.setAttribute("scale", String(Math.round(band * strength * 2)));
+        for (const { displace, k } of bends) displace.setAttribute("scale", String(Math.round(band * strength * 2 * k)));
         el.style.backdropFilter = `url(#${id}) blur(${blur}px) saturate(185%) brightness(1.05)`;
       };
       const observer = new ResizeObserver(() => {

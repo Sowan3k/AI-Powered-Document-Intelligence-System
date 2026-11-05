@@ -162,3 +162,9 @@ Prompt (summary): Sowan said the blur looked like frosted glass, not iOS-style l
 
 AI-generated: the new glass material, the refraction hook that draws a displacement map for each element's shape, the floating top bar over a scroll edge, the text colour that follows the backdrop on the opening page, and decision D76. Claude Code checked the result over real screens from a local API with demo data, in light and dark mode, and measured the opening page's frame rate again. That measurement caught a cost in the first version (a hit test on every frame) and led to the IntersectionObserver.
 
+### 5 Nov 2026, glass like a drop of water (Claude Code)
+
+Prompt (summary): Sowan explained that liquid glass means the light behind a component blends while scrolling, like a real water drop above the screen.
+
+AI-generated: the dome-shaped displacement map, the three-pass colour fringe, the scroll-driven highlight, the vibrancy halo, and decision D77. Claude Code measured each step. A first version of the moving light followed the scroll speed in JavaScript; the frame measurement showed extra style work, a browser trace found the cause (about 50 extra style passes, written out of step with GSAP), and the light moved to CSS. That still cost about 1.7 ms a frame, so it is off on the opening page.
+

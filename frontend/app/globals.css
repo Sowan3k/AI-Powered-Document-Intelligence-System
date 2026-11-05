@@ -20,6 +20,7 @@
   --glass-edge: rgb(15 23 42 / 0.14);
   --glass-shadow: 0 10px 28px -12px rgb(15 23 42 / 0.3), 0 2px 6px -2px rgb(15 23 42 / 0.1);
   --lens-bg: rgb(255 255 255 / 0.6);
+  --glass-halo: rgb(255 255 255 / 0.85);
   --aurora-1: rgb(56 189 248 / 0.45);
   --aurora-2: rgb(167 139 250 / 0.4);
   --aurora-3: rgb(45 212 191 / 0.35);
@@ -40,6 +41,7 @@
     --glass-edge: rgb(0 0 0 / 0.5);
     --glass-shadow: 0 16px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px -2px rgb(0 0 0 / 0.4);
     --lens-bg: rgb(255 255 255 / 0.14);
+    --glass-halo: rgb(0 0 0 / 0.6);
     --aurora-1: rgb(14 116 194 / 0.38);
     --aurora-2: rgb(109 40 217 / 0.32);
     --aurora-3: rgb(13 148 136 / 0.26);
@@ -62,7 +64,47 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ---------- Liquid glass (D76) ---------- */
+/* ---------- Liquid glass (D76, D77) ---------- */
+
+/*
+ * Light moving over the glass as the page scrolls. A CSS scroll-driven
+ * animation turns the rim's highlight and shifts the inner sheen with the
+ * scroll position; the browser runs it in its own frame work, with no
+ * JavaScript. The two properties are not inherited, so only the glass and its
+ * highlight layers restyle, not what is inside them.
+ */
+@property --lg-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 135deg;
+}
+@property --lg-shift {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+.glass::before,
+.glass::after,
+.glass-strong::before,
+.glass-strong::after {
+  --lg-angle: inherit;
+  --lg-shift: inherit;
+}
+@keyframes lg-sweep {
+  from { --lg-angle: 110deg; --lg-shift: -20%; }
+  to { --lg-angle: 175deg; --lg-shift: 35%; }
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* .glass-still opts out: the opening page already animates its hero on scroll. */
+    .glass:not(.glass-still),
+    .glass-strong:not(.glass-still) {
+      animation: lg-sweep linear both alternate;
+      animation-iteration-count: 6;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
 
 /*
  * Clear, not frosted: a light tint and a small blur, so what is behind stays
@@ -84,8 +126,20 @@ body {
     inset 0 1px 1px 0 var(--glass-inner),
     inset 0 -1px 1px 0 var(--glass-rim-dim),
     inset 0 0 16px -6px var(--glass-inner),
+    /* Light a drop gathers and throws onto its far side. */
+    inset 0 -12px 18px -14px var(--glass-inner),
     0 0 0 0.5px var(--glass-edge),
     var(--glass-shadow);
+}
+/*
+ * Vibrancy: clear glass shows whatever passes beneath, magnified, so text
+ * and icons on it carry a soft halo in the glass's own tone.
+ */
+.glass {
+  text-shadow: 0 0 6px var(--glass-halo), 0 0 1px var(--glass-halo);
+}
+.glass svg {
+  filter: drop-shadow(0 0 3px var(--glass-halo));
 }
 /* Sheets and the sign-in card hold forms and lists, so they keep a little more blur. */
 .glass-strong {
@@ -106,7 +160,7 @@ body {
   padding: 1px;
   pointer-events: none;
   background: linear-gradient(
-    135deg,
+    var(--lg-angle),
     var(--glass-rim) 0%,
     var(--glass-rim-dim) 22%,
     transparent 45%,
@@ -127,7 +181,11 @@ body {
   z-index: -1;
   border-radius: inherit;
   pointer-events: none;
-  background: radial-gradient(130% 90% at 0% 0%, rgb(255 255 255 / 0.16), transparent 50%);
+  background: radial-gradient(
+    130% 90% at var(--lg-shift) 0%,
+    rgb(255 255 255 / 0.16),
+    transparent 50%
+  );
 }
 /* On a dark backdrop in light mode, such as the opening page's blue card. */
 .glass-on-dark {
@@ -135,6 +193,7 @@ body {
   --glass-rim: rgb(255 255 255 / 0.7);
   --glass-rim-dim: rgb(255 255 255 / 0.1);
   --glass-inner: rgb(255 255 255 / 0.16);
+  --glass-halo: rgb(8 12 40 / 0.45);
   color: #fff;
 }
 /* The lens behind the active tab: a small, brighter piece of glass. */

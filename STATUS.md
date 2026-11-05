@@ -45,6 +45,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, opening page fixes after Sowan's phone test (Claude Code)
+
+Sowan tested the live opening page on his phone: the scroll lagged, long stretches showed an empty blue card, there was no sign to scroll, and on `/login` the form sat below the preview. Fixed (D75): the hero animates only transforms and opacity, sticks with CSS `position: sticky` instead of a GSAP pin, and scrolls two screens instead of 7,000 pixels, with the content inside the card the whole time. The card peeks up at rest with a "Swipe up to see it work" pill. On a phone the sign-in form now comes first.
+
+Tested: frontend lint, typecheck and build. Chromium with the CPU slowed four times, scrolling through the hero over the same 4.7 s: before 40 to 43 fps with frames up to 67 ms; after 58 to 59 fps, 95th percentile 16.8 ms, no frame over 34 ms. Screenshots at twelve scroll steps at 412 by 860 in dark mode, at 1440 by 900, with reduced motion, and of `/login` on both sizes. No sideways scrolling, no page errors.
+
 ### 5 Nov 2026, opening page and app icon (Claude Code)
 
 Sowan shared a scroll-driven hero and asked for it as the opening page, with the server waking in the background, and asked for an icon. Built (D74): `/` shows the hero and starts the health check on load; a fixed top bar holds the live status and Sign in; the sign-in page carries on with the same wake state. The hero lives in `frontend/components/ui/cinematic-hero.tsx` (GSAP 3.15.0), filled by `frontend/components/landing.tsx`. New icon set: `app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png`, `app/manifest.ts` and three PNGs in `public/`.

@@ -150,3 +150,9 @@ Prompt (summary): Sowan pasted a shadcn-style "cinematic landing hero" built wit
 
 AI-generated: the adapted hero component with props, slots and a reduced-motion path; the rest of the phone mockup; the DocIntel landing content; the shared wake state; the icon drawing, its sizes and the web manifest; and decision D74. Claude Code checked every scroll stage in Chromium on desktop and phone sizes. The screenshots found three layout faults a build would not catch: the brand line and the call to action under the fixed top bar on a phone, and a ring label cut at the edge. Claude Code also drew a simpler icon for 16 and 32 pixels after the full drawing lost its check mark at that size.
 
+### 5 Nov 2026, opening page fixes (Claude Code)
+
+Prompt (summary): Sowan tested the opening page on his phone and reported lag, too much scrolling with an empty screen, no hint to scroll, and a sign-in form too far down. He sent phone screenshots of the empty card and the login page and asked Claude Code to check the lag itself.
+
+AI-generated: the reworked hero, the scroll hint, the new sign-in order, and decision D75. Claude Code measured before changing anything: it scrolled the hero in Chromium with the CPU slowed four times and recorded every frame, then found the causes in the code (layout and blur on every frame, a JavaScript pin, a full-screen blended grain). The same measurement after the change showed 59 fps. A screenshot check after the rewrite found one more fault, an injected `position: relative` that overrode the card's full-screen size, which the numbers alone would have missed.
+

@@ -986,3 +986,21 @@ Found while testing in Chromium: a `view-transition-name` on an ancestor of a gl
 **Trade-off:** GSAP and ScrollTrigger add about 59 KB (gzipped) to the opening page. A long pinned scroll is a style choice some visitors skip, which is why Sign in is always visible.
 
 **In one sentence:** The first minute on the free plan becomes a short tour, with the real server status in view and sign-in one tap away.
+
+## D75: A shorter, smoother opening page, and the sign-in form first on phones
+
+**Alternatives:** Keep the shared hero as it was and only shorten it, replace it with a static page, or turn the animations off on phones.
+
+**Why:** Sowan tested D74 on his phone. The scroll lagged, long stretches showed an empty blue card, nothing said to scroll, and on the sign-in page the form sat below the preview. Measured in Chromium with the CPU slowed four times: 40 to 43 frames a second, with frames up to 67 ms. The causes, and the fixes:
+
+- **Every frame did layout and blur work.** The card animated its width, height and corners, so the page was laid out again each frame. The headline and the call to action animated a blur filter, a full-screen grain layer was blended over everything, and the badges blurred the plain gradient behind them. Now the card is full size from the start and only moves and scales; the headline and the call to action only fade and scale; the grain and the badge blur are gone. Nothing visible was lost, because blurring a smooth gradient looks the same as not blurring it.
+- **A JavaScript pin.** GSAP pinned the section by switching it to a fixed position, which jitters on phone browsers, and a one-second scrub made the page feel behind the finger. The stage now sticks with CSS `position: sticky`, which the browser handles itself, sized in `svh` so the phone's toolbars do not resize it. The scrub is 0.4 seconds.
+- **Too much scroll for too little.** The section was 7,000 pixels, with an empty card while it rose and again while it shrank. Now it is two screens of scroll. The content rides inside the card: it arrives with the card and leaves with it, so the card is never empty.
+- **No sign of more below.** At rest, the card now peeks up from the bottom edge, with a clear pill on it: "Swipe up to see it work" on a touch screen, "Scroll to see it work" with a mouse.
+- **The form first.** On a phone the sign-in page now shows the brand, then the form, then the preview of an invoice being checked. Wide screens keep the two columns.
+
+Result, measured the same way over the same time: 58 to 59 frames a second, the 95th percentile frame at 16.8 ms, and no frame over 34 ms. Headless Chromium does not count the blur work a real phone's graphics chip did, so the gain on a phone should be larger.
+
+**Trade-off:** The film grain and the badge blur are gone, and the card no longer grows from a smaller card to a full screen; it rises at full size. A shorter scroll also means each step passes faster.
+
+**In one sentence:** Only transforms and opacity on scroll, a native sticky stage, half the scroll with nothing empty, and the form where the thumb expects it.

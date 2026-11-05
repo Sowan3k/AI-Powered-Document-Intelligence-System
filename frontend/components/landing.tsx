@@ -117,11 +117,17 @@ function TopBar({ wake }: { wake: Wake }) {
   );
 }
 
-/** A quiet nudge on the first screen; it leaves once the visitor scrolls. */
+/**
+ * A clear nudge on the first screen, sitting on the card that peeks up from
+ * the bottom edge. It leaves as soon as the visitor scrolls (D75).
+ */
 function ScrollHint() {
   const [show, setShow] = useState(true);
+  const [touch, setTouch] = useState(false);
   useEffect(() => {
-    const onScroll = () => setShow(window.scrollY < 40);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from the device
+    setTouch(window.matchMedia("(pointer: coarse)").matches);
+    const onScroll = () => setShow(window.scrollY < 24);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -129,18 +135,25 @@ function ScrollHint() {
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { delay: 2.2 } }}
-          exit={{ opacity: 0 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0, transition: { delay: 1.4, type: "spring", stiffness: 260, damping: 24 } }}
+          exit={{ opacity: 0, y: 12, transition: { duration: 0.2 } }}
           aria-hidden
-          className="pointer-events-none fixed inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-[60] flex flex-col items-center gap-1 text-xs font-medium text-muted"
+          className="pointer-events-none fixed inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+4svh)] z-[60] flex justify-center motion-reduce:hidden"
         >
-          Scroll to see it work
-          <motion.span animate={{ y: [0, 5, 0] }} transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}>
-            <svg viewBox="0 0 24 24" className="size-4 fill-none stroke-current stroke-2" aria-hidden>
-              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </motion.span>
+          <span className="glass-strong flex items-center gap-2.5 rounded-full py-2.5 pr-5 pl-3 text-sm font-semibold">
+            <span className="relative grid size-7 place-items-center overflow-hidden rounded-full bg-gradient-to-b from-sky-400 to-violet-500 text-white">
+              <motion.svg
+                viewBox="0 0 24 24"
+                className="size-4 fill-none stroke-current stroke-[2.5]"
+                animate={{ y: touch ? [5, -5, 5] : [-5, 5, -5] }}
+                transition={{ duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <path d={touch ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} strokeLinecap="round" strokeLinejoin="round" />
+              </motion.svg>
+            </span>
+            {touch ? "Swipe up to see it work" : "Scroll to see it work"}
+          </span>
         </motion.div>
       )}
     </AnimatePresence>

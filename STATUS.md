@@ -45,6 +45,32 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, less green (Claude Code)
+
+Sowan found the new palette too green. Green now marks only what was checked or finished; links, Approve, focus rings and the background light moved to ink and brass; "completed" and "processing" pills are neutral with a small dot, so only failed and needs-review stand out (D80, revised). Tested: build, lint and typecheck; every main screen at phone size in light and dark; no page errors.
+
+### 5 Nov 2026, light and dark toggle (Claude Code)
+
+Sowan asked for a light and dark toggle from the sign-in page on, not on the opening page. Built (D81): the theme lives in `data-theme` on `<html>`, set before the first paint; the colour tokens and Tailwind's `dark:` variant read it; a sun and moon button on the sign-in page and in the app's top bar switches it with a circle reveal and saves the choice.
+
+Tested: build, lint and typecheck; in Chromium at phone size: with no choice the theme follows the phone; a tap on the sign-in page switches to dark (screenshot mid-circle), saves it, survives a reload and applies on the opening page, which shows no toggle; the app's toggle switches back; the browser's theme-color follows; no console errors or hydration warnings.
+
+### 5 Nov 2026, finance palette and type system (Claude Code)
+
+Sowan said the blue and purple looked AI-generated, asked about finance fonts and consistent sizes, and shared a red, cream and navy type specimen. Changed (D80): ink navy, warm paper, a ledger green brand, brass for decoration, amber and red kept for review and problems; IBM Plex Sans, Barlow Semi Condensed and IBM Plex Mono from the app; six type roles in `globals.css`; about 100 blue and purple uses replaced in 19 files; the app icon redrawn. The glass is unchanged.
+
+Tested: lint, typecheck and build; every main screen at phone size in light and dark (opening page at three points, sign-in, Home, Home list, Review, Compare) and desktop (opening page, sign-in, Home) on a local API; the fonts load from the app; no page errors. CPU slowed four times: Home 60 fps, opening page 57 fps. A search for raw colour values found two leftovers (the sign-in glow and the preview highlight), both fixed.
+
+### 5 Nov 2026, upload box light and the comparison list (Claude Code)
+
+Sowan asked for a rotating light on the upload box's border and a better way to show a comparison. Built (D79): a light that travels around the upload box with a soft glow, run by the graphics chip and paused off screen; the Compare result as one list with a share bar, counts that filter, one line per invoice with problems first, and mismatched pairs opened to show A, B and the exact change.
+
+Tested: lint, typecheck and build; screenshots on a local API with a pair that has every outcome (1 mismatched, 1 only in A, 1 only in B, 2 matched), light and dark, with the "Only in A" filter on; the border light at two moments; no page errors, no sideways overflow; Home at 60 fps with the light running, CPU slowed four times. The exact change helper was checked by hand on six pairs of amounts, including signs and different decimal places.
+
+### 5 Nov 2026, bars drifting while scrolling (Claude Code)
+
+Sowan saw elements move toward the screen's edge while scrolling. Cause, measured: the rotating glint layers were larger than their glass and widened the page by 3 px at some scroll positions, so the page could be panned sideways. Fixed (D78 note): the light layers are clipped to their glass, and the page cannot scroll sideways (`overflow-x: clip` on `html`). Tested: extra page width 0 on Home, Review, Search, Compare and the opening page at five scroll positions with the phone tilted; the app's top bar and the opening page's stage still stick.
+
 ### 5 Nov 2026, glass that answers to tilt and touch (Claude Code)
 
 Sowan described the rest of Apple's material: reflections that follow the gyroscope and a ripple under the finger. Added (D78): the glints and sheen follow the phone's tilt (Chrome on Android, no prompt) or the mouse; a press sends a ring of light and, in Chromium, a wave of distortion through the refraction filter. The light now sits on two small layers inside each piece of glass and moves by transform only.

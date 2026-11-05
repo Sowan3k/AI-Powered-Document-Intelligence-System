@@ -62,8 +62,8 @@ export function ActivityDock() {
         aria-expanded={open}
         className="glass flex w-full items-center gap-3 rounded-full px-4 py-3 text-left text-sm font-medium"
       >
-        <span className={`relative grid size-7 place-items-center rounded-full text-white ${busy ? "bg-sky-500 shadow-[0_0_16px_rgb(56_189_248/0.7)]" : "bg-emerald-500 shadow-[0_0_16px_rgb(16_185_129/0.6)]"}`}>
-          {busy && <span className="absolute inset-0 animate-ping rounded-full bg-sky-400/50 motion-reduce:hidden" />}
+        <span className={`relative grid size-7 place-items-center rounded-full text-white ${busy ? "bg-brass shadow-[0_0_16px_rgb(217_169_78/0.6)]" : "bg-emerald-500 shadow-[0_0_16px_rgb(16_185_129/0.6)]"}`}>
+          {busy && <span className="absolute inset-0 animate-ping rounded-full bg-brass/50 motion-reduce:hidden" />}
           {busy ? <SparkIcon className="size-4" /> : <CheckIcon className="size-4" />}
         </span>
         <span className="min-w-0 flex-1 truncate">

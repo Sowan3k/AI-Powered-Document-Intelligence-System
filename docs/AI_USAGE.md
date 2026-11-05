@@ -174,3 +174,31 @@ Prompt (summary): Sowan described Apple's Liquid Glass as a responsive material:
 
 AI-generated: the tilt and mouse light source, the press ripple (light ring and distortion wave), the light layers, and decision D78. Claude Code measured the worst case, a phone tilting all the time while scrolling, and found the first design dropped Home to 35 fps; a browser trace showed about 20 elements restyled per change. The light moved to its own layers driven by transforms, and the same test then held 60 fps. Testing also caught a negative ring size on a ripple's first frame.
 
+### 5 Nov 2026, bars drifting while scrolling (Claude Code)
+
+Prompt (summary): Sowan said the blur was right, but elements moved while scrolling and sometimes went near the screen's edges.
+
+Claude Code measured the page width while scrolling and found the cause in its own D78 change: the rotating glint layers widened the page by 3 px at some positions. AI-generated: the clipping fix, the sideways-scroll guard, and the checks that sticky elements still stick.
+
+### 5 Nov 2026, upload box light and the comparison list (Claude Code)
+
+Prompt (summary): Sowan sent screenshots of the upload box and the comparison result and asked for a rotating light around the border and a better way to show the data.
+
+AI-generated: the border light, the new comparison list with its filter and share bar, the exact decimal change helper, and decision D79. Claude Code checked both in Chromium at phone size in light and dark mode, and measured Home's frame rate with the light running. The first screenshots showed supplier names cut short on a phone, which led to giving the supplier its own line.
+
+### 5 Nov 2026, finance palette and type system (Claude Code)
+
+Prompt (summary): Sowan asked about fonts and size rules for this kind of product, said the blue and purple made the site look AI-generated, shared a type specimen in red, cream and navy, and asked to keep the glass.
+
+AI-generated: the palette, the type roles, the font setup, the recoloured components and icon, and decision D80. Claude Code checked the candidate fonts' files before choosing (IBM Plex Sans has equal-width digits; Barlow has tabular figures on request), counted every blue and purple use before replacing them, and searched for raw colour values afterwards, which found two that a class search had missed.
+
+### 5 Nov 2026, light and dark toggle (Claude Code)
+
+Prompt (summary): Sowan asked for a light and dark toggle, starting from the sign-in page, not on the opening page.
+
+AI-generated: the theme script, the toggle with its circle reveal, the switch of the colour tokens and the dark variant to an attribute, and decision D81. Claude Code checked the whole path in Chromium: following the phone with no choice, switching, saving, a reload, the opening page and the app's own toggle.
+
+### 5 Nov 2026, less green (Claude Code)
+
+Prompt (summary): Sowan said the site was now too green. AI-generated: the narrower rule for green, the ink links and Approve button, the quiet status pills, and the note in D80. Checked on every main screen in light and dark.
+

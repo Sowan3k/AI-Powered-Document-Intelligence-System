@@ -42,7 +42,7 @@ export function ApproveButton({
             setBusy(false);
           }
         }}
-        className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+        className="btn-primary inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-medium disabled:opacity-50"
       >
         <CheckIcon className="size-4" />
         {busy ? "Saving…" : label}

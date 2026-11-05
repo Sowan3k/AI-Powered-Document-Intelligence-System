@@ -35,10 +35,10 @@ export default function HomePage() {
       <DropZone />
       {active.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="font-semibold">Processing now</h2>
+          <h2 className="type-section">Processing now</h2>
           {active.map((item) => (
             <Link key={item.document_id} href={`/documents/${item.document_id}`} className="block">
-              <Card className="hover:border-sky-400">
+              <Card className="hover:border-foreground/20">
                 <p className="mb-2 truncate text-sm font-medium">{item.filename}</p>
                 <ProcessFlow item={item} />
               </Card>
@@ -81,9 +81,9 @@ function NeedsAttention() {
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
-        <h2 className="font-semibold">Needs your attention</h2>
+        <h2 className="type-section">Needs your attention</h2>
         {data.total > items.length && (
-          <Link href="/review" className="text-sm font-medium text-sky-700 dark:text-sky-400">
+          <Link href="/review" className="link text-sm">
             See all {data.total}
           </Link>
         )}
@@ -142,7 +142,7 @@ function RecentDocuments() {
   return (
     <section className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold">Your documents</h2>
+        <h2 className="type-section">Your documents</h2>
         <div className="flex gap-1" role="tablist" aria-label="Filter documents">
           {FILTERS.map((f) => (
             <button

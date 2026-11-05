@@ -72,7 +72,7 @@ export function Sheet({
             >
               <span className="h-1.5 w-10 rounded-full bg-black/20 dark:bg-white/25" />
             </div>
-            <h2 id={titleId} className="px-5 pt-1 pb-3 text-lg font-semibold tracking-tight">
+            <h2 id={titleId} className="type-section px-5 pt-1 pb-3">
               {title}
             </h2>
             {children}

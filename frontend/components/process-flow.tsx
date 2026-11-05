@@ -40,19 +40,19 @@ export function ProcessFlow({ item, compact = false }: { item: ActivityItem; com
                     : done
                       ? "border-emerald-500 bg-emerald-500 text-white"
                       : active
-                        ? "border-sky-500 bg-white text-sky-600 dark:bg-neutral-900"
+                        ? "border-foreground bg-white text-foreground dark:bg-neutral-900"
                         : "border-neutral-200 bg-white text-neutral-400 dark:border-neutral-700 dark:bg-neutral-900"
                 }`}
                 title={step.label}
               >
-                {active && <span className="absolute inset-0 animate-ping rounded-full bg-sky-400/40 motion-reduce:hidden" />}
+                {active && <span className="absolute inset-0 animate-ping rounded-full bg-foreground/20 motion-reduce:hidden" />}
                 <Icon className={compact ? "size-3.5" : "size-4"} />
               </span>
               {i < STEPS.length - 1 && (
                 <span className="relative mx-1 h-1 flex-1 overflow-hidden rounded bg-neutral-200 dark:bg-neutral-800">
                   {(done || (active && i === current)) && (
                     <span
-                      className={`absolute inset-y-0 left-0 rounded ${done ? "w-full bg-emerald-500" : "w-1/2 bg-sky-500 flow-slide motion-reduce:animate-none"}`}
+                      className={`absolute inset-y-0 left-0 rounded ${done ? "w-full bg-emerald-500" : "w-1/2 bg-foreground/70 flow-slide motion-reduce:animate-none"}`}
                     />
                   )}
                 </span>
@@ -62,7 +62,7 @@ export function ProcessFlow({ item, compact = false }: { item: ActivityItem; com
         })}
       </ol>
       {!compact && (
-        <div className="mt-1 grid grid-cols-5 text-center text-[10px] text-neutral-500 sm:text-xs">
+        <div className="mt-1 grid grid-cols-5 text-center text-2xs text-neutral-500 sm:text-xs">
           {STEPS.map((s) => (
             <span key={s.key} className="last:text-right first:text-left">
               {s.label}
@@ -89,7 +89,7 @@ export function ProcessFlow({ item, compact = false }: { item: ActivityItem; com
       </p>
       {pct !== null && !compact && (
         <div className="mt-1 h-1 w-full overflow-hidden rounded bg-neutral-200 dark:bg-neutral-800">
-          <div className="h-full bg-sky-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+          <div className="h-full bg-foreground/80 transition-all duration-500" style={{ width: `${pct}%` }} />
         </div>
       )}
     </div>

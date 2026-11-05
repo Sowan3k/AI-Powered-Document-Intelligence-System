@@ -14,7 +14,7 @@ export function Card({ children, className = "" }: { children: ReactNode; classN
 export function PageTitle({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <header className="flex flex-wrap items-end justify-between gap-3">
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="type-page">{title}</h1>
       {children}
     </header>
   );
@@ -24,7 +24,7 @@ const TONES = {
   green: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
   amber: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
   red: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-  blue: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300",
+  blue: "bg-slate-200/70 text-slate-800 dark:bg-slate-700/40 dark:text-slate-200",
   gray: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
 } as const;
 export type Tone = keyof typeof TONES;
@@ -50,8 +50,23 @@ export const STATUS_TONE: Record<string, Tone> = {
   pending: "gray",
 };
 
+const DOTS: Partial<Record<Tone, string>> = { green: "bg-emerald-500", blue: "animate-pulse bg-foreground/50", gray: "bg-foreground/25" };
+
+/**
+ * Problems (failed, needs review) get a full coloured pill. Everything that is
+ * fine or under way is quiet: a neutral pill with a small dot, so a list of
+ * finished documents does not turn green (D80).
+ */
 export function StatusBadge({ status }: { status: string }) {
-  return <Badge tone={STATUS_TONE[status] ?? "gray"}>{status.replaceAll("_", " ")}</Badge>;
+  const tone = STATUS_TONE[status] ?? "gray";
+  const text = status.replaceAll("_", " ");
+  if (tone === "red" || tone === "amber") return <Badge tone={tone}>{text}</Badge>;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-2 py-0.5 text-xs font-medium text-muted dark:bg-white/[0.06]">
+      <span className={`size-1.5 rounded-full ${DOTS[tone] ?? DOTS.gray}`} aria-hidden />
+      {text}
+    </span>
+  );
 }
 
 export function Button({
@@ -92,7 +107,7 @@ export function Loading({ slow, what = "Loading" }: { slow?: boolean; what?: str
   return (
     <div aria-live="polite" className="py-6 text-sm text-neutral-600 dark:text-neutral-400">
       <p className="flex items-center gap-2">
-        <span className="size-2 animate-pulse rounded-full bg-sky-500" />
+        <span className="size-2 animate-pulse rounded-full bg-foreground/60" />
         {what}…
       </p>
       {slow && (
@@ -115,7 +130,7 @@ export function Empty({ children }: { children: ReactNode }) {
 
 export function TextLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-400">
+    <Link href={href} className="link">
       {children}
     </Link>
   );
@@ -131,4 +146,4 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export const inputClass =
-  "min-h-11 w-full rounded-xl border border-black/10 bg-white/70 px-3 text-base outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20 dark:border-white/12 dark:bg-white/5 sm:text-sm";
+  "min-h-11 w-full rounded-xl border border-black/10 bg-white/70 px-3 text-base outline-none transition focus:border-foreground/40 focus:ring-4 focus:ring-foreground/10 dark:border-white/12 dark:bg-white/5 sm:text-sm";

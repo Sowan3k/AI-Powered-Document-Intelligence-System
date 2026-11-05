@@ -1055,3 +1055,54 @@ Measured with the CPU slowed four times while scrolling Home: 60 fps still and 6
 **Trade-off:** Two extra layers per piece of glass use a little graphics memory. The wave needs Chromium. A browser cannot read the pixels behind an element, so the glass "reads the content" only through refraction and its tint, plus the known dark card on the opening page.
 
 **In one sentence:** Light that follows the phone's tilt and a ripple under the finger, moved by the graphics chip alone, so the page stays at 60 fps.
+
+**Found after release (5 Nov):** Sowan saw the bars drift toward the screen's edge while scrolling. The glint layer is a square larger than its piece of glass, and turning it widened the page by a few pixels at some scroll positions (measured: 3 px on Home), so a thumb could pan the page sideways. The light layers are now clipped to their glass (`overflow: hidden`, `contain: paint`), and `html` has `overflow-x: clip` so the app can never scroll sideways; `clip` keeps `position: sticky` working. Measured after the fix: no extra width on any page at any scroll position, with the phone tilted.
+
+## D79: A moving light around the upload box, and the comparison as one list
+
+**Alternatives:** Keep the dashed border; an animated dashed border; for the comparison, keep four stacked cards or use a wide table.
+
+**Why:** Sowan asked for a rotating light on the upload box's border and a better way to read a comparison.
+
+- **The border.** A faint gradient ring, and a light that travels around it with a soft glow: a conic gradient twice the box's size, turned by a CSS animation of `rotate` and cut down to the ring by a mask, plus a blurred copy for the glow. The graphics chip runs it, so it costs the page nothing per frame (Home measured at 60 fps with it, CPU slowed four times). An IntersectionObserver pauses it when the box is off screen. It speeds up while a file is dragged over the box, and stands still under reduced motion.
+- **The comparison.** Four stacked cards made a reader jump between sections, and long lines cut supplier names short. Now: a sentence ("3 pairs found, 2 agree on every field"), one bar with the share of each outcome, and four counts that are also the filter. Below them, every invoice is one line, like a bank statement: a status mark, the number and total, the supplier, then the date and where it was found in A and B ("A page 2 ↔ B row 5 · same number"). Problems come first. A mismatched pair opens to show each differing field with A's value, B's value and, for amounts, the exact change ("+25.00"). The change is worked out in whole cents with BigInt, so no floating point touches money; the backend's own comparison stays the authority.
+
+**Trade-off:** A blurred, always-moving light uses some graphics work while the upload box is on screen. One list is longer to scroll than separate cards when a comparison is large; the filter is the answer to that.
+
+**In one sentence:** A light that circles the upload box without costing a frame, and a comparison that reads like a statement, problems first.
+
+## D80: A finance palette and a type system
+
+**Alternatives:** Keep the sky-to-violet gradients and the system font; Inter for everything; a serif for headlines; red as the brand colour.
+
+**Why:** Sowan said the blue and purple made the site look AI-generated, asked which fonts finance products use, and asked for consistent sizes. He shared a type specimen in red, cream and navy. The choices:
+
+- **Colour: the palette of financial print.** Ink navy (#0F1B2D) for text and for the main action on each screen, warm paper (#F3EFE6) instead of cool grey, a deep ledger green (#0D7A56) as the brand colour, brass (#A97A26) as a warm accent, and the usual signals: green for checked, amber for "needs review", red for a problem. The specimen's red stays where finance readers expect it, on problems, so a red button never looks like an error and a mismatch keeps its meaning. Green is the brand because the product's promise is checked data. Brass is decoration only: the light around the upload box, the hero's ring, search matches and fields the model picked out. In dark mode the ink becomes the background and the cream the text. "Only in B" moved from violet to slate.
+- **Type: three faces with fixed jobs.** IBM Plex Sans for text: its digits are all one width, so amounts line up in columns without extra work, and IBM made it for enterprise data. Barlow Semi Condensed for headings and big numbers: a DIN-like grotesk close to the specimen, firm at weight 700. IBM Plex Mono for invoice numbers. Inter was the obvious choice and part of the generic look. All three are under the SIL Open Font License, served from the app (`frontend/app/fonts/`, with the licence), so the strict CSP stays.
+- **Sizes: roles, not guesses.** Page title 30 px, section 20 px, card title 18 px, body 14 px, captions 12 px, labels 11 px, inputs 16 px so phones do not zoom. They are utilities in `globals.css` (`type-page`, `type-section`, `type-card`, `type-eyebrow`, `type-display`, `type-figure`), so a page cannot drift. The one-off 9, 10, 11, 13 and 15 px sizes are gone outside the phone mockup.
+- **The glass did not change.** It is clear, so it takes the new colours from what is behind it.
+
+The app icon was redrawn in the same palette: a cream page with a green check on ink, with a brass scan line.
+
+Measured after the change, CPU slowed four times: Home 60 fps, the opening page 57 fps. The fonts add about 120 KB, loaded once.
+
+**Trade-off:** A warm paper background reads less "tech" than white; that is the point. Two type families need care to stay apart: Barlow only for headings and figures.
+
+**In one sentence:** Ink, paper and a ledger green with red kept for problems, Plex for reading and Barlow for headings, at a fixed scale.
+
+**Revised the same day:** Sowan found the result too green. Green had spread from "checked" into links, buttons, tints, the background light and every "completed" pill. The rule now: green only where something was checked or finished (check marks, finished steps, the logo's check, the Matched count). Links are ink with a quiet underline, Approve is the ink primary button like Sign in and Compare, focus rings are ink, and the background light and the upload box's light are brass. Status pills for documents that are fine or under way are neutral with a small dot; only failed and needs-review keep a full coloured pill, so a list shows its exceptions at a glance.
+
+## D81: A light and dark toggle, from the sign-in page on
+
+**Alternatives:** Follow the phone's setting only (as before); a three-way switch (light, dark, system); a toggle on the opening page too.
+
+**Why:** Sowan asked for a light and dark toggle on the sign-in page and inside the app, not on the opening page.
+
+- **One switch for the whole app.** The theme lives in `data-theme` on `<html>`. The colour tokens and Tailwind's `dark:` variant (98 uses) read it instead of the phone's media query, so nothing had to change screen by screen. A short script in `<head>` sets it before the first paint, from the saved choice or, without one, the phone's setting, so the page never flashes the wrong theme. With no choice saved, the app keeps following the phone, live.
+- **A two-way toggle.** A sun or moon button: one tap switches, and the choice is saved in the browser. A third "system" state would need a menu, and the default already follows the phone.
+- **Where it sits.** At the top right of the sign-in page, and in the account capsule of the app's top bar. The opening page has none, as asked, but it uses the saved choice.
+- **The switch itself.** The new theme spreads from the button in a circle, through the View Transitions API. For that moment the page is one snapshot, so the bars do not switch ahead of the circle. With reduced motion, or in a browser without the API, the switch is instant. The browser's own bars change colour too (theme-color).
+
+**Trade-off:** The choice is kept per browser, not per account. The `<html>` element differs between the server's copy and the page, so React's hydration warning is turned off for that one element.
+
+**In one sentence:** One attribute drives every colour, set before the first paint, and a sun-and-moon button flips it with a circle that spreads from your finger.

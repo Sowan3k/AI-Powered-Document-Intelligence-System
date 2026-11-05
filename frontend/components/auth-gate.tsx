@@ -11,6 +11,7 @@ import { CompareIcon, HomeIcon, Mark, ReviewIcon, SearchIcon } from "@/component
 import { direction } from "@/components/page-transition";
 import { API_BASE_URL, SIGNED_OUT_EVENT, clearToken, readToken } from "@/lib/api";
 import { useLiquidGlass } from "@/lib/liquid-glass";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const TABS = [
   { href: "/documents", label: "Home", Icon: HomeIcon },
@@ -63,7 +64,7 @@ function ReviewBadge() {
       initial={{ scale: 0.6, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: "spring", stiffness: 500, damping: 22 }}
-      className="absolute -top-1.5 -right-2.5 min-w-5 rounded-full bg-amber-500 px-1 text-center text-[10px] font-bold leading-5 text-white shadow-[0_0_0_2px_var(--background)]"
+      className="absolute -top-1.5 -right-2.5 min-w-5 rounded-full bg-amber-500 px-1 text-center text-2xs font-bold leading-5 text-white shadow-[0_0_0_2px_var(--background)]"
     >
       {count > 99 ? "99+" : count}
     </motion.span>
@@ -120,6 +121,7 @@ function TopBar({ pathname }: { pathname: string }) {
             })}
           </nav>
           <div ref={actionsGlass} style={{ viewTransitionName: "app-actions" }} className="glass ml-auto flex items-center rounded-full p-1">
+            <ThemeToggle className="size-8" />
             <a href={`${API_BASE_URL}/api/docs`} target="_blank" rel="noreferrer" className="hidden rounded-full px-3 py-1.5 text-muted transition-colors hover:text-foreground sm:block">
               API docs
             </a>
@@ -155,7 +157,7 @@ function BottomTabs({ pathname }: { pathname: string }) {
                 href={href}
                 transitionTypes={direction(pathname, href)}
                 aria-current={active ? "page" : undefined}
-                className={`relative flex flex-col items-center gap-0.5 rounded-[1.35rem] py-1.5 text-[11px] transition-colors ${active ? "font-semibold text-foreground" : "text-muted"}`}
+                className={`relative flex flex-col items-center gap-0.5 rounded-[1.35rem] py-1.5 text-2xs transition-colors ${active ? "font-semibold text-foreground" : "text-muted"}`}
               >
                 <motion.span className="relative" animate={{ scale: active ? 1.08 : 1 }} transition={lensSpring}>
                   <Icon className="size-6" />

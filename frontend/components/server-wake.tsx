@@ -105,7 +105,7 @@ export function WakeTimeline({ wake }: { wake: Wake }) {
             {i < steps.length - 1 && (
               <span className="relative mx-1.5 h-0.5 flex-1 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
                 <motion.span
-                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-sky-400 to-violet-400"
+                  className="absolute inset-y-0 left-0 rounded-full bg-foreground/35"
                   initial={{ width: "0%" }}
                   animate={{ width: step.state === "done" ? "100%" : "0%" }}
                   transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 * i }}
@@ -115,7 +115,7 @@ export function WakeTimeline({ wake }: { wake: Wake }) {
           </div>
         ))}
       </div>
-      <div className="flex justify-between text-[11px] font-medium">
+      <div className="flex justify-between text-2xs font-medium">
         {steps.map((step, i) => (
           <span key={step.label} className={`${i === 0 ? "text-left" : i === steps.length - 1 ? "text-right" : "text-center"} ${step.state === "waiting" ? "text-muted" : ""}`}>
             {step.label}
@@ -162,7 +162,7 @@ export function WakeIsland({ wake }: { wake: Wake }) {
                 </motion.span>
               ) : (
                 <motion.span
-                  className="size-5 rounded-full border-2 border-sky-400/30 border-t-sky-400"
+                  className="size-5 rounded-full border-2 border-current/25 border-t-current"
                   animate={{ rotate: 360 }}
                   transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
                 />
@@ -175,7 +175,7 @@ export function WakeIsland({ wake }: { wake: Wake }) {
               {wake.steps.map((s) => (
                 <span
                   key={s.label}
-                  className={`size-1.5 rounded-full transition-colors duration-500 ${s.state === "done" ? "bg-emerald-400" : s.state === "error" ? "bg-rose-400" : s.state === "working" ? "animate-pulse bg-sky-400" : "bg-black/20 dark:bg-white/20"}`}
+                  className={`size-1.5 rounded-full transition-colors duration-500 ${s.state === "done" ? "bg-emerald-400" : s.state === "error" ? "bg-rose-400" : s.state === "working" ? "animate-pulse bg-current opacity-60" : "bg-black/20 dark:bg-white/20"}`}
                 />
               ))}
             </span>
@@ -191,7 +191,7 @@ function Node({ state }: { state: StepState }) {
     <span className="relative grid size-7 shrink-0 place-items-center">
       {state === "working" && (
         <motion.span
-          className="absolute inset-0 rounded-full border-2 border-sky-400/30 border-t-sky-400"
+          className="absolute inset-0 rounded-full border-2 border-current/25 border-t-current"
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 0.9, ease: "linear" }}
         />
@@ -206,7 +206,7 @@ function Node({ state }: { state: StepState }) {
             : state === "error"
               ? "bg-rose-500"
               : state === "working"
-                ? "bg-sky-500/80"
+                ? "bg-foreground/60"
                 : "bg-black/15 dark:bg-white/15"
         }`}
       >

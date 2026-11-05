@@ -45,7 +45,7 @@ export function InvoiceCard({ invoice, onSaved }: { invoice: InvoiceDetail; onSa
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="font-semibold">{invoice.invoice_number ?? "Invoice without a number"}</h3>
+          <h3 className="type-card">{invoice.invoice_number ?? "Invoice without a number"}</h3>
           <p className="text-xs text-neutral-600 dark:text-neutral-400">{where(invoice)}</p>
         </div>
         <StatusBadge status={invoice.review_status} />
@@ -61,7 +61,7 @@ export function InvoiceCard({ invoice, onSaved }: { invoice: InvoiceDetail; onSa
                 {issue.message}
               </span>
               {!editing && issue.field && (EDITABLE_FIELDS as readonly string[]).includes(issue.field) && (
-                <button onClick={() => fix(issue.field)} className="shrink-0 text-xs font-medium text-sky-700 underline dark:text-sky-400">
+                <button onClick={() => fix(issue.field)} className="link shrink-0 text-xs">
                   Fix
                 </button>
               )}

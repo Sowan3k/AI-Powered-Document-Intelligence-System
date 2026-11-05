@@ -4,14 +4,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 
-import { CountUp } from "@/components/count-up";
 import { DocPicker } from "@/components/doc-picker";
 import { CompareIcon } from "@/components/icons";
 import { KindBadge } from "@/components/kind-badge";
-import { Badge, Card, Empty, ErrorBox, Loading, PageTitle } from "@/components/ui";
+import { ReconcileReport } from "@/components/reconcile-report";
+import { Empty, ErrorBox, Loading, PageTitle } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { dateText, label, money } from "@/lib/format";
-import type { DocumentDetail, DocumentSummary, PairDocument, PairSuggestion, Page, ReconcileSide, Reconciliation } from "@/lib/types";
+import type { DocumentDetail, DocumentSummary, PairDocument, PairSuggestion, Page, Reconciliation } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 type Picked = Pick<PairDocument, "id" | "filename" | "source_kind" | "created_at"> & { invoice_count: number | null };
@@ -103,7 +102,7 @@ function Reconcile() {
 
       {pairs.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold">Suggested pairs</h2>
+          <h2 className="type-section">Suggested pairs</h2>
           <p className="-mt-1 text-xs text-muted">These documents share invoices. One tap compares them.</p>
           <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
             {pairs.map((p, i) => (
@@ -120,7 +119,7 @@ function Reconcile() {
                 className="glass flex w-72 shrink-0 snap-start flex-col gap-2 rounded-3xl p-4 text-left"
               >
                 <MiniDoc doc={p.document_a} tag="A" />
-                <span className="flex items-center gap-2 pl-3 text-xs font-medium text-sky-600 dark:text-sky-400">
+                <span className="flex items-center gap-2 pl-3 text-xs font-medium text-brass">
                   <span className="h-4 w-px bg-current opacity-40" />
                   {p.shared} shared invoice{p.shared === 1 ? "" : "s"}
                 </span>
@@ -151,7 +150,7 @@ function Reconcile() {
             whileTap={{ scale: 0.98 }}
             disabled={!a || !b || busy}
             onClick={() => a && b && compare(a, b)}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 px-4 font-semibold text-white shadow-[0_10px_30px_-12px_rgb(99_102_241/0.8)] transition disabled:opacity-40 disabled:shadow-none"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl btn-primary px-4 font-semibold transition disabled:opacity-40 disabled:shadow-none"
           >
             {busy ? (
               <>
@@ -170,7 +169,7 @@ function Reconcile() {
 
       {error && <ErrorBox message={error} />}
       <div ref={results} className="scroll-mt-20">
-        <AnimatePresence mode="wait">{report && <Report key={report.id} report={report} />}</AnimatePresence>
+        <AnimatePresence mode="wait">{report && <ReconcileReport key={report.id} report={report} nameA={a?.filename} nameB={b?.filename} />}</AnimatePresence>
       </div>
 
       <DocPicker
@@ -193,7 +192,7 @@ function Slot({ side, doc, onOpen }: { side: "A" | "B"; doc: Picked | null; onOp
       onClick={onOpen}
       className={`surface flex min-h-20 flex-1 items-center gap-3 rounded-3xl p-4 text-left ${doc ? "" : "border-dashed"}`}
     >
-      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-violet-400 text-xs font-bold text-white">{side}</span>
+      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-foreground text-xs font-bold text-background">{side}</span>
       <AnimatePresence mode="popLayout" initial={false}>
         {doc ? (
           <motion.span key={doc.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={spring} className="flex min-w-0 flex-1 items-center gap-3">
@@ -205,7 +204,7 @@ function Slot({ side, doc, onOpen }: { side: "A" | "B"; doc: Picked | null; onOp
                 {shortWhen(doc.created_at)}
               </span>
             </span>
-            <span className="text-xs font-medium text-sky-600 dark:text-sky-400">Change</span>
+            <span className="link text-xs">Change</span>
           </motion.span>
         ) : (
           <motion.span key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 text-sm text-muted">
@@ -223,111 +222,10 @@ function MiniDoc({ doc, tag }: { doc: PairDocument; tag: string }) {
       <KindBadge kind={doc.source_kind} className="size-8" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{doc.filename}</span>
-        <span className="block text-[11px] text-muted">
+        <span className="block text-2xs text-muted">
           {tag} · {doc.invoice_count} invoice{doc.invoice_count === 1 ? "" : "s"}
         </span>
       </span>
-    </span>
-  );
-}
-
-const TILES = [
-  { key: "matched", label: "Matched", tone: "from-emerald-500/20 text-emerald-700 dark:text-emerald-300" },
-  { key: "mismatched", label: "Mismatched", tone: "from-rose-500/20 text-rose-700 dark:text-rose-300" },
-  { key: "only_in_a", label: "Only in A", tone: "from-amber-500/20 text-amber-700 dark:text-amber-300" },
-  { key: "only_in_b", label: "Only in B", tone: "from-amber-500/20 text-amber-700 dark:text-amber-300" },
-] as const;
-
-function Report({ report }: { report: Reconciliation }) {
-  const r = report.result;
-  const s = r.summary;
-  const block = (i: number) => ({
-    initial: { opacity: 0, y: 14 },
-    animate: { opacity: 1, y: 0, transition: { ...spring, delay: 0.06 * i } },
-  });
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -8 }} className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {TILES.map((t, i) => (
-          <motion.div key={t.key} {...block(i)} className={`surface rounded-3xl bg-gradient-to-br to-transparent p-4 ${t.tone}`}>
-            <p className="text-3xl font-semibold tracking-tight">
-              <CountUp value={s[t.key]} />
-            </p>
-            <p className="mt-1 text-xs font-medium opacity-80">{t.label}</p>
-          </motion.div>
-        ))}
-      </div>
-
-      {r.mismatched.length > 0 && (
-        <motion.div {...block(4)}>
-          <Card>
-            <h2 className="mb-3 font-semibold">Mismatched</h2>
-            <ul className="flex flex-col gap-4">
-              {r.mismatched.map((m, i) => (
-                <li key={i} className="flex flex-col gap-2">
-                  <Side s={m.a} />
-                  <div className="overflow-hidden rounded-2xl border border-black/10 text-sm dark:border-white/10">
-                    <div className="grid grid-cols-3 bg-black/5 px-3 py-1.5 text-xs font-medium text-muted dark:bg-white/5">
-                      <span>Field</span>
-                      <span>A</span>
-                      <span>B</span>
-                    </div>
-                    {m.differences.map((d) => (
-                      <div key={d.field} className="grid grid-cols-3 border-t border-black/5 px-3 py-2 dark:border-white/5">
-                        <span className="font-medium">{label(d.field)}</span>
-                        <span className="tabular-nums">{String(d.a ?? "empty")}</span>
-                        <span className="font-semibold text-rose-600 tabular-nums dark:text-rose-400">{String(d.b ?? "empty")}</span>
-                      </div>
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </motion.div>
-      )}
-
-      {(["only_in_a", "only_in_b"] as const).map((key, i) =>
-        r[key].length > 0 ? (
-          <motion.div key={key} {...block(5 + i)}>
-            <Card>
-              <h2 className="mb-2 font-semibold">{key === "only_in_a" ? "Only in A" : "Only in B"}</h2>
-              <ul className="flex flex-col gap-1.5">
-                {r[key].map((x) => (
-                  <li key={x.invoice_id}>
-                    <Side s={x} />
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </motion.div>
-        ) : null,
-      )}
-
-      {r.matched.length > 0 && (
-        <motion.div {...block(7)}>
-          <Card>
-            <h2 className="mb-2 font-semibold">Matched</h2>
-            <ul className="flex flex-col gap-1.5">
-              {r.matched.map((m, i) => (
-                <li key={i} className="flex flex-wrap items-center gap-2">
-                  <Side s={m.a} />
-                  <Badge tone="green">{m.matched_on === "invoice_number" ? "by number" : "by supplier, date, total"}</Badge>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </motion.div>
-      )}
-    </motion.div>
-  );
-}
-
-function Side({ s }: { s: ReconcileSide }) {
-  return (
-    <span className="text-sm">
-      <span className="font-medium">{s.invoice_number ?? "no number"}</span> · {s.supplier_name ?? "?"} · {dateText(s.invoice_date)} ·{" "}
-      <span className="tabular-nums">{money(s.total)}</span> <span className="text-xs text-muted">({s.where})</span>
     </span>
   );
 }

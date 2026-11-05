@@ -1,7 +1,35 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 
 import { Ambient, Providers } from "@/components/providers";
+import { THEME_SCRIPT } from "@/lib/theme";
+
+// Type (D80): IBM Plex Sans for text (its digits are all one width, so amounts
+// line up), Barlow Semi Condensed for headings and figures, IBM Plex Mono for
+// invoice numbers. Served from the app itself, so the strict CSP stays as is.
+const plex = localFont({
+  src: "./fonts/ibm-plex-sans-latin-wght-normal.woff2",
+  variable: "--font-plex",
+  weight: "100 700",
+  display: "swap",
+});
+const barlow = localFont({
+  src: [
+    { path: "./fonts/barlow-semi-condensed-latin-600-normal.woff2", weight: "600" },
+    { path: "./fonts/barlow-semi-condensed-latin-700-normal.woff2", weight: "700" },
+  ],
+  variable: "--font-barlow",
+  display: "swap",
+});
+const plexMono = localFont({
+  src: [
+    { path: "./fonts/ibm-plex-mono-latin-400-normal.woff2", weight: "400" },
+    { path: "./fonts/ibm-plex-mono-latin-500-normal.woff2", weight: "500" },
+  ],
+  variable: "--font-plex-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "DocIntel",
@@ -13,14 +41,19 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#eef1f6" },
-    { media: "(prefers-color-scheme: dark)", color: "#06070b" },
+    { media: "(prefers-color-scheme: light)", color: "#f3efe6" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b121d" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full antialiased">
+    // The theme script sets data-theme before React runs, so React must not
+    // complain that <html> differs from the server's copy (D81).
+    <html lang="en" suppressHydrationWarning className={`${plex.variable} ${barlow.variable} ${plexMono.variable} h-full antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
         <Ambient />
         <Providers>{children}</Providers>

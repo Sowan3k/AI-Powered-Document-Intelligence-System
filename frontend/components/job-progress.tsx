@@ -23,7 +23,7 @@ export function JobProgress({ job }: { job: Job | null }) {
       </div>
       {job.status === "running" && pct !== null && (
         <div className="h-1.5 w-full overflow-hidden rounded bg-neutral-200 dark:bg-neutral-800" aria-label={`${pct}% done`}>
-          <div className="h-full bg-sky-500 transition-all" style={{ width: `${pct}%` }} />
+          <div className="h-full bg-foreground/80 transition-all" style={{ width: `${pct}%` }} />
         </div>
       )}
       {job.last_error && job.status !== "succeeded" && (

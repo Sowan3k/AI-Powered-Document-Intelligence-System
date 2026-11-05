@@ -61,7 +61,7 @@ export function LoginForm() {
         type="submit"
         disabled={busy}
         whileTap={{ scale: 0.97 }}
-        className="relative inline-flex min-h-12 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 px-4 font-semibold text-white shadow-[0_10px_30px_-10px_rgb(99_102_241/0.8)] transition disabled:opacity-70"
+        className="relative inline-flex min-h-12 items-center justify-center gap-2 overflow-hidden rounded-2xl btn-primary px-4 font-semibold transition disabled:opacity-70"
       >
         {busy && (
           <motion.span

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 
 import { useActivity } from "@/components/activity";
 import { UploadIcon } from "@/components/icons";
@@ -41,6 +41,7 @@ function describe(file: File): Picked {
  */
 export function DropZone() {
   const input = useRef<HTMLInputElement>(null);
+  const zone = useRef<HTMLButtonElement>(null);
   const { refresh } = useActivity();
   const [picked, setPicked] = useState<Picked[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -48,6 +49,17 @@ export function DropZone() {
   const [error, setError] = useState<string | null>(null);
   const [rejected, setRejected] = useState<UploadResponse["documents"]>([]);
   const [sent, setSent] = useState<number | null>(null);
+
+  // The light around the border runs only while the box is on screen (D79).
+  useEffect(() => {
+    const el = zone.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      el.style.setProperty("--glow-play", entry.isIntersecting ? "running" : "paused");
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   function add(list: FileList | null) {
     // Copy now: the FileList is live and empties when the input is reset.
@@ -114,7 +126,9 @@ export function DropZone() {
   return (
     <div className="flex flex-col gap-2">
       <button
+        ref={zone}
         type="button"
+        data-active={dragging}
         onClick={() => input.current?.click()}
         onDragOver={(e) => {
           e.preventDefault();
@@ -123,9 +137,14 @@ export function DropZone() {
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         disabled={progress !== null}
-        className={`flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-4 ${picked.length ? "py-4" : "py-8"} text-center transition ${dragging ? "scale-[1.01] border-sky-400 bg-sky-400/10" : "border-sky-400/40 bg-[var(--surface)] hover:border-sky-400 hover:bg-sky-400/5"}`}
+        className={`glow-border flex w-full flex-col items-center gap-2 rounded-2xl px-4 ${picked.length ? "py-4" : "py-8"} text-center transition ${dragging ? "scale-[1.01] bg-brass/10" : "hover:bg-foreground/[0.03]"}`}
       >
-        <span className="grid size-12 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 text-white shadow-[0_8px_24px_-8px_rgb(99_102_241/0.8)]">
+        {/* A light that travels around the border, with a soft glow. */}
+        <span aria-hidden className="glow-halo">
+          <span className="glow-ring" />
+        </span>
+        <span aria-hidden className="glow-ring" />
+        <span className="grid size-12 place-items-center rounded-full bg-foreground text-background shadow-[0_8px_24px_-10px_rgb(15_27_45/0.6)]">
           <UploadIcon className="size-6" />
         </span>
         <span className="text-base font-semibold">{picked.length ? "Add more files" : "Tap to add files"}</span>
@@ -170,7 +189,7 @@ export function DropZone() {
                   }
                   className="size-4 shrink-0"
                 />
-                <span className="w-12 shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-center text-[11px] font-medium dark:bg-neutral-800">
+                <span className="w-12 shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-center text-2xs font-medium dark:bg-neutral-800">
                   {p.kind ?? "?"}
                 </span>
                 <span className="min-w-0 flex-1">

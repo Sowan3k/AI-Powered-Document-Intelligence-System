@@ -72,7 +72,7 @@ function SearchView() {
                 <input name="supplier" className={inputClass} />
               </Field>
               <Field label="Currency">
-                <input name="currency" className={inputClass} placeholder="USD" pattern="[A-Za-z]{3}" />
+                <input name="currency" className={inputClass} placeholder="Any (e.g. BDT)" pattern="[A-Za-z]{3}" />
               </Field>
               <Field label="Date from">
                 <input name="date_from" type="date" className={inputClass} />

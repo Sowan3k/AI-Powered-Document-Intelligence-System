@@ -1,17 +1,17 @@
 # Test report
 
-From CI run 41 on 4 November 2026 (commit `7814d6d`, after the interview readiness fixes D56 to D62), [GitHub Actions run 41890510804](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/actions/runs/41890510804). Every push runs the same four jobs. The JUnit XML and coverage XML of each run are kept as the `backend-test-reports` artifact for 30 days.
+From CI run 50 on 5 November 2026 (commit `15e86b9`, after D56 to D70), [GitHub Actions run 41976718568](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/actions/runs/41976718568). Every push runs the same four jobs. The JUnit XML and coverage XML of each run are kept as the `backend-test-reports` artifact for 30 days.
 
 ## Result
 
 | Job | Result | What it checks |
 |---|---|---|
-| Backend | passed | ruff lint and format, Alembic migrations, `alembic check` (models match the migration), 388 pytest tests on Postgres 17 with pgvector, Tesseract required |
+| Backend | passed | ruff lint and format, Alembic migrations, `alembic check` (models match the migration), 397 pytest tests on Postgres 17 with pgvector, Tesseract required |
 | Frontend | passed | ESLint, TypeScript, Next.js production build |
 | Secret scan | passed | gitleaks over the full Git history |
 | Docker | passed | Both images build, Tesseract and the ingestion libraries load in the backend image, the compose stack starts, the API reports a connected database, a CSV uploaded through the API is processed by the worker and found by search, the web app answers |
 
-**388 tests passed, 0 failed, 0 skipped. Line coverage 96%** (3,744 statements, 161 not run; measured on the same code).
+**397 tests passed, 0 failed, 0 skipped. Line coverage 96%** (3,870 statements, 169 not run; measured on the same code).
 
 ## Coverage by area
 

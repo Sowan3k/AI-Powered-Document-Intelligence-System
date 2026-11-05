@@ -134,6 +134,11 @@ jobs:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # On a pull request the action lists the PR's commits through the API,
+    # which needs pull-requests: read (without it: HTTP 403 on PR #2).
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v5
         with:

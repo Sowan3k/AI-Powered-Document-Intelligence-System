@@ -23,7 +23,7 @@ flowchart LR
     user --> web
     web -- "HTTPS + JWT" --> api
     api -- SQLAlchemy --> db
-    api -- "Storage API (apikey)" --> files
+    api -- "Storage API (secret key)" --> files
     worker -- "FOR UPDATE SKIP LOCKED" --> db
     worker --> files
     worker -- "extraction, vision, embeddings" --> gemini

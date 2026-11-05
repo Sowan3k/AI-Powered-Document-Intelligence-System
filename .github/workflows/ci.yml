@@ -167,11 +167,12 @@ jobs:
       - name: Start the stack
         run: docker compose up -d --wait --wait-timeout 180
 
-      - name: API reports a connected database
+      - name: API reports a connected database and working storage
         run: |
           body=$(curl -sS --fail http://localhost:8000/api/health)
           echo "$body"
           echo "$body" | grep -q '"database":"connected"'
+          echo "$body" | grep -q '"storage":"ok"'
 
       - name: Upload a CSV, let the worker process it, search for it
         run: |

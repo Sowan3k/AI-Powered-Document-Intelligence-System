@@ -10,6 +10,8 @@ export type HealthResponse = {
   status: "ok" | "degraded";
   database: "connected" | "unavailable";
   database_latency_ms: number | null;
+  // Missing on a backend deployed before D32's fix; treated as "ok".
+  storage?: "ok" | "error";
   environment: string;
   version: string;
 };
@@ -37,13 +39,14 @@ export async function fetchHealth(signal?: AbortSignal): Promise<HealthResult> {
     };
   }
 
-  // The API answers 503 with a JSON body when the database is down.
+  // The API answers 503 with a JSON body when the database or file storage is down.
   if (response.status !== 200 && response.status !== 503) {
     return { kind: "unreachable", reason: `The API answered with status ${response.status}.` };
   }
   try {
     const body = (await response.json()) as HealthResponse;
-    const healthy = body.status === "ok" && body.database === "connected";
+    const healthy =
+      body.status === "ok" && body.database === "connected" && body.storage !== "error";
     return healthy ? { kind: "healthy", body } : { kind: "degraded", body };
   } catch {
     return { kind: "unreachable", reason: "The API sent a response that is not valid JSON." };

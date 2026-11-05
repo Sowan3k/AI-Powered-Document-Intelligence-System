@@ -7,7 +7,7 @@ What DocIntel protects today, and what a production deployment would add. Every 
 - No secret is in the repository. Values live in the Render, Vercel and GitHub Actions settings. `.env` is ignored by Git; `.env.example` holds placeholders only.
 - gitleaks scans the full Git history on every push.
 - Settings hold secrets as `SecretStr`, so they never appear in logs, error messages or reprs. Settings errors never echo input values, because `DATABASE_URL` holds a password.
-- The Supabase secret key (`sb_secret_...`) is used only by the backend, and only in the `apikey` header of Storage API calls (D32). Render generates `JWT_SECRET` itself.
+- The Supabase secret key (`sb_secret_...`) is used only by the backend, in the `apikey` and `Authorization` headers of Storage API calls, the way Supabase's own clients send it (D32). It never appears in logs or error messages. Render generates `JWT_SECRET` itself.
 - The Gemini key stays in GitHub Actions for the smoke test and the evaluation; the coding sandbox never sees it.
 
 ## Access

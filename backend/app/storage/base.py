@@ -44,3 +44,7 @@ class FileStorage(Protocol):
     def delete(self, key: str) -> None:
         """Remove the object. Deleting a missing object is not an error."""
         ...
+
+    def check(self) -> None:
+        """Raise StorageError if the store cannot be reached or refuses our key."""
+        ...

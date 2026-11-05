@@ -4,7 +4,9 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. All of it is merged into `main` and deployed. Still open: the exit tests on the live site for Phases 4 and 5, and the Phase 7 items only Sowan can do.
+**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the storage fix below, the exit tests on the live site for Phases 4 and 5, and the Phase 7 items only Sowan can do.
+
+**Live bug, 5 Nov 12:29 Dhaka:** every upload on the live site failed with `STORAGE_ERROR`. Hosted Supabase Storage needs an `Authorization` header and the client sent `apikey` only. Fixed on branch `ccr-2f4fe3f2-hzma97` (D32): both headers on every call, a fake that enforces the real rules, and `"storage": "ok"` or `"error"` in `GET /api/health`. Not live until that branch is merged into `main`.
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
 
 **Live:**
@@ -12,8 +14,9 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 - Web app: https://docintel-tan-two.vercel.app (Vercel project `docintel`)
 - API: https://docintel-api-y25b.onrender.com (Render service `docintel-api`, Singapore, free plan). Docs at `/api/docs`, health at `/api/health`.
 - Render and Vercel deploy automatically from `main`. Phases 1 to 7 were merged into `main` on 4 Nov 2026 (Sowan3k/AI-Powered-Document-Intelligence-System#1, merge commit `d37fe29`).
+- Branches: `ccr-2f4fe3f2-hzma97` holds everything on `sowan/admiring-gates-y0oyrm` (D56 to D70), the phone photo set (D71) and the storage fix. Merging it into `main` deploys all of it.
 
-**Supabase (set up by Sowan):** `vector` and `pg_trgm` in the `extensions` schema, private bucket `documents` (50 MB), Data API disabled. `SUPABASE_SERVICE_ROLE_KEY` holds an `sb_secret_` key, sent only in the `apikey` header (D32).
+**Supabase (set up by Sowan):** `vector` and `pg_trgm` in the `extensions` schema, private bucket `documents` (50 MB), Data API disabled. `SUPABASE_SERVICE_ROLE_KEY` holds an `sb_secret_` key, sent in the `apikey` and `Authorization` headers (D32, fixed 5 Nov).
 
 **Gemini (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` (text), `gemini-3.8-flash` (vision), `gemini-embedding-2` at 768 dimensions. The vision model answered HTTP 503 (overloaded) in every real run; the fallback to the text model read those pages (D44).
 
@@ -21,14 +24,15 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Next, for Sowan (in order):**
 
-1. ~~Merge `sowan/admiring-gates-y0oyrm` into `main`.~~ Done 4 Nov 2026. Everything since (D56 to D70) is on the branch and needs a second merge; ask Claude Code to merge when ready.
-2. In Render, check these environment variables: `DEMO_PASSWORD` is set (pick one and put it in the submission email); `STORAGE_BACKEND=supabase` and the new defaults come from `render.yaml` (sync the Blueprint if Render asks). Optional: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` while `gemini-3.8-flash` stays overloaded; weak scans then skip a wait of about a minute.
-3. After the deploy: open the web app on your phone, sign in, upload a few files from the dataset (or your own), and check results, review, a correction, both searches and reconcile. Tell Claude Code what you see, and it will tick the exit tests for Phases 4 and 5.
-4. Record the walkthrough video (3 to 5 minutes) following the Phase 7 list.
-5. Decide repository access (invite the reviewers, or make it public; gitleaks scans the full history on every push and has been green).
-6. Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio.
+1. Merge `ccr-2f4fe3f2-hzma97` into `main` once CI is green. It includes D56 to D71 and the storage fix.
+2. After Render deploys, open https://docintel-api-y25b.onrender.com/api/health and check `"storage": "ok"`. Then upload a few files on the live site.
+3. In Render, check these environment variables: `DEMO_PASSWORD` is set (pick one and put it in the submission email); `STORAGE_BACKEND=supabase` and the new defaults come from `render.yaml` (sync the Blueprint if Render asks). Optional: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` while `gemini-3.8-flash` stays overloaded; weak scans then skip a wait of about a minute.
+4. On the live site, check results, review, a correction, both searches and reconcile. Tell Claude Code what you see, and it will tick the exit tests for Phases 4 and 5.
+5. Record the walkthrough video (3 to 5 minutes) following `docs/WALKTHROUGH.md`.
+6. Decide repository access (invite the reviewers, or make it public; gitleaks scans the full history on every push and has been green).
+7. Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio.
 
-**Blockers:** None.
+**Blockers:** Uploads on the live site fail until the storage fix is merged.
 
 **Note:** Render's free instance hours are shared across the workspace with BahasaBot and grab-realtime-demo.
 
@@ -38,6 +42,14 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Real public invoice samples were not added to the evaluation (licensing and personal data). The report says so.
 
 ## Session log
+
+### 5 Nov 2026, live storage bug, phone photo set (Claude Code)
+
+Sowan uploaded 12 files on the live site at 12:29 Dhaka. All failed with `STORAGE_ERROR`. Supabase's storage log gave the cause: `FST_ERR_VALIDATION`, "headers must have required property 'authorization'". The client sent the secret key in `apikey` only, and the fake transport in the tests never checked headers, so CI stayed green. Fixed (D32): both headers on every call, a fake that answers like hosted Storage (401 without `apikey`, the same 400 without `Authorization`), Storage's error code in our error messages, and a storage check in `GET /api/health` (list one object, 5 s timeout, cached 15 s, 503 on error). The start page now says "file storage unavailable" when that part is down. Supabase's own Python client (2.34.0) sends the same header pair. The sandbox cannot reach supabase.co, so the live health check is the real proof.
+
+Earlier in the session: checked the build against the Care Guide email and brief, and found that `main` lacked the 25 commits on `sowan/admiring-gates-y0oyrm`. Rebuilt this branch on top of them. Added nine phone photos at three levels, scored apart from the main numbers, plus a count of wrong invoices that reached the review queue (D71). Run 7 is requested.
+
+Tested: 400 backend tests before the fix and the full suite after it (below), ruff clean, frontend lint, typecheck and build. Seven storage tests fail when the old header code is put back.
 
 ### 5 Nov 2026, more files at once, search, safety and scale (Claude Code)
 

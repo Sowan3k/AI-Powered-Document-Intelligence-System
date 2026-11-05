@@ -1,5 +1,7 @@
 """Storage interface: local disk backend, Supabase backend over a fake transport."""
 
+import json
+import logging
 import uuid
 from pathlib import Path
 
@@ -50,8 +52,28 @@ def test_local_roundtrip(tmp_path: Path, source: Path) -> None:
         storage.download(KEY, out)
 
 
+# What hosted Supabase Storage answered on 5 Nov 2026 when the Authorization
+# header was missing (Supabase storage log, POST /storage/v1/object/...).
+MISSING_AUTHORIZATION = {
+    "statusCode": "400",
+    "code": "FST_ERR_VALIDATION",
+    "error": "Bad Request",
+    "message": "headers must have required property 'authorization'",
+}
+
+
 class FakeSupabase:
-    """Records requests and answers like the Storage API."""
+    """Records requests and answers like the hosted Storage API, header rules included.
+
+    The first fake checked only paths and bodies, so it accepted requests that
+    production refuses, and CI stayed green while every live upload failed (D32).
+    It now enforces what the gateway and Storage enforce:
+
+    - no `apikey` header: 401 from the gateway;
+    - no `Authorization` header: 400 FST_ERR_VALIDATION from Storage;
+    - a `Bearer sb_...` value must be the same key as `apikey`, which the gateway
+      swaps for a service role token; anything else is refused.
+    """
 
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
@@ -60,8 +82,21 @@ class FakeSupabase:
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
+        key_header = request.headers.get("apikey")
+        if not key_header:
+            return httpx.Response(401, json={"message": "No API key found in request"})
+        authorization = request.headers.get("authorization")
+        if authorization is None:
+            return httpx.Response(400, json=MISSING_AUTHORIZATION)
+        if authorization != f"Bearer {key_header}":
+            return httpx.Response(
+                403, json={"statusCode": "403", "error": "InvalidJWT", "message": "invalid"}
+            )
         if self.fail_next:
-            return httpx.Response(self.fail_next.pop(0), json={"error": "busy"})
+            return httpx.Response(self.fail_next.pop(0), json={"error": "InternalError"})
+        if request.method == "POST" and request.url.path == "/storage/v1/object/list/documents":
+            limit = json.loads(request.read())["limit"]
+            return httpx.Response(200, json=[{"name": k} for k in sorted(self.objects)][:limit])
         prefix = "/storage/v1/object/documents/"
         assert request.url.path.startswith(prefix)
         key = request.url.path[len(prefix) :]
@@ -102,20 +137,114 @@ def test_supabase_roundtrip(supabase: SupabaseStorage, fake: FakeSupabase, sourc
     assert KEY not in fake.objects
 
 
-def test_secret_key_goes_only_in_apikey_header(
+def test_secret_key_goes_in_apikey_and_authorization_headers(
     supabase: SupabaseStorage, fake: FakeSupabase, source: Path
 ) -> None:
     supabase.upload(KEY, source, "application/pdf")
     supabase.download(KEY, source.with_name("out.pdf"))
     supabase.delete(KEY)
+    supabase.check()
+    assert len(fake.requests) == 4
     for request in fake.requests:
         assert request.headers["apikey"] == FAKE_KEY
-        # An sb_secret_ key is not a JWT; Supabase rejects it as a Bearer token.
-        assert "authorization" not in request.headers
+        # Hosted Storage needs Authorization; the gateway swaps "Bearer sb_..." (D32).
+        assert request.headers["authorization"] == f"Bearer {FAKE_KEY}"
     upload = fake.requests[0]
     assert upload.headers["content-type"] == "application/pdf"
     assert upload.headers["x-upsert"] == "true"
     assert upload.url == f"https://project.supabase.co/storage/v1/object/documents/{KEY}"
+
+
+class ApikeyOnlyStorage(SupabaseStorage):
+    """The header code that shipped before 5 Nov 2026 (D32, first version)."""
+
+    def _headers(self) -> dict[str, str]:
+        return {"apikey": self._key.get_secret_value()}
+
+
+def test_the_fake_refuses_the_old_apikey_only_headers(
+    fake: FakeSupabase, source: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    old = ApikeyOnlyStorage(
+        "https://project.supabase.co/",
+        SecretStr(FAKE_KEY),
+        "documents",
+        client=httpx.Client(transport=httpx.MockTransport(fake)),
+        backoff_s=0,
+    )
+    with caplog.at_level(logging.DEBUG), pytest.raises(StorageError) as info:
+        old.upload(KEY, source, "application/pdf")
+    # The same answer production gave, now with Storage's code in our message.
+    assert str(info.value) == "storage upload failed with HTTP 400 (FST_ERR_VALIDATION)"
+    assert len(fake.requests) == 1  # a 400 is not retried
+    assert KEY not in fake.objects
+    with pytest.raises(StorageError, match="FST_ERR_VALIDATION"):
+        old.check()
+    assert FAKE_KEY not in str(info.value)
+    assert FAKE_KEY not in caplog.text
+
+
+def test_check_lists_one_object(supabase: SupabaseStorage, fake: FakeSupabase) -> None:
+    supabase.check()
+    request = fake.requests[-1]
+    assert request.method == "POST"
+    assert request.url == "https://project.supabase.co/storage/v1/object/list/documents"
+    assert json.loads(request.read()) == {"prefix": "", "limit": 1, "offset": 0}
+
+
+def test_check_does_not_retry(supabase: SupabaseStorage, fake: FakeSupabase) -> None:
+    fake.fail_next = [503]
+    with pytest.raises(
+        StorageError, match=r"^storage check failed with HTTP 503 \(InternalError\)$"
+    ):
+        supabase.check()
+    assert len(fake.requests) == 1
+
+
+def test_check_network_error() -> None:
+    def down(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("no route to p.supabase.co")
+
+    storage = SupabaseStorage(
+        "https://p.supabase.co",
+        SecretStr(FAKE_KEY),
+        "documents",
+        client=httpx.Client(transport=httpx.MockTransport(down)),
+    )
+    with pytest.raises(StorageError, match="^storage check failed: network error$"):
+        storage.check()
+
+
+@pytest.mark.parametrize(
+    ("body", "suffix"),
+    [
+        ({"code": "FST_ERR_VALIDATION", "error": "Bad Request"}, " (FST_ERR_VALIDATION)"),
+        ({"error": "InvalidJWT"}, " (InvalidJWT)"),
+        ({"error": "a sentence with spaces, maybe holding data"}, ""),
+        (["not", "a", "dict"], ""),
+    ],
+)
+def test_only_a_storage_error_code_reaches_the_message(body: object, suffix: str) -> None:
+    def answer(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json=body)
+
+    storage = SupabaseStorage(
+        "https://p.supabase.co",
+        SecretStr(FAKE_KEY),
+        "documents",
+        client=httpx.Client(transport=httpx.MockTransport(answer)),
+    )
+    with pytest.raises(StorageError) as info:
+        storage.check()
+    assert str(info.value) == "storage check failed with HTTP 400" + suffix
+
+
+def test_local_check(tmp_path: Path) -> None:
+    LocalStorage(tmp_path / "new" / "store").check()  # creates the folder
+    blocker = tmp_path / "a-file"
+    blocker.write_text("not a folder")
+    with pytest.raises(StorageError, match="cannot be created"):
+        LocalStorage(blocker / "store").check()
 
 
 def test_supabase_retries_server_errors(
@@ -133,7 +262,7 @@ def test_supabase_gives_up_after_retries(
     fake.fail_next = [500, 500, 500]
     with pytest.raises(StorageError) as info:
         supabase.upload(KEY, source, "application/pdf")
-    assert str(info.value) == "storage upload failed with HTTP 500"
+    assert str(info.value) == "storage upload failed with HTTP 500 (InternalError)"
     assert FAKE_KEY not in str(info.value)
 
 

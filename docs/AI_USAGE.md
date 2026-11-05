@@ -198,3 +198,7 @@ Prompt (summary): Sowan asked for a light and dark toggle, starting from the sig
 
 AI-generated: the theme script, the toggle with its circle reveal, the switch of the colour tokens and the dark variant to an attribute, and decision D81. Claude Code checked the whole path in Chromium: following the phone with no choice, switching, saving, a reload, the opening page and the app's own toggle.
 
+### 5 Nov 2026, less green (Claude Code)
+
+Prompt (summary): Sowan said the site was now too green. AI-generated: the narrower rule for green, the ink links and Approve button, the quiet status pills, and the note in D80. Checked on every main screen in light and dark.
+

@@ -50,8 +50,23 @@ export const STATUS_TONE: Record<string, Tone> = {
   pending: "gray",
 };
 
+const DOTS: Partial<Record<Tone, string>> = { green: "bg-emerald-500", blue: "animate-pulse bg-foreground/50", gray: "bg-foreground/25" };
+
+/**
+ * Problems (failed, needs review) get a full coloured pill. Everything that is
+ * fine or under way is quiet: a neutral pill with a small dot, so a list of
+ * finished documents does not turn green (D80).
+ */
 export function StatusBadge({ status }: { status: string }) {
-  return <Badge tone={STATUS_TONE[status] ?? "gray"}>{status.replaceAll("_", " ")}</Badge>;
+  const tone = STATUS_TONE[status] ?? "gray";
+  const text = status.replaceAll("_", " ");
+  if (tone === "red" || tone === "amber") return <Badge tone={tone}>{text}</Badge>;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-2 py-0.5 text-xs font-medium text-muted dark:bg-white/[0.06]">
+      <span className={`size-1.5 rounded-full ${DOTS[tone] ?? DOTS.gray}`} aria-hidden />
+      {text}
+    </span>
+  );
 }
 
 export function Button({
@@ -115,7 +130,7 @@ export function Empty({ children }: { children: ReactNode }) {
 
 export function TextLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="font-medium text-brand underline-offset-2 hover:underline">
+    <Link href={href} className="link">
       {children}
     </Link>
   );
@@ -131,4 +146,4 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export const inputClass =
-  "min-h-11 w-full rounded-xl border border-black/10 bg-white/70 px-3 text-base outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/20 dark:border-white/12 dark:bg-white/5 sm:text-sm";
+  "min-h-11 w-full rounded-xl border border-black/10 bg-white/70 px-3 text-base outline-none transition focus:border-foreground/40 focus:ring-4 focus:ring-foreground/10 dark:border-white/12 dark:bg-white/5 sm:text-sm";

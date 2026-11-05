@@ -33,7 +33,7 @@
   --glass-shadow: 0 10px 28px -12px rgb(15 23 42 / 0.3), 0 2px 6px -2px rgb(15 23 42 / 0.1);
   --lens-bg: rgb(255 255 255 / 0.6);
   --glass-halo: rgb(255 255 255 / 0.85);
-  --aurora-1: rgb(13 122 86 / 0.2);
+  --aurora-1: rgb(13 122 86 / 0.08);
   --aurora-2: rgb(196 150 62 / 0.26);
   --aurora-3: rgb(15 27 45 / 0.1);
 }
@@ -57,7 +57,7 @@
   --glass-shadow: 0 16px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px -2px rgb(0 0 0 / 0.4);
   --lens-bg: rgb(255 255 255 / 0.14);
   --glass-halo: rgb(0 0 0 / 0.6);
-  --aurora-1: rgb(29 140 100 / 0.22);
+  --aurora-1: rgb(29 140 100 / 0.1);
   --aurora-2: rgb(190 140 50 / 0.16);
   --aurora-3: rgb(70 100 140 / 0.18);
 }
@@ -126,6 +126,19 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
+}
+
+/* Links: ink with a quiet underline. Green is kept for "checked" (D80). */
+.link {
+  font-weight: 500;
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 30%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.2s ease;
+}
+.link:hover {
+  text-decoration-color: currentColor;
 }
 
 /* The main action on a screen: ink on paper, cream on ink in dark mode. */
@@ -412,7 +425,7 @@ body {
 .glow-border::before {
   content: "";
   padding: 1.5px;
-  background: linear-gradient(135deg, rgb(169 122 38 / 0.45), rgb(13 122 86 / 0.35));
+  background: linear-gradient(135deg, rgb(169 122 38 / 0.45), rgb(15 27 45 / 0.14));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
@@ -448,7 +461,7 @@ body {
     rgb(217 169 78 / 0.25) 230deg,
     #c9963f 290deg,
     #e3bc68 318deg,
-    #3dbe8b 340deg,
+    #f0d9a0 340deg,
     #fbf7ee 354deg,
     transparent 360deg
   );

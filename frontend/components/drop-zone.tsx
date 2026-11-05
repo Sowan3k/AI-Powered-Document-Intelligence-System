@@ -137,7 +137,7 @@ export function DropZone() {
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         disabled={progress !== null}
-        className={`glow-border flex w-full flex-col items-center gap-2 rounded-2xl px-4 ${picked.length ? "py-4" : "py-8"} text-center transition ${dragging ? "scale-[1.01] bg-brand/10" : "hover:bg-brand/5"}`}
+        className={`glow-border flex w-full flex-col items-center gap-2 rounded-2xl px-4 ${picked.length ? "py-4" : "py-8"} text-center transition ${dragging ? "scale-[1.01] bg-brass/10" : "hover:bg-foreground/[0.03]"}`}
       >
         {/* A light that travels around the border, with a soft glow. */}
         <span aria-hidden className="glow-halo">

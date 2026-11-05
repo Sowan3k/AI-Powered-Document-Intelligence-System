@@ -61,7 +61,7 @@ export function InvoiceCard({ invoice, onSaved }: { invoice: InvoiceDetail; onSa
                 {issue.message}
               </span>
               {!editing && issue.field && (EDITABLE_FIELDS as readonly string[]).includes(issue.field) && (
-                <button onClick={() => fix(issue.field)} className="shrink-0 text-xs font-medium text-brand underline">
+                <button onClick={() => fix(issue.field)} className="link shrink-0 text-xs">
                   Fix
                 </button>
               )}

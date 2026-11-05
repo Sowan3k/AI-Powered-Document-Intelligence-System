@@ -105,7 +105,7 @@ export function WakeTimeline({ wake }: { wake: Wake }) {
             {i < steps.length - 1 && (
               <span className="relative mx-1.5 h-0.5 flex-1 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
                 <motion.span
-                  className="absolute inset-y-0 left-0 rounded-full bg-brand"
+                  className="absolute inset-y-0 left-0 rounded-full bg-foreground/35"
                   initial={{ width: "0%" }}
                   animate={{ width: step.state === "done" ? "100%" : "0%" }}
                   transition={{ duration: 0.5, ease: "easeOut", delay: 0.15 * i }}

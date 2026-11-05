@@ -114,7 +114,7 @@ function SearchView() {
             {data.items.map((hit) => (
               <li key={hit.id}>
                 <Link href={`/documents/${hit.document_id}`} className="block">
-                  <Card className="hover:border-brand/40">
+                  <Card className="hover:border-foreground/20">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-medium">{hit.invoice_number ?? "No invoice number"}</p>

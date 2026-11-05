@@ -119,7 +119,7 @@ function Reconcile() {
                 className="glass flex w-72 shrink-0 snap-start flex-col gap-2 rounded-3xl p-4 text-left"
               >
                 <MiniDoc doc={p.document_a} tag="A" />
-                <span className="flex items-center gap-2 pl-3 text-xs font-medium text-brand">
+                <span className="flex items-center gap-2 pl-3 text-xs font-medium text-brass">
                   <span className="h-4 w-px bg-current opacity-40" />
                   {p.shared} shared invoice{p.shared === 1 ? "" : "s"}
                 </span>
@@ -204,7 +204,7 @@ function Slot({ side, doc, onOpen }: { side: "A" | "B"; doc: Picked | null; onOp
                 {shortWhen(doc.created_at)}
               </span>
             </span>
-            <span className="text-xs font-medium text-brand">Change</span>
+            <span className="link text-xs">Change</span>
           </motion.span>
         ) : (
           <motion.span key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 text-sm text-muted">

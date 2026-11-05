@@ -63,7 +63,7 @@ export function DocPicker({
             onChange={(e) => setText(e.target.value)}
             placeholder="Search by file name"
             aria-label="Search documents by file name"
-            className="min-h-11 w-full rounded-xl border border-black/10 bg-white/70 pr-3 pl-9 text-base outline-none focus:border-brand focus:ring-4 focus:ring-brand/20 dark:border-white/12 dark:bg-white/5"
+            className="min-h-11 w-full rounded-xl border border-black/10 bg-white/70 pr-3 pl-9 text-base outline-none focus:border-foreground/40 focus:ring-4 focus:ring-foreground/10 dark:border-white/12 dark:bg-white/5"
           />
         </label>
         <div className="-mx-5 flex gap-1.5 overflow-x-auto px-5 [scrollbar-width:none]" role="group" aria-label="Filter by file type">
@@ -102,7 +102,7 @@ export function DocPicker({
               <button
                 disabled={taken}
                 onClick={() => onPick(d)}
-                className={`flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-colors ${chosen ? "bg-brand/10" : "hover:bg-black/5 dark:hover:bg-white/5"} disabled:opacity-40`}
+                className={`flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-colors ${chosen ? "bg-foreground/[0.06]" : "hover:bg-black/5 dark:hover:bg-white/5"} disabled:opacity-40`}
               >
                 <KindBadge kind={d.source_kind} />
                 <span className="min-w-0 flex-1">
@@ -114,7 +114,7 @@ export function DocPicker({
                     {taken && ` · chosen as ${side === "A" ? "B" : "A"}`}
                   </span>
                 </span>
-                {chosen && <CheckIcon className="size-5 text-brand" />}
+                {chosen && <CheckIcon className="size-5 text-foreground" />}
               </button>
             </motion.li>
           );

@@ -31,7 +31,7 @@ export function ScanPreview() {
     <div className="flex flex-col gap-3" aria-label="Preview: an invoice being read and checked">
       <div className="glass relative overflow-hidden rounded-3xl p-5">
         {!reduce && (
-          <span className="scan-beam pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-transparent via-brand/25 to-transparent" />
+          <span className="scan-beam pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-transparent via-brass/25 to-transparent" />
         )}
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -85,7 +85,7 @@ export function ScanPreview() {
                 transition={{ type: "spring", stiffness: 420, damping: 30 }}
                 className="glass flex h-[1.85rem] items-center gap-2 rounded-2xl px-3 text-xs"
               >
-                <SparkIcon className="size-3.5 text-brand" />
+                <SparkIcon className="size-3.5 text-brass" />
                 <span className="text-muted">{c.label}</span>
                 <span className="min-w-0 flex-1 truncate font-medium">{c.value}</span>
                 <span className="text-2xs text-emerald-600 dark:text-emerald-400">{c.conf}</span>

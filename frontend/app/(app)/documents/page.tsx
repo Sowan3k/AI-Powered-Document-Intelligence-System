@@ -38,7 +38,7 @@ export default function HomePage() {
           <h2 className="type-section">Processing now</h2>
           {active.map((item) => (
             <Link key={item.document_id} href={`/documents/${item.document_id}`} className="block">
-              <Card className="hover:border-brand/40">
+              <Card className="hover:border-foreground/20">
                 <p className="mb-2 truncate text-sm font-medium">{item.filename}</p>
                 <ProcessFlow item={item} />
               </Card>
@@ -83,7 +83,7 @@ function NeedsAttention() {
       <div className="flex items-baseline justify-between">
         <h2 className="type-section">Needs your attention</h2>
         {data.total > items.length && (
-          <Link href="/review" className="text-sm font-medium text-brand">
+          <Link href="/review" className="link text-sm">
             See all {data.total}
           </Link>
         )}

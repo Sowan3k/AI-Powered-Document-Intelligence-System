@@ -191,7 +191,7 @@ function ScrollHint() {
           className="pointer-events-none fixed inset-x-0 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+4svh)] z-[60] flex justify-center motion-reduce:hidden"
         >
           <span ref={pillGlass} className="glass glass-still glass-on-dark flex items-center gap-2.5 rounded-full py-2.5 pr-5 pl-3 text-sm font-semibold">
-            <span className="relative grid size-7 place-items-center overflow-hidden rounded-full bg-brand text-white">
+            <span className="relative grid size-7 place-items-center overflow-hidden rounded-full bg-brass text-white">
               <motion.svg
                 viewBox="0 0 24 24"
                 className="size-4 fill-none stroke-current stroke-[2.5]"

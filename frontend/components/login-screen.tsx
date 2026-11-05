@@ -41,7 +41,7 @@ export function LoginScreen() {
           <h1 className="type-display mt-5 hidden text-6xl lg:block">
             Invoices in.
             <br />
-            <span className="text-brand">Checked data out.</span>
+            <span className="text-muted">Checked data out.</span>
           </h1>
           <p className="mt-4 hidden max-w-md text-base text-muted lg:block">
             DocIntel reads invoices from PDFs, scans, photos and spreadsheets. Python checks every number,
@@ -94,7 +94,7 @@ function Backdrop() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-[1] overflow-hidden">
       <motion.div
-        className="absolute -top-40 left-1/2 size-[42rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgb(13_122_86/0.22),rgb(196_150_62/0.1)_55%,transparent)]"
+        className="absolute -top-40 left-1/2 size-[42rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgb(196_150_62/0.18),rgb(15_27_45/0.05)_55%,transparent)]"
         animate={{ scale: [1, 1.12, 1], opacity: [0.8, 1, 0.8] }}
         transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
       />

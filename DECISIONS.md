@@ -1090,6 +1090,8 @@ Measured after the change, CPU slowed four times: Home 60 fps, the opening page 
 
 **In one sentence:** Ink, paper and a ledger green with red kept for problems, Plex for reading and Barlow for headings, at a fixed scale.
 
+**Revised the same day:** Sowan found the result too green. Green had spread from "checked" into links, buttons, tints, the background light and every "completed" pill. The rule now: green only where something was checked or finished (check marks, finished steps, the logo's check, the Matched count). Links are ink with a quiet underline, Approve is the ink primary button like Sign in and Compare, focus rings are ink, and the background light and the upload box's light are brass. Status pills for documents that are fine or under way are neutral with a small dot; only failed and needs-review keep a full coloured pill, so a list shows its exceptions at a glance.
+
 ## D81: A light and dark toggle, from the sign-in page on
 
 **Alternatives:** Follow the phone's setting only (as before); a three-way switch (light, dark, system); a toggle on the opening page too.

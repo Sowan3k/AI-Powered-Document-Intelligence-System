@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, less green (Claude Code)
+
+Sowan found the new palette too green. Green now marks only what was checked or finished; links, Approve, focus rings and the background light moved to ink and brass; "completed" and "processing" pills are neutral with a small dot, so only failed and needs-review stand out (D80, revised). Tested: build, lint and typecheck; every main screen at phone size in light and dark; no page errors.
+
 ### 5 Nov 2026, light and dark toggle (Claude Code)
 
 Sowan asked for a light and dark toggle from the sign-in page on, not on the opening page. Built (D81): the theme lives in `data-theme` on `<html>`, set before the first paint; the colour tokens and Tailwind's `dark:` variant read it; a sun and moon button on the sign-in page and in the app's top bar switches it with a circle reveal and saves the choice.

@@ -12,7 +12,7 @@ A 4 to 5 minute phone screen recording that shows every task in the brief workin
 
 | Time | Screen | Do | Say |
 |---|---|---|---|
-| 0:00 | Start page | Sign in | "DocIntel reads invoices in any form a finance team gets: PDFs, scans, phone photos, Excel and CSV. It extracts the fields with Gemini, checks every number in Python, and flags what a person must review." |
+| 0:00 | Opening page | Scroll once through the hero, then tap Sign in | "DocIntel reads invoices in any form a finance team gets: PDFs, scans, phone photos, Excel and CSV. It extracts the fields with Gemini, checks every number in Python, and flags what a person must review." |
 | 0:20 | Home | Tap the drop zone, pick the PDFs from Files; tap again and add the photo and the Excel file; untick one; tap Upload | "I can mix PDFs, photos, Excel and CSV, even from different places on the phone. Each file shows its type; I untick what I do not want, and upload the rest together." |
 | 0:35 | Home | Point at the live steps and at `encrypted.pdf` | "Each file moves through upload, read, AI extract, check and done. A broken file fails alone with a clear code; the rest carry on." |
 | 0:55 | Another tab | Open Search, show the floating dock | "The progress follows me to every screen. Model calls go through one client with a rate limiter, retries and a fallback model, so a busy model does not fail a document." |

@@ -143,3 +143,10 @@ AI-generated: the header fix and storage check (D32), the stricter fake transpor
 Prompt (summary): Sowan asked for a better way to pick documents to compare, iOS liquid-glass effects where they deserve it, a sign-in page that is not boring because the first viewer waits there for the server, and motion between screens. "It's not like how I can do the work. It should be how well I can do it."
 
 AI-generated: the pair suggestions endpoint, the list filters and their tests, the glass and motion design system, the sign-in page, the Compare page, and decisions D72 and D73. Claude Code checked this Next.js version's own documentation for view transitions and templates before writing them, and checked every screen in Chromium at phone size. The screenshots found two problems a code review would have missed: the glass did not blur under a named view transition, and the wake-up status sat below the fold on a phone, so a pill at the top was added.
+
+### 5 Nov 2026, opening page and icon (Claude Code)
+
+Prompt (summary): Sowan pasted a shadcn-style "cinematic landing hero" built with GSAP and asked for it as the opening section, so the server starts waking when a reviewer opens the link and the wait feels shorter. The pasted code ended part way through the phone mockup. Sowan also asked for a good icon.
+
+AI-generated: the adapted hero component with props, slots and a reduced-motion path; the rest of the phone mockup; the DocIntel landing content; the shared wake state; the icon drawing, its sizes and the web manifest; and decision D74. Claude Code checked every scroll stage in Chromium on desktop and phone sizes. The screenshots found three layout faults a build would not catch: the brand line and the call to action under the fixed top bar on a phone, and a ring label cut at the edge. Claude Code also drew a simpler icon for 16 and 32 pixels after the full drawing lost its check mark at that size.
+

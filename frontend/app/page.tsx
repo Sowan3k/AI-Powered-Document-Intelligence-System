@@ -3,10 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { LoginScreen } from "@/components/login-screen";
+import { Landing } from "@/components/landing";
 import { readToken } from "@/lib/api";
 
-/** Signed in: straight to Home. Otherwise: sign in right here, no extra page. */
+/** Signed in: straight to Home. Otherwise: the opening page, which wakes the server (D74). */
 export default function Start() {
   const router = useRouter();
   const [checked, setChecked] = useState(false);
@@ -16,5 +16,5 @@ export default function Start() {
     else setChecked(true);
   }, [router]);
   if (!checked) return null;
-  return <LoginScreen />;
+  return <Landing />;
 }

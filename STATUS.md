@@ -45,6 +45,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, opening page and app icon (Claude Code)
+
+Sowan shared a scroll-driven hero and asked for it as the opening page, with the server waking in the background, and asked for an icon. Built (D74): `/` shows the hero and starts the health check on load; a fixed top bar holds the live status and Sign in; the sign-in page carries on with the same wake state. The hero lives in `frontend/components/ui/cinematic-hero.tsx` (GSAP 3.15.0), filled by `frontend/components/landing.tsx`. New icon set: `app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png`, `app/manifest.ts` and three PNGs in `public/`.
+
+Tested: frontend lint, typecheck and build; Chromium at 1440x900 and iPhone 13 size at eight scroll positions, in light and dark mode, with reduced motion, with the API asleep and with a stand-in healthy API. No sideways scrolling, and no console errors apart from the refused calls while the API was down. The wake seconds carried over from the opening page to sign-in (9 s, then 11 s). Fixed from the screenshots: the brand line and the call to action sat under the top bar on a phone, the ring label was cut, and the second headline line wrapped.
+
 ### 5 Nov 2026, premium interface and Compare picker (Claude Code)
 
 Sowan's review after his live test: picking documents to compare from a long list is slow, the sign-in page is plain although it is where a reviewer waits for the free server, and the app should feel like iOS with motion. Built (D72, D73): suggested pairs on the Compare page from a new `GET /api/reconcile/suggestions`, a search-and-filter picker sheet backed by `q` and `kind` on `GET /api/documents`, a swap button and animated results; glass bars, tab bar, dock and sheets on a field of soft light; page slides with React ViewTransition and in-page motion with Motion 14.4.0; a sign-in page with a wake-up pill and timeline from the real health check and a looping preview of one invoice being read and checked. The background image slot is `frontend/lib/brand.ts`.

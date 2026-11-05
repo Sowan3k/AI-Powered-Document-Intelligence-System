@@ -15,19 +15,25 @@ export type Wake = {
   short: string;
 };
 
+// One wake-up per tab. The landing page starts it; the sign-in page picks it
+// up where it was, so the seconds do not restart and a ready server stays ready.
+let startedAt = 0;
+let lastHealthy: HealthResult | null = null;
+
 /**
  * The free server sleeps when idle, so the first visitor usually waits for it.
  * This polls the real health check and describes the wait step by step
- * (server, database, file storage), with the seconds counting (D73).
+ * (server, database, file storage), with the seconds counting (D73, D74).
  */
 export function useServerWake(): Wake {
-  const [health, setHealth] = useState<HealthResult | null>(null);
+  const [health, setHealth] = useState<HealthResult | null>(() => lastHealthy);
   const [seconds, setSeconds] = useState(0);
   const ready = health?.kind === "healthy";
 
   useEffect(() => {
+    if (!startedAt) startedAt = Date.now();
     if (ready) return;
-    const tick = setInterval(() => setSeconds((s) => s + 1), 1000);
+    const tick = setInterval(() => setSeconds(Math.round((Date.now() - startedAt) / 1000)), 1000);
     return () => clearInterval(tick);
   }, [ready]);
 
@@ -42,6 +48,7 @@ export function useServerWake(): Wake {
       const result = await fetchHealth(controller.signal);
       clearTimeout(timeout);
       if (cancelled) return;
+      if (result.kind === "healthy") lastHealthy = result;
       setHealth(result);
       tries += 1;
       // A sleeping server answers once it is up; a part that is down gets a few more looks.

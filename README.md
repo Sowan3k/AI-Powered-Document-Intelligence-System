@@ -9,7 +9,7 @@ I built it for the AI Engineer assessment at Care Guide. The brief is in [docs/B
 - Health: https://docintel-api-y25b.onrender.com/api/health (database and file storage)
 - Walkthrough video: link added before submission
 
-The backend runs on Render's free plan. It sleeps when idle, so the first request can take up to a minute.
+The backend runs on Render's free plan. It sleeps when idle, so the first request can take up to a minute. The web app's opening page starts waking it the moment it loads and shows the real status at the top, with Sign in beside it.
 
 ## The brief, task by task
 

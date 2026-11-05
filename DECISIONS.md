@@ -969,3 +969,20 @@ Found while testing in Chromium: a `view-transition-name` on an ancestor of a gl
 **Trade-off:** Blur costs GPU time on older phones, and Safari renders some view transitions differently; without support, pages switch without the slide. Motion adds about 40 KB to the bundle.
 
 **In one sentence:** Glass where things float, motion that explains what moved, and a first screen that turns waiting into a demonstration.
+
+## D74: An opening page that wakes the server while it plays
+
+**Alternatives:** Keep the sign-in page as the first screen, show a plain loading screen, or pay for an instance that never sleeps.
+
+**Why:** Render's free instance sleeps, and the first reviewer usually waits up to a minute. Sowan shared a scroll-driven hero (GSAP, in the shadcn layout) and asked for it as the opening page, with the server waking in the background while the visitor watches. The choices:
+
+- **The wake-up starts on page load.** `/` now shows the hero and calls the real health check at once. The wake state lives once per tab, so the sign-in page carries on with the same seconds and does not ask again from zero. The top bar shows the true status the whole time ("Waking the server · 23 s", then "Server ready"), and one glass badge beside the phone mockup shows it too. Nothing pretends the server is faster than it is; the wait just has something to watch.
+- **Sign in is never more than one tap away.** The hero scrolls for about 7,000 pixels, which is long for a reviewer in a hurry, so a fixed top bar holds Sign in from the first second.
+- **The shared component is kept generic.** It lives at `frontend/components/ui/cinematic-hero.tsx` with its content in props and slots (phone screen, badges, buttons); `frontend/components/landing.tsx` fills it with DocIntel's own content. The phone screen shows real behaviour: an invoice flagged by R05, a hybrid search, and the file kinds the system reads. The pasted code stopped part way through the phone, so the rest of the mockup was written to match.
+- **shadcn layout without the CLI.** The project had no `components/ui` folder or `cn()` helper. `components/ui.tsx` moved to `components/ui/index.tsx` (every import stays the same), and `lib/utils.ts` holds `cn()` from clsx 2.1.1 and tailwind-merge 3.7.0. GSAP is 3.15.0, pinned, free to use under its standard license.
+- **Reduced motion gets a still page.** With the phone's reduce-motion setting on, the card shows finished, nothing is pinned, and the call to action sits below it.
+- **An icon in the same style.** A white page with a check on the sky-to-violet gradient, drawn once in SVG. A simpler version with a large check serves the 16 and 32 pixel sizes, where the full drawing turns to noise. The app has `icon.svg`, `favicon.ico`, an Apple touch icon and a web manifest with a maskable icon, so it looks right when added to a phone's home screen.
+
+**Trade-off:** GSAP and ScrollTrigger add about 59 KB (gzipped) to the opening page. A long pinned scroll is a style choice some visitors skip, which is why Sign in is always visible.
+
+**In one sentence:** The first minute on the free plan becomes a short tour, with the real server status in view and sign-in one tap away.

@@ -57,6 +57,15 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+/*
+ * The app never scrolls sideways. On a phone, a page even a few pixels wider
+ * than the screen can be panned, which makes fixed bars look as if they drift
+ * toward the edge. clip, unlike hidden, keeps position: sticky working.
+ */
+html {
+  overflow-x: clip;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -168,6 +177,12 @@ body {
   syntax: "<number>";
   inherits: false;
   initial-value: 0;
+}
+.lg-light,
+.lg-rim {
+  /* The light layers are larger than the glass; clip them so they never widen the page (D78). */
+  overflow: hidden;
+  contain: layout paint;
 }
 .lg-light {
   position: absolute;

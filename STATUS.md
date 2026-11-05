@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 5 Nov 2026, bars drifting while scrolling (Claude Code)
+
+Sowan saw elements move toward the screen's edge while scrolling. Cause, measured: the rotating glint layers were larger than their glass and widened the page by 3 px at some scroll positions, so the page could be panned sideways. Fixed (D78 note): the light layers are clipped to their glass, and the page cannot scroll sideways (`overflow-x: clip` on `html`). Tested: extra page width 0 on Home, Review, Search, Compare and the opening page at five scroll positions with the phone tilted; the app's top bar and the opening page's stage still stick.
+
 ### 5 Nov 2026, glass that answers to tilt and touch (Claude Code)
 
 Sowan described the rest of Apple's material: reflections that follow the gyroscope and a ripple under the finger. Added (D78): the glints and sheen follow the phone's tilt (Chrome on Android, no prompt) or the mouse; a press sends a ring of light and, in Chromium, a wave of distortion through the refraction filter. The light now sits on two small layers inside each piece of glass and moves by transform only.

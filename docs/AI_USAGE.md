@@ -174,3 +174,9 @@ Prompt (summary): Sowan described Apple's Liquid Glass as a responsive material:
 
 AI-generated: the tilt and mouse light source, the press ripple (light ring and distortion wave), the light layers, and decision D78. Claude Code measured the worst case, a phone tilting all the time while scrolling, and found the first design dropped Home to 35 fps; a browser trace showed about 20 elements restyled per change. The light moved to its own layers driven by transforms, and the same test then held 60 fps. Testing also caught a negative ring size on a ripple's first frame.
 
+### 5 Nov 2026, bars drifting while scrolling (Claude Code)
+
+Prompt (summary): Sowan said the blur was right, but elements moved while scrolling and sometimes went near the screen's edges.
+
+Claude Code measured the page width while scrolling and found the cause in its own D78 change: the rotating glint layers widened the page by 3 px at some positions. AI-generated: the clipping fix, the sideways-scroll guard, and the checks that sticky elements still stick.
+

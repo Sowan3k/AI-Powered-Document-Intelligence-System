@@ -1055,3 +1055,5 @@ Measured with the CPU slowed four times while scrolling Home: 60 fps still and 6
 **Trade-off:** Two extra layers per piece of glass use a little graphics memory. The wave needs Chromium. A browser cannot read the pixels behind an element, so the glass "reads the content" only through refraction and its tint, plus the known dark card on the opening page.
 
 **In one sentence:** Light that follows the phone's tilt and a ripple under the finger, moved by the graphics chip alone, so the page stays at 60 fps.
+
+**Found after release (5 Nov):** Sowan saw the bars drift toward the screen's edge while scrolling. The glint layer is a square larger than its piece of glass, and turning it widened the page by a few pixels at some scroll positions (measured: 3 px on Home), so a thumb could pan the page sideways. The light layers are now clipped to their glass (`overflow: hidden`, `contain: paint`), and `html` has `overflow-x: clip` so the app can never scroll sideways; `clip` keeps `position: sticky` working. Measured after the fix: no extra width on any page at any scroll position, with the phone tilted.

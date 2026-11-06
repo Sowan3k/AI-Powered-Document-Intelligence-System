@@ -104,6 +104,10 @@ class Settings(BaseSettings):
     segment_window_pages: int = Field(default=8, ge=1, le=50)  # pages per LLM call
     segment_overlap_pages: int = Field(default=1, ge=0, le=10)  # shared with the next window
     vision_dpi: int = Field(default=200, ge=72, le=400)
+    # Phone photos (JPEG, PNG) go to the vision model whatever Tesseract's page
+    # confidence says: on photos it scores 90 and still misreads the one word
+    # that matters (evaluation run 7, D82). Scans in PDF and TIFF keep the threshold.
+    vision_for_photos: bool = True
     date_day_first: bool = True  # 03/04/2026 is 3 April unless the day is over 12
 
     # Worker loop and job queue (Phase 4).

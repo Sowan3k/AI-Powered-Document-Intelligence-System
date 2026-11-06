@@ -1,6 +1,7 @@
 """Extract invoices from an ingested document and store them.
 
-PDFs and images: low-confidence OCR pages go to the vision model first, then
+PDFs and images: low-confidence OCR pages, and every page of a phone photo
+(JPEG, PNG; D82), go to the vision model first, then
 pages go to the text model in overlapping windows, and the results are merged,
 normalised and checked against the source text. Spreadsheets: columns are
 mapped and rows converted in code.
@@ -49,6 +50,8 @@ logger = logging.getLogger(__name__)
 EXTRACTION_FAILED = "EXTRACTION_FAILED"
 MONEY_LIMIT = Decimal("1e12")  # NUMERIC(14,2) holds 12 digits before the point
 KIND_BY_MIME = {mime: kind for kind, mime in MIME_TYPES.items()}
+# Phone photos: always worth a vision read when settings.vision_for_photos (D82).
+PHOTO_KINDS = {FileKind.JPEG, FileKind.PNG}
 
 
 @dataclass
@@ -248,12 +251,15 @@ def _vision_fallback(
     settings: Settings,
     outcome: ExtractionOutcome,
 ) -> None:
+    # A photo goes to vision even when Tesseract is confident: on photos a page
+    # score of 90 still hides the wrong letter in a name or a currency (D82).
+    photo = settings.vision_for_photos and KIND_BY_MIME.get(document.mime_type or "") in PHOTO_KINDS
     weak = {
         p.page_number: p
         for p in pages
         if p.method is PageMethod.OCR
         and p.ocr_confidence is not None  # None: a blank page, nothing to read
-        and p.ocr_confidence < settings.ocr_confidence_threshold
+        and (photo or p.ocr_confidence < settings.ocr_confidence_threshold)
     }
     if not weak:
         return
@@ -263,7 +269,17 @@ def _vision_fallback(
     models = [settings.gemini_vision_model, settings.gemini_model]
     with tempfile.TemporaryDirectory(prefix="docintel-") as tmp:
         local, kind = _download(storage, document, tmp)
-        for number, png in vision.page_images(local, kind, set(weak), settings.vision_dpi):
+        turned = frozenset(
+            e.detail.get("page")
+            for e in session.scalars(
+                select(ProcessingEvent).where(
+                    ProcessingEvent.document_id == document.id,
+                    ProcessingEvent.event == "page_turned",
+                )
+            )
+        )
+        reason = "photo" if photo else "low_confidence"
+        for number, png in vision.page_images(local, kind, set(weak), settings.vision_dpi, turned):
             result = vision.transcribe_with_fallback(llm, models, png)
             if result.text is None:
                 # Keep the Tesseract text; its low confidence still sends the invoice to review.
@@ -275,7 +291,15 @@ def _vision_fallback(
             page.text = result.text
             page.method = PageMethod.VISION  # ocr_confidence keeps the Tesseract score
             outcome.vision_pages += 1
-            _event(session, document, job, "vision_page", page=number, model=result.model)
+            _event(
+                session,
+                document,
+                job,
+                "vision_page",
+                page=number,
+                model=result.model,
+                reason=reason,
+            )
     session.commit()
 
 

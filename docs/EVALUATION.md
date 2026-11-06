@@ -153,7 +153,26 @@ The page confidences come from rebuilding the same photos in the sandbox, since 
 - **The vision model read the hard photos well.** Two of the three were read perfectly. On the third, the invoice number came out wrong, so the scoring could not pair it with its label and it counts as missed on all eight fields. That one miss is the whole drop at the hard level. `gemini-3.8-flash` answered HTTP 503 again, and the text model read them through the fallback. A vision page took 97 s on average (p95 272 s), most of it spent retrying the busy model.
 - **The review queue caught most, not all.** Six of the eight paired invoices had at least one wrong field. The rules sent four of them to review, each through R02 (a value that does not parse). Two passed as correct. A misread name, or a misread amount that still adds up, breaks no rule.
 
-What it means: on photos, Tesseract's page confidence is the wrong signal for sending a page to the vision model. Two changes would address it, in order of cost. Send every phone photo (JPEG and PNG, not scanned PDFs) to the vision model when one is available, or use Tesseract's per-word confidence on the words a field was read from. Neither is built yet.
+What it means: on photos, Tesseract's page confidence is the wrong signal for sending a page to the vision model. Two changes would address it, in order of cost. Send every phone photo (JPEG and PNG, not scanned PDFs) to the vision model when one is available, or use Tesseract's per-word confidence on the words a field was read from. Run 8 tests the first (D82).
+
+### Run 8: phone photos through the vision model
+
+Run 8 ([GitHub Actions run 42113561995](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/actions/runs/42113561995), 5 November, commit `3c78986`) sends every phone photo (JPEG and PNG) to the vision model, whatever Tesseract's page confidence says (D82). Scanned PDFs and TIFF files keep the confidence threshold. A photo that Tesseract found upside down is sent to the model the right way up.
+
+| Level | Run 7 (OCR unless confidence was low) | Run 8 (every photo to vision) |
+|---|---|---|
+| Mild | 83.3% | 100% |
+| Medium | 83.3% | 100% |
+| Hard | 66.7% | 66.7% |
+| **All fields** | **77.8%** | **87.5%** |
+
+- **Mild and medium photos are now right on every field.** The misreads of run 7 ("Lid", "Vattey", "BOT") are gone, because the model reads the image and not Tesseract's text.
+- **The one miss is the same kind as run 7's.** On one hard photo the model misread the invoice number, so the scoring could not pair the invoice with its label. It counts as missed on all eight fields and as one extra invoice. The other seven photo invoices had every field right, and line items matched 28 of 28.
+- **Fewer photos reached review, and that is correct.** None of the seven paired photo invoices went to review, and none had a wrong field. In run 7, four went to review through R02, all for misread values.
+- **The cost is time and one more call per photo.** A photo took 55.7 s on average (p95 203 s), against 97 s for a vision page in run 7. Photos used 23,672 tokens for 8 documents, about 2,960 each. `gemini-3.8-flash` still answered HTTP 503 at times; those pages went to the fallback model. The report does not record which model read each page.
+- **The time budget cut the run short.** Gemini overload errors (HTTP 503) slowed many calls, and the 45-minute budget ran out with 6 of the 45 main-set files and 1 of the 9 photos not processed. Everything that ran was scored: 58 of 58 invoices found, every field 100%, line items 108 of 108, every planted error caught (8 of 8), 0 false flags in 50 clean invoices, 9 of 9 broken files rejected with the right code, 4 of 4 non-invoice files empty, and no failed document. 49 jobs finished on the first attempt and 1 on the second.
+
+What it means: for photos, the image is a better source than the OCR text, even when Tesseract is confident. Hard photos remain the weak spot, and a misread invoice number breaks no rule, because the number is only checked against its own evidence.
 
 ## What the earlier runs found
 
@@ -168,14 +187,15 @@ The first real runs were not clean, and each one led to a fix that later runs me
 | 5 | This report | Adds Bangladeshi VAT invoices, discounts and charges, files that are not invoices, a prompt-injection invoice, and the input and output token split for cost. |
 | 6 | Same results as run 5; 0 thinking tokens; latency per call | After parallel windows and the fallback model (D61). Every job on its first attempt. |
 | 7 | Main set again 100%; phone photos 77.8% of fields | Nine phone photos at three levels, scored apart (D71). OCR misreads single words on photos it scores highly. |
+| 8 | Main set 100% on what ran; phone photos 87.5% of fields | Every phone photo goes to the vision model (D82). Mild and medium photos 100%. Gemini overload used up the 45-minute budget before 7 files ran. |
 
 Before these runs, the manual smoke test had also found the vision model overloaded, which led to the fallback chain in D44.
 
 ## Weak spots
 
 - **Synthetic data.** 100% on clean synthetic layouts says the pipeline is sound; it does not predict accuracy on real invoices, which have noisier layouts, logos, stamps and handwriting.
-- **Phone photos read by OCR.** Run 7 got 77.8% of fields right on nine synthetic phone photos, and every error came from photos Tesseract read with high confidence, which therefore never reached the vision model. Two of six wrong invoices passed review unflagged.
-- **The vision model itself is untested.** `gemini-3.8-flash` was overloaded in every run, so every vision page, including run 7's hard photos, was read by the text model through the fallback.
+- **Hard phone photos.** Since run 8 every photo goes to the vision model (D82), and mild and medium photos are right on every field. Hard photos (dark shadow, blur, heavy compression) still lose one in three: the model misread an invoice number, and no rule can catch that.
+- **The vision model is only partly measured.** `gemini-3.8-flash` was overloaded in every run. Up to run 7, every vision page was read by the text model through the fallback. In run 8 it still answered HTTP 503 at times, and the report does not record which model read each page.
 - **Line items are matched by amount.** A misread quantity or unit price does not lower the line item score; R04 catches it instead, as it did once here.
 - **Speed under the free tier.** About 25 seconds per document is the quota at work. Large batches will take a long time on the free tier.
 - **Bangladeshi documents are synthetic too.** The two VAT invoices and the restaurant bill follow common local formats, but real local invoices also carry Bengali text, stamps and handwriting. Bengali digits and month names parse (D56); Tesseract has only English installed, so a scanned Bengali page relies on the vision fallback.

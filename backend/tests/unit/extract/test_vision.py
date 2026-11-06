@@ -90,3 +90,13 @@ def test_a_vision_model_that_just_failed_is_skipped_on_the_next_page() -> None:
     # The second page did not wait for the overloaded model again (D67).
     assert [c.model for c in fake.calls] == ["vision-model", "text-model", "text-model"]
     assert "skipped" in result.errors[0]
+
+
+def test_a_page_read_upside_down_is_sent_the_right_way_up(synthetic_dir: Path) -> None:
+    """Tesseract flipped it (D64), so the vision model gets it flipped too (D82)."""
+    path = synthetic_dir / "scan_clean.png"
+    [(_, plain)] = vision.page_images(path, FileKind.PNG, {1}, 200)
+    [(_, turned)] = vision.page_images(path, FileKind.PNG, {1}, 200, turned=frozenset({1}))
+    a = cv2.imdecode(np.frombuffer(plain, np.uint8), cv2.IMREAD_GRAYSCALE)
+    b = cv2.imdecode(np.frombuffer(turned, np.uint8), cv2.IMREAD_GRAYSCALE)
+    assert np.array_equal(b, np.rot90(a, 2))

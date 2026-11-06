@@ -133,6 +133,69 @@ def test_low_confidence_scan_goes_to_vision(
     assert len(events(db, doc, "vision_page")) == 1
 
 
+@pytest.mark.tesseract
+def test_a_confident_photo_still_goes_to_vision(
+    db: Session, storage: LocalStorage, settings: Settings, synthetic_dir: Path
+) -> None:
+    """On photos Tesseract's page score hides single wrong letters (run 7, D82)."""
+    doc = ingested(db, storage, synthetic_dir / "scan_clean.png", settings)
+    [page] = db.scalars(select(Page).where(Page.document_id == doc.id))
+    assert page.method is PageMethod.OCR and page.ocr_confidence >= 60
+
+    def reply(call: FakeCall):  # type: ignore[no-untyped-def]
+        if call.purpose == "vision_transcribe":
+            return "INVOICE\nInvoice No: INV-8\nTotal: $9.00"
+        return {"invoices": []}
+
+    outcome = extract_document(db, storage, FakeLlmClient(reply), doc.id, settings)
+    assert outcome is not None and outcome.vision_pages == 1
+    db.refresh(page)
+    assert page.method is PageMethod.VISION
+    [seen] = events(db, doc, "vision_page")
+    assert seen.detail["reason"] == "photo"
+
+
+@pytest.mark.tesseract
+def test_photos_can_keep_the_ocr_text(
+    db: Session, storage: LocalStorage, synthetic_dir: Path
+) -> None:
+    settings = Settings(
+        gemini_model="text-model", gemini_vision_model="vision-model", vision_for_photos=False
+    )
+    doc = ingested(db, storage, synthetic_dir / "scan_clean.png", settings)
+    fake = FakeLlmClient(lambda call: {"invoices": []})
+    outcome = extract_document(db, storage, fake, doc.id, settings)
+    assert outcome is not None and outcome.vision_pages == 0
+    assert all(c.purpose != "vision_transcribe" for c in fake.calls)
+
+
+@pytest.mark.tesseract
+def test_a_confident_tiff_scan_keeps_the_threshold(
+    db: Session, storage: LocalStorage, settings: Settings, synthetic_dir: Path
+) -> None:
+    """Scanner output is not a phone photo: only weak pages go to vision."""
+    doc = ingested(db, storage, synthetic_dir / "scan_two_pages.tiff", settings)
+    pages = list(db.scalars(select(Page).where(Page.document_id == doc.id)))
+    weak = [p for p in pages if p.ocr_confidence is not None and p.ocr_confidence < 60]
+
+    def reply(call: FakeCall):  # type: ignore[no-untyped-def]
+        if call.purpose == "vision_transcribe":
+            return "INVOICE"
+        return {"invoices": []}
+
+    outcome = extract_document(db, storage, FakeLlmClient(reply), doc.id, settings)
+    assert outcome is not None and outcome.vision_pages == len(weak)
+
+
+@pytest.mark.tesseract
+def test_an_upside_down_photo_is_noted_at_ingest(
+    db: Session, storage: LocalStorage, settings: Settings, synthetic_dir: Path
+) -> None:
+    doc = ingested(db, storage, synthetic_dir / "photo_upside_down.jpg", settings)
+    [turned] = events(db, doc, "page_turned")
+    assert turned.detail["page"] == 1
+
+
 def test_spreadsheet(
     db: Session, storage: LocalStorage, settings: Settings, synthetic_dir: Path
 ) -> None:

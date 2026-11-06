@@ -4,7 +4,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the storage fix below, the exit tests on the live site for Phases 4 and 5, and the Phase 7 items only Sowan can do.
+**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the exit tests on the live site for Phases 4 and 5, and the Phase 7 items only Sowan can do (the video, repository access, the Reply All). The final secret scan is done (CI run 84).
 
 **Live bug, 5 Nov 12:29 Dhaka, fixed 13:30:** every upload failed with `STORAGE_ERROR`. Two causes: the client sent the key in `apikey` only, and the value in Render's `SUPABASE_SERVICE_ROLE_KEY` was not the project's `sb_secret_` key (D32). The header fix is in `main` (#2, #3), and Sowan re-pasted the key. At 07:30 UTC the live `/api/health` answered `"storage":"ok"`, and Render logged "the Supabase key is an sb_secret key, 41 characters".
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
@@ -14,13 +14,13 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 - Web app: https://docintel-tan-two.vercel.app (Vercel project `docintel`)
 - API: https://docintel-api-y25b.onrender.com (Render service `docintel-api`, Singapore, free plan). Docs at `/api/docs`, health at `/api/health`.
 - Render and Vercel deploy automatically from `main`. Phases 1 to 7 were merged into `main` on 4 Nov 2026 (Sowan3k/AI-Powered-Document-Intelligence-System#1, merge commit `d37fe29`).
-- Branches: `ccr-2f4fe3f2-hzma97` holds everything on `sowan/admiring-gates-y0oyrm` (D56 to D70), the phone photo set (D71) and the storage fix. Merging it into `main` deploys all of it.
+- Branches: `ccr-2f4fe3f2-hzma97` is `main` (after #6) plus D82, evaluation run 8 and the README screenshots. Merging it into `main` deploys the photo change.
 
 **Supabase (set up by Sowan):** `vector` and `pg_trgm` in the `extensions` schema, private bucket `documents` (50 MB), Data API disabled. `SUPABASE_SERVICE_ROLE_KEY` holds an `sb_secret_` key, sent in the `apikey` and `Authorization` headers (D32, fixed 5 Nov).
 
-**Gemini (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` (text), `gemini-3.8-flash` (vision), `gemini-embedding-2` at 768 dimensions. The vision model answered HTTP 503 (overloaded) in every real run; the fallback to the text model read those pages (D44).
+**Gemini (confirmed by Sowan, 4 Nov):** `gemini-3.5-flash-lite` (text), `gemini-3.8-flash` (vision), `gemini-embedding-2` at 768 dimensions. The vision model answered HTTP 503 (overloaded) in every real run; the fallback to the text model read those pages (D44). In run 8 it still failed at times.
 
-**Evaluation run 7 (5 Nov):** main set again 100% on 92 of 92 invoices; nine phone photos 77.8% of fields (mild 83.3%, medium 83.3%, hard 66.7%). Every wrong field came from photos Tesseract read with high page confidence, so they never reached vision; 4 of 6 wrong photo invoices went to review. Next fix to consider: send phone photos to vision. See `docs/EVALUATION.md`.
+**Evaluation run 8 (5 Nov):** every phone photo now goes to vision (D82). Photos 87.5% of fields (mild 100%, medium 100%, hard 66.7%), up from 77.8% in run 7; the one miss is a misread invoice number on a hard photo. Main set 100% on the 58 invoices that ran; Gemini overload used up the 45-minute budget before 7 files ran. See `docs/EVALUATION.md`.
 
 **Evaluation (run 5, real Gemini):** 91 of 91 invoices, all 8 fields 100%, line items 224 of 224, planted errors 12 of 12, 1 false flag in 80 clean invoices, 4 of 4 non-invoice files empty, all 9 broken files rejected correctly, no failed documents. About $0.0015 per invoice at paid Gemini prices. See `docs/EVALUATION.md`.
 
@@ -44,6 +44,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Real public invoice samples were not added to the evaluation (licensing and personal data). The report says so.
 
 ## Session log
+
+### 5 Nov 2026, photos to vision, run 8, README screenshots (Claude Code)
+
+Sowan asked to fix the gaps found against the brief and to add screenshots to the README like his other projects. Built D82: JPEG and PNG pages always go to the vision model (`VISION_FOR_PHOTOS`), and a page Tesseract found upside down is flipped before vision. Ran evaluation run 8: photos 77.8% to 87.5%. Refreshed `docs/TEST_REPORT.md` from CI run 84 (428 passed, 96% coverage) and ticked the final secret scan. Added 13 screenshots (desktop light and dark, phone dark) to `docs/screenshots/` and a Screenshots section to the README.
+
+Tested: 428 tests pass in CI run 84, all four jobs green. Screenshots taken from the app running locally on demo data, in Chromium. Next: merge to `main`, so the screenshots show on GitHub and the photo change deploys.
 
 ### 5 Nov 2026, less green (Claude Code)
 

@@ -11,11 +11,55 @@ I built it for the AI Engineer assessment at Care Guide. The brief is in [docs/B
 
 The backend runs on Render's free plan. It sleeps when idle, so the first request can take up to a minute. The web app's opening page starts waking it the moment it loads and shows the real status at the top, with Sign in beside it.
 
+## Screenshots
+
+Real screenshots of the running app on demo data, not mockups.
+
+### Opening page and sign in
+
+| Opening page | Scrolling down | Sign in |
+|---|---|---|
+| ![Opening page with the headline "Invoices in. Checked data out." and a "Server ready" status beside Sign in](docs/screenshots/landing.webp) | ![The scroll animation: a phone shows a review screen with 11 checks per invoice, beside "Every number, checked."](docs/screenshots/landing-card.webp) | ![Sign-in page with three checks for server, database and file storage, all green, beside a sample extracted invoice](docs/screenshots/sign-in.webp) |
+
+The opening page wakes the sleeping backend the moment it loads. The sign-in page shows the server, the database and the file storage coming up one by one.
+
+### Home in light and dark
+
+| Light | Dark |
+|---|---|
+| ![Home in light mode: the upload box, then the invoices that need attention, each with its problem in plain words](docs/screenshots/home.webp) | ![The same Home page in dark mode](docs/screenshots/home-dark.webp) |
+
+The upload box takes PDFs, photos, TIFF, Excel and CSV files in one batch. Below it, each flagged invoice says what is wrong, for example "subtotal plus tax is 418.75, but the total is 428.75", with Fix and Approve beside it.
+
+### One document, and the review queue
+
+| Document | Review |
+|---|---|
+| ![Document page: each extracted field with its confidence and the quote it came from, and the source text with those quotes highlighted](docs/screenshots/document.webp) | ![Review queue: each invoice with a problem, the rule that flagged it, and buttons to open and fix or approve](docs/screenshots/review.webp) |
+
+Every field shows a confidence score and the exact words it was read from. The source text on the right highlights those words, so a reviewer can check a value without opening the file.
+
+### Search and compare
+
+| Search | Compare |
+|---|---|
+| ![Search for "Padma" in best-match mode, which combines exact words and meaning, with 14 results](docs/screenshots/search.webp) | ![Compare: a supplier statement PDF against an Excel register, with a bar and four counts, and one pair whose totals differ by 25.00](docs/screenshots/compare.webp) |
+
+Search combines keyword and meaning, with filters for supplier, currency, date, total and review status. Compare checks one document against another. Here a PDF statement and an Excel register share three invoices, and one total differs by 25.00.
+
+### On a phone
+
+| Home | Document | Review | Compare |
+|---|---|---|---|
+| ![Home on a phone in dark mode, with the tab bar at the bottom](docs/screenshots/phone-home.webp) | ![A document's fields and evidence on a phone](docs/screenshots/phone-document.webp) | ![The review queue on a phone](docs/screenshots/phone-review.webp) | ![The comparison on a phone](docs/screenshots/phone-compare.webp) |
+
+The whole app works on a phone. I built and tested it from one.
+
 ## The brief, task by task
 
 | Task | What is built | Where |
 |---|---|---|
-| 1. Document processing | Accepts PDF, JPG, PNG, TIFF, XLSX, XLS and CSV, checked by their bytes, not their names. Digital PDF text comes from PyMuPDF, page by page. Scans and photos are cleaned with OpenCV and read by Tesseract; weak pages go to Gemini vision. Every sheet of a workbook is read, with header detection and merged cells. A broken file fails alone with a code such as `CORRUPTED_FILE` or `ENCRYPTED_PDF`. | `backend/app/ingest` |
+| 1. Document processing | Accepts PDF, JPG, PNG, TIFF, XLSX, XLS and CSV, checked by their bytes, not their names. Digital PDF text comes from PyMuPDF, page by page. Scans and photos are cleaned with OpenCV and read by Tesseract. Weak scan pages and every phone photo go to Gemini vision. Every sheet of a workbook is read, with header detection and merged cells. A broken file fails alone with a code such as `CORRUPTED_FILE` or `ENCRYPTED_PDF`. | `backend/app/ingest` |
 | 2. AI extraction | Invoice number, date, supplier, customer, subtotal, tax, total, currency and line items, as JSON validated by Pydantic. The model copies each value as printed, with a confidence and the text it came from. A missing value stays empty. Code checks that the evidence appears in the source. | `backend/app/extract`, prompts in `prompts.py` |
 | 3. Validation | Eleven rules in `Decimal` arithmetic: missing fields, bad numbers, line sums, quantity times price, subtotal plus tax against total, duplicates (with fuzzy supplier names), dates, low confidence, unproven values, mixed currencies. An error sends the invoice to the review queue. | `backend/app/validate` |
 | 4. Backend API | REST endpoints for upload, status, results, search, corrections, reprocessing of failed jobs, reconciliation, export and stats. OCR and model calls run in a background worker. | `backend/app/api`, [API docs](https://docintel-api-y25b.onrender.com/api/docs) |
@@ -62,7 +106,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Evaluation run 5 used the real Gemini models on 44 synthetic files with 91 labelled invoices. All eight fields were right on all 91 invoices, and line items matched 224 of 224. Every planted error was caught (12 of 12), with 1 false flag in 80 clean invoices. All 9 broken files got the right error code, all 4 files that are not invoices produced no invoice, and no document failed. Run 6 repeated these results. At paid Gemini prices an invoice costs about $0.0015.
 
-The data is synthetic and cleaner than real invoices, so real accuracy will be lower. Run 7 shows how much. It repeated 100% on the main set, then read nine phone photos at three levels of difficulty and got 77.8% of their fields right. Every error came from photos that Tesseract read with high confidence, which kept them away from the vision model: "Ltd" read as "Lid", "Valley" as "Vattey". Of the six photo invoices with a wrong field, the rules sent four to review. [docs/EVALUATION.md](docs/EVALUATION.md) has the method, every number, and the weak spots.
+The data is synthetic and cleaner than real invoices, so real accuracy will be lower. Run 7 showed how much. It read nine phone photos at three levels of difficulty and got 77.8% of their fields right. Every error came from photos that Tesseract read with high confidence, which kept them away from the vision model: "Ltd" read as "Lid", "Valley" as "Vattey". Run 8 sends every phone photo to the vision model (D82). Photo fields rose to 87.5% right, with mild and medium photos at 100%. The one miss was a hard photo whose invoice number the vision model misread. The main set stayed at 100% on every field and every planted error, but Gemini overload errors used up the 45-minute budget before 6 of its 45 files ran. [docs/EVALUATION.md](docs/EVALUATION.md) has the method, every number, and the weak spots.
 
 ## Speed, scale, reliability and security
 
@@ -111,6 +155,7 @@ Every setting is in [.env.example](.env.example) with a comment. The main ones:
 | `CORS_ORIGINS` | The web app's address |
 | `MAX_FILE_MB`, `MAX_FILES_PER_BATCH`, `MAX_PDF_PAGES` | Upload limits (50 MB, 20 files, 1,500 pages) |
 | `OCR_CONFIDENCE_THRESHOLD`, `FIELD_CONFIDENCE_THRESHOLD`, `MONEY_TOLERANCE` | When a page goes to vision, when a field needs review, and the rounding tolerance |
+| `VISION_FOR_PHOTOS` | Send every JPEG and PNG photo to vision, whatever Tesseract's confidence (on by default) |
 | `LLM_CALLS_PER_MINUTE`, `LLM_MAX_CONCURRENCY` | Model call pacing |
 
 ## Tests and evaluation
@@ -148,9 +193,9 @@ CI runs ruff, the backend tests, the frontend build, gitleaks, and a Docker Comp
 ## Known limitations
 
 - The invoices and photos are synthetic. They have no stamps, folds or handwriting, so the accuracy figures are likely optimistic. No real invoices were added, because of licences and personal data.
-- On phone photos, a page goes to the vision model only when Tesseract's page confidence is low. Run 7 shows that a high page score can still hide a misread name or date.
+- Every phone photo now goes to the vision model (D82). That costs one vision call per page and adds time. Hard photos stay the weak spot: in run 8, one of three had its invoice number misread.
 - The free Render instance sleeps and has 512 MB of memory for the API and the worker together. Large scanned files process slowly.
-- The vision model `gemini-3.8-flash` was overloaded in every test run. Weak scans then go to the text model, which still reads them, after a delay.
+- The vision model `gemini-3.8-flash` returned overload errors in every test run. The client retries with backoff. A page whose vision call still fails keeps its OCR text and goes to the text model. In run 8 the retries ran the evaluation past its 45-minute budget.
 - Uploading the same invoices twice on purpose, for reconciliation, triggers the duplicate rule (D50).
 - Reconciliation compares invoice-level fields, not line items (D43).
 - There is one demo account, rate limits are kept in memory, and a token cannot be revoked before it expires (D46).

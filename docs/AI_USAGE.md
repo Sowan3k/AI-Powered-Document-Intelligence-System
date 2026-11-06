@@ -202,3 +202,8 @@ AI-generated: the theme script, the toggle with its circle reveal, the switch of
 
 Prompt (summary): Sowan said the site was now too green. AI-generated: the narrower rule for green, the ink links and Approve button, the quiet status pills, and the note in D80. Checked on every main screen in light and dark.
 
+### 5 Nov 2026, photos to vision, run 8, README screenshots (Claude Code)
+
+Prompt (summary): Sowan asked what the build still missed against the brief, then asked to fix it and to add screenshots to the README like his other projects.
+
+AI-generated: the routing of phone photos to vision with the upside-down flip, its tests, decision D82, the run 8 write-up, the refreshed test report, the screenshot script and the README section. Claude Code took the run 8 numbers from the workflow log, not from memory, and looked at every screenshot before adding it. It retook the Compare shots after one showed the dark Compare button under the clear header, which read as a glitch.

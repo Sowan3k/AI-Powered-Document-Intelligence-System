@@ -1106,3 +1106,20 @@ Measured after the change, CPU slowed four times: Home 60 fps, the opening page 
 **Trade-off:** The choice is kept per browser, not per account. The `<html>` element differs between the server's copy and the page, so React's hydration warning is turned off for that one element.
 
 **In one sentence:** One attribute drives every colour, set before the first paint, and a sun-and-moon button flips it with a circle that spreads from your finger.
+
+## D82: Phone photos always go to the vision model
+
+**Alternatives:** Keep routing by Tesseract's page confidence (as before, D44); route by Tesseract's per-word confidence on the words each field was read from; send every image and scan to vision.
+
+**Why:** Run 7 got 77.8% of fields right on nine phone photos, and every error came from photos Tesseract read with a page confidence of 79 to 94. Those pages never reached the vision model. A high page score hid one wrong letter in the word that mattered: "Lid" for "Ltd", "BOT" for "BDT". The evidence check cannot see this, because the evidence is the same wrong OCR text.
+
+- **Photos skip the threshold.** A JPEG or PNG page goes to the vision model whatever its confidence (`VISION_FOR_PHOTOS`, on by default). Scanned PDFs and TIFF files keep the threshold: a flatbed scan is clean and Tesseract reads it well, so an extra call would add cost and time for little gain. Tesseract still runs first, so the page keeps its OCR text and score if the vision call fails.
+- **Upside-down photos are turned before vision.** Tesseract already finds a page read upside down (D64). Ingest now records it as a `page_turned` event, and the vision step flips that page before sending it, so the model sees it the right way up.
+- **The processing history says why.** Each `vision_page` event carries `reason`: `photo` or `low_confidence`.
+- **Per-word confidence was the cheaper option**, but it needs the link from each field back to the OCR words, and a confident misread still passes it. The image is the better source.
+
+Run 8 measured it: photo fields rose from 77.8% to 87.5%. Mild and medium photos went from 83.3% to 100%. Hard photos stayed at 66.7%: the model misread one invoice number. None of the seven paired photo invoices had a wrong field.
+
+**Trade-off:** One more model call per photo page, and more time: a photo took 55.7 s on average in run 8. The vision model is often overloaded, so photos wait longer for it. A misread invoice number on a hard photo still breaks no rule.
+
+**In one sentence:** For phone photos, trust the image over Tesseract's confidence, and send it the right way up.

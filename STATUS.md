@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 7 Nov 2026, grey boxes on the top pills (Claude Code)
+
+Sowan saw both pills at the top turn into grey boxes in light mode when he tapped. Reproduced in Chromium with the animations slowed: it happened on every page change, not on the press. The scroll edge had its own transition name, so it became a separate layer under the pills, and the refraction filter drew a grey box over it. Removed that name (added to D76). Tested: no box on a tab tap or a tap on the DocIntel pill, at phone and desktop sizes, light and dark; lint and typecheck pass.
+
 ### 7 Nov 2026, live audit (Claude Code)
 
 Sowan asked to check the whole live system. Read Render's logs and deploys, the jobs table and Supabase's advisors: start-up about 38 s with migrations and two worker loops, no 5xx errors, no stuck or retried jobs, every invoice indexed and embedded, broken files rejected with the right codes, advisors informational only. Fixed (D89): one tap on a suggested pair saved two comparisons; Tesseract timed out after 120 s on every full-size phone photo before vision began. Tested: 439 backend tests pass (new: photo OCR size); lint and typecheck pass.

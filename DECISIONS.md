@@ -1019,6 +1019,8 @@ Result, measured the same way over the same time: 58 to 59 frames a second, the 
 
 Measured with the CPU slowed four times, scrolling the opening page: 59 fps, as before this change. A first version checked the colour under the bar on every frame and added about 260 ms of script; the IntersectionObserver removed it.
 
+Found later on Sowan's phone: in light mode, the brand pill and the account pill turned into grey boxes for the moment of each page change. The scroll edge had its own transition name, so during the change it was a separate layer under the pills, and Chromium's refraction filter drew a grey box over that layer. In dark mode the box was there too, but hard to see. The scroll edge now has no transition name, so it stays in the page's own snapshot, which is what the tab bar sits on. Checked in Chromium with the animations slowed twenty times, at phone and desktop sizes, in both themes.
+
 **Trade-off:** Clearer glass gives text on it less contrast over busy content; the tint and the small blur are set for legibility on the app's own screens, not for any backdrop. Refraction appears only in Chromium browsers, so iPhone users see clear glass without the bending.
 
 **In one sentence:** Nearly clear glass with a bright rim, real edge refraction where Chromium can draw it, and floating controls over a scroll edge, as iOS does it.

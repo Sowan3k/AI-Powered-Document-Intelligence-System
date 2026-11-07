@@ -44,7 +44,3 @@ Suggested technologies include React/Next.js, Node.js/NestJS, Python-based OCR t
 9. AI prompts and disclosure of AI-assisted development, where applicable.
 
 The candidate should ensure smooth performance, high speed, scalability, reliability, and strong security.
-
-## Submission rules from the email
-
-Reply All to the original email. Do not start a new thread. Keep apply@careguidebd.com in the recipients. Attach or link the portfolio, the completed task and an updated CV. The CV must include two professional references with official email addresses: a university department head or academic supervisor, and a former HR manager or HR representative. Personal references are not accepted.

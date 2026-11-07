@@ -15,7 +15,7 @@ import { ProcessFlow } from "@/components/process-flow";
 import { StatsLine } from "@/components/stats-line";
 import { Button, Card, Empty, ErrorBox, Loading, StatusBadge, inputClass } from "@/components/ui";
 import { query } from "@/lib/api";
-import { bytes, dateText, money } from "@/lib/format";
+import { bytes, dateText, issueText, money } from "@/lib/format";
 import type { DocumentSummary, Page, ReviewItem } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -104,7 +104,7 @@ function NeedsAttention() {
             <p className="truncate text-sm text-neutral-600 dark:text-neutral-400">{inv.supplier_name ?? "Unknown supplier"}</p>
             {inv.top_issue && (
               <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300">
-                {inv.top_issue}
+                {issueText(inv.top_issue)}
                 {inv.error_count > 1 && <span className="text-red-600"> (+{inv.error_count - 1} more)</span>}
               </p>
             )}

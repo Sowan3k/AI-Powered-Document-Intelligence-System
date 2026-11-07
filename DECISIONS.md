@@ -1183,3 +1183,20 @@ Run 8 measured it: photo fields rose from 77.8% to 87.5%. Mild and medium photos
 **Trade-off:** A running job stops at its next step, not mid-call, so a cancel can take up to one model call to land. A vision page that would have answered after a minute now falls back sooner, which can mean a weaker reading on that page; the reviewer sees its lower confidence.
 
 **In one sentence:** Fail fast on the slow model, run two jobs at once, and let the person stop any file.
+
+## D87: Validation messages a reviewer can act on
+
+**Alternatives:** Keep the messages as they were and rely on the issue list on the document page; show only the first problem on each review card.
+
+**Why:** Sowan asked to check the messages shown when an invoice has several kinds of issue. The live data after the walkthrough showed six faults:
+
+- **A duplicate did not say where the other copy was.** "Already stored (1 match)" left the reviewer to search. It now names the file: `already stored in "06_register_two_sheets.xlsx"`, or "earlier in this file", and "and 1 other file" when there are more.
+- **Field names reached people raw**, as in "invoice_number is missing". Messages now say "invoice number", "supplier", "customer". The web app also shows each message as a sentence, which tidies messages stored before this change.
+- **Wrong wording without a number.** An invoice with no number got "same supplier, date and total under another number". R07 now names the other invoice ("as invoice INV-5", or "as an invoice with no number") and its file.
+- **A review card showed only the first problem.** An invoice with a wrong total and a duplicate showed the total alone. The review queue now returns every open error (`problems`), and the card lists them all.
+- **Stale duplicate flags.** When the original was deleted, re-uploaded or cancelled, its copies stayed flagged as duplicates of something that no longer existed. Those copies are now checked again at that moment.
+- **"In the future" by time zone.** The server runs on UTC, so an invoice dated today in Dhaka counted as a future date until 06:00. R08 now allows one day.
+
+**Trade-off:** A date one day ahead is no longer flagged, wherever it comes from. Checking copies again costs a scan of the open duplicate issues on each delete or re-upload, which is small at this size.
+
+**In one sentence:** Every message names what is wrong and where, in plain words, and none outlives the invoice it points to.

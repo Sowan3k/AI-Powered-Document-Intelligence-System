@@ -9,7 +9,7 @@ Severity decides the review status: any `error` sends the invoice to
 """
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -18,6 +18,18 @@ from app.db.enums import Severity
 REQUIRED = ("invoice_number", "invoice_date", "supplier_name", "total")
 RECOMMENDED = ("customer_name", "tax")
 CENT = Decimal("0.01")
+# Field names as a reviewer reads them, so a message says "invoice number is
+# missing", not "invoice_number is missing" (D87).
+LABELS = {
+    "invoice_number": "invoice number",
+    "invoice_date": "invoice date",
+    "supplier_name": "supplier",
+    "customer_name": "customer",
+}
+
+
+def label(name: str) -> str:
+    return LABELS.get(name, name.replace("_", " "))
 
 
 @dataclass
@@ -78,10 +90,10 @@ def r01_missing(inv: InvoiceView) -> list[Issue]:
     issues = []
     for name in REQUIRED:
         if getattr(inv, name) is None and "unparsed" not in inv.flags(name):
-            issues.append(Issue("R01", Severity.ERROR, f"{name} is missing", name))
+            issues.append(Issue("R01", Severity.ERROR, f"{label(name)} is missing", name))
     for name in RECOMMENDED:
         if getattr(inv, name) is None and "unparsed" not in inv.flags(name):
-            issues.append(Issue("R01", Severity.WARNING, f"{name} is not shown", name))
+            issues.append(Issue("R01", Severity.WARNING, f"{label(name)} is not shown", name))
     return issues
 
 
@@ -96,13 +108,15 @@ def r02_bad_values(inv: InvoiceView) -> list[Issue]:
                 Issue(
                     "R02",
                     Severity.ERROR,
-                    f"{name} could not be read as a value",
+                    f"{label(name)} could not be read as a value",
                     name,
                     {"raw": meta.get("raw")},
                 )
             )
         if "out_of_range" in flags:
-            issues.append(Issue("R02", Severity.ERROR, f"{name} is too large to be real", name))
+            issues.append(
+                Issue("R02", Severity.ERROR, f"{label(name)} is too large to be real", name)
+            )
     for name in ("subtotal", "tax", "total"):
         value = getattr(inv, name)
         if value is not None and value < 0:
@@ -217,7 +231,9 @@ def r05_total(inv: InvoiceView, tolerance: Decimal) -> list[Issue]:
 def r08_date(inv: InvoiceView, today: date, max_age_years: int) -> list[Issue]:
     if inv.invoice_date is None:
         return []
-    if inv.invoice_date > today:
+    # One day of grace: the server runs on UTC, and an invoice dated today in
+    # Dhaka is already "tomorrow" there until 06:00 (D87).
+    if inv.invoice_date > today + timedelta(days=1):
         return [
             Issue(
                 "R08",
@@ -256,7 +272,7 @@ def r09_confidence(inv: InvoiceView, threshold: float) -> list[Issue]:
             Issue(
                 "R09",
                 severity,
-                f"{name} was read with low confidence ({confidence:.2f})",
+                f"{label(name)} was read with low confidence ({confidence:.2f})",
                 name,
                 {"confidence": confidence, "threshold": threshold},
             )
@@ -273,7 +289,7 @@ def r10_evidence(inv: InvoiceView) -> list[Issue]:
                 Issue(
                     "R10",
                     severity,
-                    f"{name} does not appear in the source text",
+                    f"{label(name)} does not appear in the source text",
                     name,
                     {"evidence": meta.get("evidence")},
                 )

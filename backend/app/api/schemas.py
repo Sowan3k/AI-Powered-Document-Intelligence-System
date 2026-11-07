@@ -214,6 +214,7 @@ class ReviewItem(InvoiceOut):
     error_count: int
     warning_count: int
     top_issue: str | None = None  # the first error, so a person can decide without opening it
+    problems: list[str] = []  # every open error, in rule order (D87)
 
 
 class ReviewPage(BaseModel):

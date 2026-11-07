@@ -7,7 +7,7 @@ import { useState } from "react";
 import { ApproveButton } from "@/components/approve-button";
 import { ReplaceFile } from "@/components/replace-file";
 import { Badge, Card, Empty, ErrorBox, Loading, PageTitle } from "@/components/ui";
-import { dateText, money } from "@/lib/format";
+import { dateText, issueText, money } from "@/lib/format";
 import type { Page, ReviewItem } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -55,10 +55,13 @@ export default function ReviewPage() {
                       {inv.supplier_name ?? "Unknown supplier"} · {dateText(inv.invoice_date)} · {money(inv.total, inv.currency)}
                     </p>
                     <p className="mt-1 break-all text-xs text-neutral-500">{inv.filename}</p>
-                    {inv.top_issue && (
-                      <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300">
-                        {inv.top_issue}
-                      </p>
+                    {(inv.problems?.length ? inv.problems : inv.top_issue ? [inv.top_issue] : []).length > 0 && (
+                      // Every problem, not just the first: a wrong total and a duplicate both show (D87).
+                      <ul className="mt-2 flex flex-col gap-1 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300">
+                        {(inv.problems?.length ? inv.problems : [inv.top_issue as string]).map((p, n) => (
+                          <li key={n}>{issueText(p)}</li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                   <div className="flex gap-1">

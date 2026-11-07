@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 7 Nov 2026, validation messages (Claude Code)
+
+Sowan asked to check the messages for invoices with several kinds of issue. From the live data after the walkthrough: duplicates did not name the other file, raw field names ("invoice_number is missing"), wrong R07 wording for an invoice with no number, review cards showing only the first problem, duplicate flags left behind when the original was deleted or re-uploaded, and dates "in the future" because the server runs on UTC. All fixed (D87). Tested: 436 backend tests pass (new: messages name the file, R07 without a number, a deleted original clears its copy, tomorrow's date allowed, readable field names); in Chromium at phone size a review card lists both of its problems.
+
 ### 7 Nov 2026, walkthrough video (Claude Code)
 
 Sowan recorded the walkthrough on the live site: https://youtu.be/n9xKvACPR90. Added to the README, `docs/DELIVERABLES.md` and the rebuilt PDF; ticked in PHASES.md. Left for Sowan: repository access for reviewers, and the Reply All with the links, CV, references and portfolio.

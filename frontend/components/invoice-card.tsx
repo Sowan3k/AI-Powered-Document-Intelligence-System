@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 import { ApproveButton } from "@/components/approve-button";
 import { Badge, Button, Card, ErrorBox, Field, StatusBadge, inputClass, type Tone } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { dateText, label, money, percent, trimmed, where } from "@/lib/format";
+import { dateText, issueText, label, money, percent, trimmed, where } from "@/lib/format";
 import { EDITABLE_FIELDS, type EditableField, type FieldMeta, type InvoiceDetail } from "@/lib/types";
 
 const MONEY: EditableField[] = ["subtotal", "tax", "total"];
@@ -56,10 +56,7 @@ export function InvoiceCard({ invoice, onSaved }: { invoice: InvoiceDetail; onSa
           {[...errors, ...warnings].map((issue, i) => (
             <li key={i} className="flex gap-2">
               <Badge tone={issue.severity === "error" ? "red" : "amber"}>{issue.rule_code}</Badge>
-              <span className="min-w-0 flex-1">
-                {issue.field && <span className="font-medium">{label(issue.field)}: </span>}
-                {issue.message}
-              </span>
+              <span className="min-w-0 flex-1">{issueText(issue.message)}</span>
               {!editing && issue.field && (EDITABLE_FIELDS as readonly string[]).includes(issue.field) && (
                 <button onClick={() => fix(issue.field)} className="link shrink-0 text-xs">
                   Fix

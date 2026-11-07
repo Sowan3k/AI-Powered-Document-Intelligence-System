@@ -40,6 +40,7 @@ from app.ingest.schemas import KIND_BY_MIME
 from app.ingest.upload import register_upload, replace_file
 from app.storage import FileStorage
 from app.storage.base import StorageError
+from app.validate.service import recheck_copies_of
 from app.worker import queue
 
 logger = logging.getLogger(__name__)
@@ -235,14 +236,20 @@ def reprocess(
     response_model=DocumentOut,
     responses={404: {}, 409: {"description": "Nothing is queued or running for it"}},
 )
-def cancel(document_id: uuid.UUID, db: Session = Depends(get_db)) -> DocumentOut:
+def cancel(
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> DocumentOut:
     """Stop a document that is queued or being processed (D86). A running worker
     stops at its next step, and nothing read so far is kept."""
     doc = _get(db, document_id)
     job = queue.active_job(db, doc.id, queue.JOB_PROCESS)
     if job is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "this document is not being processed")
+    gone = _invoice_ids(db, doc.id)
     queue.cancel(db, job)
+    recheck_copies_of(db, gone, settings)
     db.refresh(doc)
     return DocumentOut.model_validate(doc)
 
@@ -274,6 +281,7 @@ def replace(
         raise HTTPException(
             status.HTTP_409_CONFLICT, "this document is being processed; try again when it ends"
         )
+    gone = _invoice_ids(db, doc.id)
     with tempfile.TemporaryDirectory(prefix="docintel-replace-") as tmp:
         path = Path(tmp) / "file"
         with path.open("wb") as out:
@@ -290,7 +298,12 @@ def replace(
             ) from None
     job = queue.enqueue(db, doc.id, queue.JOB_PROCESS, settings)
     db.commit()
+    recheck_copies_of(db, gone, settings)
     return JobOut.model_validate(job)
+
+
+def _invoice_ids(db: Session, document_id: uuid.UUID) -> set[uuid.UUID]:
+    return set(db.scalars(select(Invoice.id).where(Invoice.document_id == document_id)))
 
 
 # Types a browser can show safely inside the page; anything else downloads (D65).
@@ -382,6 +395,7 @@ def delete_document(
     user: str = Depends(current_user),
     db: Session = Depends(get_db),
     storage: FileStorage = Depends(get_storage),
+    settings: Settings = Depends(get_settings),
 ) -> Response:
     """Remove a document everywhere: the stored file, its pages, invoices, issues,
     corrections, jobs and history (the database cascades from the document row)."""
@@ -396,7 +410,9 @@ def delete_document(
             raise HTTPException(
                 status.HTTP_502_BAD_GATEWAY, "the file store did not answer"
             ) from None
+    gone = _invoice_ids(db, doc.id)
     db.execute(sql_delete(Document).where(Document.id == doc.id))
     db.commit()
+    recheck_copies_of(db, gone, settings)  # its copies elsewhere are no longer duplicates
     logger.info("document %s deleted by %s", doc.id, user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

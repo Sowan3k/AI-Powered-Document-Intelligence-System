@@ -1139,3 +1139,17 @@ Run 8 measured it: photo fields rose from 77.8% to 87.5%. Mild and medium photos
 **Trade-off:** Each page request downloads the file from storage again, which is slow for a very large file. Text in an image cannot be selected; the source text is shown beside it on the same page.
 
 **In one sentence:** Show every page as an image the API draws, so the original opens on any phone and the security policy stays strict.
+
+## D84: Every photo shows in the phone's file picker
+
+**Alternatives:** Keep the list of extensions (as before); accept only the three image types the server reads; add HEIC and WEBP readers to the backend.
+
+**Why:** On Sowan's phone, the upload box's picker hid every photo in a folder and showed only PDFs and spreadsheets. Android's picker shows only the file types the page asks for, and the page gave a list of extensions alone, which some pickers turn into the wrong set of types. A photo in a format the server does not read (WEBP from the web, HEIC from some cameras) is hidden by any list of three image types.
+
+- **The picker gets real file types.** The `accept` list now names MIME types and extensions, and `image/*`, so every photo shows. On Android this also offers the camera.
+- **The type comes from the file, not only its name.** Android often names a picked photo with no extension ("1000012345"); the file's own type now counts too. The server still checks the bytes.
+- **Other image formats become JPEG on the phone.** A WEBP, AVIF or GIF photo, or HEIC where the browser can read it, is drawn to a canvas and sent as a JPEG (largest 16 megapixels). The list says "converted from WEBP to JPEG". HEIC in Chrome on Android cannot be read, and the list says how to share the photo as JPEG instead.
+
+**Trade-off:** A converted photo is stored as the JPEG, not the file the phone held. Adding HEIC to the backend would need a new image library a day before submission.
+
+**In one sentence:** Ask the picker for every photo, and turn the formats the server cannot read into JPEG before they leave the phone.

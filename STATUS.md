@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 7 Nov 2026, photos missing from the phone's file picker (Claude Code)
+
+Sowan's picker showed PDFs but no photos. Fixed (D84): the upload box asks for MIME types and `image/*`, not extensions alone; a file's type now comes from its MIME type when the name has no extension; WEBP, AVIF and other photos the server cannot read are converted to JPEG in the browser; HEIC that the browser cannot read gets a clear message. Tested in Chromium at phone size: a WEBP photo (converted and accepted), a PNG named "1000012345" (accepted), a HEIC file (clear message). Lint and typecheck pass.
+
 ### 7 Nov 2026, "View original" blocked on the phone (Claude Code)
 
 Sowan tapped "View original" on a PDF and saw "This content is blocked". Cause: the PDF opened in a frame from a `blob:` link, which takes on the app's security policy, and that policy blocks Chrome's PDF viewer as a plugin. Fixed (D83): the API draws each page as a JPEG (`/api/documents/{id}/pages/{n}/image`) for PDFs, TIFF files and photos, and the page shows them as you scroll. Frames are now forbidden in the policy.

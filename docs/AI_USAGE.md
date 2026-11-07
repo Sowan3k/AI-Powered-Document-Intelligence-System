@@ -213,3 +213,10 @@ AI-generated: the routing of phone photos to vision with the upside-down flip, i
 Prompt (summary): Sowan sent a screenshot of "This content is blocked" after tapping "View original".
 
 AI-generated: the diagnosis (a `blob:` frame inherits the app's content security policy, which blocks the PDF viewer as a plugin), the page image endpoint and its test, the new viewer, the stricter `frame-src`, and decision D83. Claude Code checked the new viewer in Chromium at phone size on a 37-page PDF and a two-page TIFF.
+
+
+### 7 Nov 2026, photos missing from the phone's file picker (Claude Code)
+
+Prompt (summary): Sowan said the file picker showed PDFs but no photos, though the file manager showed the photo in the same folder.
+
+AI-generated: the new `accept` list, typing by MIME type, the in-browser JPEG conversion, the HEIC message, and decision D84. Claude Code tested the three cases in Chromium and uploaded the converted photo to the local API, which accepted it.

@@ -30,7 +30,7 @@ https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System
 | `eval/` | Labelled dataset generator, evaluation runner, load test |
 | `docs/` | Architecture, schema, security, evaluation, test report, AI usage |
 
-Every design choice, 84 in all, is in [DECISIONS.md](../DECISIONS.md) with the alternatives, the reason and the trade-off.
+Every design choice, 85 in all, is in [DECISIONS.md](../DECISIONS.md) with the alternatives, the reason and the trade-off.
 
 ## 2. README and setup instructions
 
@@ -47,51 +47,15 @@ This starts Postgres with pgvector, the API, the worker and the web app at http:
 
 ## 3. Architecture diagram and database schema
 
-```mermaid
-flowchart LR
-    user([Reviewer on a phone or laptop])
-    subgraph Vercel
-        web[Next.js web app]
-    end
-    subgraph Render["Render, one Docker container"]
-        api[FastAPI API<br/>auth, uploads, results, search]
-        worker[Worker process<br/>job queue loop]
-    end
-    subgraph Supabase
-        db[(PostgreSQL<br/>pgvector, pg_trgm,<br/>job table)]
-        files[(Private bucket<br/>documents)]
-    end
-    gemini[Gemini API<br/>text, vision, embeddings]
-    user --> web
-    web -- "HTTPS + JWT" --> api
-    api --> db
-    api --> files
-    worker -- "FOR UPDATE SKIP LOCKED" --> db
-    worker --> files
-    worker -- "extraction, vision, embeddings" --> gemini
-    api -- "query embedding" --> gemini
-```
+![Architecture: reviewer, Next.js on Vercel, FastAPI API and worker on Render, PostgreSQL and a private bucket on Supabase, and the Gemini API](diagrams/deliverables-architecture.png)
 
 An upload is checked by its bytes, stored in a private bucket under a random key, and queued. The API answers at once. A worker claims the job from a PostgreSQL table and reads the file. It sends the text to Gemini in windows of eight pages, so an invoice that crosses a page edge stays whole. Python then parses the values, runs the rules and indexes the invoice for search. Every step writes a row to the processing history, which the web app shows live.
 
 The database has ten tables:
 
-```mermaid
-erDiagram
-    documents ||--o{ pages : "has"
-    documents ||--o{ sheets : "has"
-    documents ||--o{ invoices : "has"
-    documents ||--o{ jobs : "has"
-    documents ||--o{ processing_events : "history"
-    jobs ||--o{ processing_events : "writes"
-    sheets ||--o{ invoices : "rows of"
-    invoices ||--o{ line_items : "has"
-    invoices ||--o{ validation_issues : "has"
-    invoices ||--o{ corrections : "has"
-    documents ||--o{ reconciliations : "as A or B"
-```
+![How the ten tables relate: documents have pages, sheets, invoices, jobs and history; invoices have line items, validation issues and corrections](diagrams/schema-overview.png)
 
-Money is `NUMERIC(14,2)` in the database and `Decimal` in Python, never a float. Full detail: [ARCHITECTURE.md](ARCHITECTURE.md) (system, data flow and deployment diagrams) and [SCHEMA.md](SCHEMA.md) (every column, index and constraint).
+Money is `NUMERIC(14,2)` in the database and `Decimal` in Python, never a float. Full detail: [ARCHITECTURE.md](ARCHITECTURE.md) (system and pipeline diagrams) and [SCHEMA.md](SCHEMA.md) (every column, index and constraint).
 
 ## 4. Working backend API and frontend
 
@@ -105,6 +69,7 @@ Both are live and deploy from `main`: the web app on Vercel, the API and worker 
 | Document search | `GET /api/search` (keyword, meaning, or both, with filters) |
 | Manual corrections | `PATCH /api/invoices/{id}`, `GET /api/review-queue` |
 | Failed-job reprocessing | `POST /api/jobs/{id}/retry`, `POST /api/documents/{id}/reprocess` |
+| Retake a blurred photo | `POST /api/documents/{id}/replace` (the same document, read again from the new file) |
 | Cross-verification | `POST /api/reconcile`, `GET /api/reconcile/suggestions` |
 | The original file | `GET /api/documents/{id}/file`, `GET /api/documents/{id}/pages/{n}/image` |
 

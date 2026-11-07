@@ -1,0 +1,11 @@
+flowchart LR
+    web[Next.js on Vercel] -- "HTTPS + JWT" --> api[FastAPI API]
+    subgraph Render["Render, one container"]
+        api
+        worker[Worker]
+    end
+    api --> db[(Supabase Postgres<br/>pgvector, pg_trgm, job queue)]
+    worker --> db
+    api --> files[(Private storage bucket)]
+    worker --> files
+    worker --> gemini[Gemini: text, vision, embeddings]

@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 7 Nov 2026, diagrams as images (Claude Code)
+
+Sowan saw the README's architecture diagram as Mermaid code in the GitHub phone app, which does not draw Mermaid. All six diagrams (README, ARCHITECTURE, SCHEMA, DELIVERABLES) are now PNG images in `docs/diagrams/`, rendered in Chromium from their Mermaid sources kept beside them. The deliverables PDF was rebuilt with them.
+
 ### 7 Nov 2026, retake a blurred photo from review (Claude Code)
 
 Sowan asked for a re-upload button in review for photos too blurred to read. Built (D85): `POST /api/documents/{id}/replace` swaps the file, keeps the document's ID and history, drops the old reading, and queues it again; "Retake photo" or "Re-upload" on every review card and on the document page. Tested: 430 backend tests pass, including a new one (refused while queued, refused for a bad file with the document unchanged, then replaced, old file removed, processed again). In Chromium at phone size: the button on a review card took a WEBP photo, converted it, uploaded it, and the card left the queue.

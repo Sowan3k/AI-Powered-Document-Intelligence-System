@@ -196,19 +196,7 @@ The whole app works on a phone. I built and tested it from one.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    web[Next.js on Vercel] -- "HTTPS + JWT" --> api[FastAPI API]
-    subgraph Render["Render, one container"]
-        api
-        worker[Worker]
-    end
-    api --> db[(Supabase Postgres<br/>pgvector, pg_trgm, job queue)]
-    worker --> db
-    api --> files[(Private storage bucket)]
-    worker --> files
-    worker --> gemini[Gemini: text, vision, embeddings]
-```
+![System overview: the Next.js web app on Vercel calls the FastAPI API on Render; the API and worker share one container and use Supabase Postgres, a private storage bucket and Gemini](docs/diagrams/system-overview.png)
 
 An upload is checked, stored in a private bucket under a random key, and queued. The API answers at once. A worker claims the job from a PostgreSQL table with `FOR UPDATE SKIP LOCKED` and reads the file. It sends the text to Gemini in windows of eight pages, so an invoice that crosses a page edge stays whole. Python then parses the values, runs the rules and indexes the invoice for search. Every step writes a row to the processing history, which the web app shows live.
 
@@ -243,7 +231,7 @@ The brief suggests Node.js or NestJS, Redis with BullMQ, and a vector database, 
 | A separate vector database | pgvector in PostgreSQL | Vectors sit beside the invoices, so one query can filter by supplier, date and amount and rank by meaning (D05). |
 | pandas | openpyxl and xlrd, rows converted in plain Python | The readers already turn every cell into text. pandas would add about 60 MB to the image and more memory on a 512 MB instance, for no gain (D37). |
 
-Every design choice, 84 in all, is in [DECISIONS.md](DECISIONS.md) with the alternatives, the reason and the trade-off.
+Every design choice, 85 in all, is in [DECISIONS.md](DECISIONS.md) with the alternatives, the reason and the trade-off.
 
 ## Environment variables
 

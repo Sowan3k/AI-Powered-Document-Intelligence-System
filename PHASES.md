@@ -205,7 +205,7 @@ Exit test: `docs/EVALUATION.md` reports every metric from a real run, including 
 - [x] `docs/SECURITY.md`: what is protected and what production would add
 - [x] `docs/AI_USAGE.md`: tools used, prompts, what was AI-generated, how it was verified
 - [x] Design decisions section in the README, drawn from `DECISIONS.md`
-- [ ] Walkthrough video (3 to 5 minutes, phone screen recording; script and email draft in `docs/WALKTHROUGH.md`): mixed upload, progress, results, a validation flag, a correction, keyword and semantic search, reconciliation, a failed file and its retry, API docs, CI, evaluation report
+- [x] Walkthrough video (3 to 5 minutes, phone screen recording; script and email draft in `docs/WALKTHROUGH.md`): mixed upload, progress, results, a validation flag, a correction, keyword and semantic search, reconciliation, a failed file and its retry, API docs, CI, evaluation report Recorded 7 Nov 2026: https://youtu.be/n9xKvACPR90
 - [x] Final secret scan of the full Git history (gitleaks in CI run 84, 5 Nov 2026, commit `3c78986`: no leaks found)
 - [ ] Repository access for reviewers decided (invite them, or make it public after the scan)
 - [ ] Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio

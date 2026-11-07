@@ -7,7 +7,7 @@ AI Engineer assessment, Care Guide. Project: AI-Powered Document Intelligence Sy
 | Web app | https://docintel-tan-two.vercel.app (the login is in the submission email) |
 | API docs | https://docintel-api-y25b.onrender.com/api/docs |
 | Repository | https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System |
-| Walkthrough video | Link added before submission |
+| Walkthrough video | https://youtu.be/n9xKvACPR90 |
 | This report as a PDF | [Download DocIntel-Deliverables.pdf](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/raw/main/docs/DocIntel-Deliverables.pdf) |
 
 DocIntel reads invoices and receipts from PDFs, scans, phone photos, TIFF images, Excel workbooks and CSV files. It extracts the invoice fields with Gemini, checks every number in Python, sends doubtful records to a person, cross-checks one document against another, and makes everything searchable by keyword and by meaning.
@@ -127,9 +127,9 @@ Run 8 added nine phone photos at three levels of difficulty: 87.5% of fields rig
 
 ## 8. Recorded walkthrough of the working application
 
-Video: link added before submission.
+Video: https://youtu.be/n9xKvACPR90
 
-It shows a mixed upload, live progress, extracted results, a validation flag and its correction, keyword and semantic search, PDF to Excel cross-verification, a failed file and its retry, the API docs, CI and the evaluation report. The script is in [WALKTHROUGH.md](WALKTHROUGH.md).
+It was recorded on a phone, on the live site. The planned script, scene by scene, is in [WALKTHROUGH.md](WALKTHROUGH.md).
 
 ## 9. AI prompts and disclosure of AI-assisted development
 

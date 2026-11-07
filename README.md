@@ -7,7 +7,7 @@ I built it for the AI Engineer assessment at Care Guide. The brief is in [docs/B
 - Web app: https://docintel-tan-two.vercel.app (the login is in the submission email)
 - API docs: https://docintel-api-y25b.onrender.com/api/docs
 - Health: https://docintel-api-y25b.onrender.com/api/health (database and file storage)
-- Walkthrough video: link added before submission
+- Walkthrough video: https://youtu.be/n9xKvACPR90
 - Deliverables report: [read it here](docs/DELIVERABLES.md), or [download the PDF](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/raw/main/docs/DocIntel-Deliverables.pdf) (6 pages)
 
 The backend runs on Render's free plan. It sleeps when idle, so the first request can take up to a minute. The web app's opening page starts waking it the moment it loads and shows the real status at the top, with Sign in beside it.
@@ -25,7 +25,7 @@ The brief asks for nine things, submitted within five days. Each one is here. Th
 | 5 | PDF, image, Excel and CSV pipelines | `backend/app/ingest`. Digital PDFs through PyMuPDF; scans and photos through OpenCV and Tesseract, with Gemini vision for weak pages and every phone photo; Excel through openpyxl and xlrd; CSV through Python's csv module, which detects the encoding and the delimiter. All four give the same internal structure to the extraction step. |
 | 6 | Automated tests and test results | `backend/tests`, with unit tests and integration tests on Postgres. CI runs them on every push. [docs/TEST_REPORT.md](docs/TEST_REPORT.md): 428 passed with 96% line coverage in CI run 84. |
 | 7 | Evaluation report with measured metrics | [docs/EVALUATION.md](docs/EVALUATION.md): eight runs with the real Gemini models on a labelled dataset. Accuracy per field, line items, planted errors caught, false flags, broken files, time per document, tokens and cost, and the weak spots. |
-| 8 | Recorded walkthrough | The video link at the top of this file. The script is in [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md). |
+| 8 | Recorded walkthrough | https://youtu.be/n9xKvACPR90, recorded on a phone on the live site. The planned script is in [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md). |
 | 9 | AI prompts and disclosure | [docs/AI_USAGE.md](docs/AI_USAGE.md): the tools, the main prompts, what AI wrote and how each part was checked. Every prompt the system sends to Gemini is in `backend/app/extract/prompts.py`. |
 
 The brief also asks for smooth performance, high speed, scalability, reliability and strong security. The short version is below; [Speed, scale, reliability and security](#speed-scale-reliability-and-security) has the measurements.

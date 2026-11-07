@@ -1,0 +1,9 @@
+{
+  "name": "docintel-doc-tools",
+  "private": true,
+  "description": "Renders docs/diagrams/*.mmd to PNG and docs/DELIVERABLES.md to docs/DocIntel-Deliverables.pdf.",
+  "dependencies": {
+    "marked": "15.0.6",
+    "mermaid": "11.4.1"
+  }
+}

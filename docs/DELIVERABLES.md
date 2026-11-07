@@ -8,7 +8,7 @@ AI Engineer assessment, Care Guide. Project: AI-Powered Document Intelligence Sy
 | API docs | https://docintel-api-y25b.onrender.com/api/docs |
 | Repository | https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System |
 | Walkthrough video | Link added before submission |
-| This report as a PDF | [DocIntel-Deliverables.pdf](DocIntel-Deliverables.pdf) |
+| This report as a PDF | [Download DocIntel-Deliverables.pdf](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/raw/main/docs/DocIntel-Deliverables.pdf) |
 
 DocIntel reads invoices and receipts from PDFs, scans, phone photos, TIFF images, Excel workbooks and CSV files. It extracts the invoice fields with Gemini, checks every number in Python, sends doubtful records to a person, cross-checks one document against another, and makes everything searchable by keyword and by meaning.
 

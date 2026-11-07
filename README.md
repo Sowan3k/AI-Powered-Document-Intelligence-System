@@ -8,13 +8,13 @@ I built it for the AI Engineer assessment at Care Guide. The brief is in [docs/B
 - API docs: https://docintel-api-y25b.onrender.com/api/docs
 - Health: https://docintel-api-y25b.onrender.com/api/health (database and file storage)
 - Walkthrough video: link added before submission
-- Deliverables report: [docs/DELIVERABLES.md](docs/DELIVERABLES.md), also as a [PDF](docs/DocIntel-Deliverables.pdf)
+- Deliverables report: [read it here](docs/DELIVERABLES.md), or [download the PDF](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/raw/main/docs/DocIntel-Deliverables.pdf) (6 pages)
 
 The backend runs on Render's free plan. It sleeps when idle, so the first request can take up to a minute. The web app's opening page starts waking it the moment it loads and shows the real status at the top, with Sign in beside it.
 
 ## Deliverables
 
-The brief asks for nine things, submitted within five days. Each one is here. The same list, with the key results of each, diagrams and screenshots, is in the [deliverables report](docs/DELIVERABLES.md), also as a [PDF](docs/DocIntel-Deliverables.pdf).
+The brief asks for nine things, submitted within five days. Each one is here. The same list, with the key results of each, diagrams and screenshots, is in the [deliverables report](docs/DELIVERABLES.md). **[Download it as a PDF](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/raw/main/docs/DocIntel-Deliverables.pdf).**
 
 | # | Deliverable | Where it is |
 |---|---|---|

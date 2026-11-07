@@ -150,8 +150,10 @@ def test_r03_without_subtotal_counts_adjustments() -> None:
 
 
 def test_r08_dates() -> None:
-    assert codes(replace(clean(), invoice_date=date(2026, 11, 5))) == ["R08"]
+    assert codes(replace(clean(), invoice_date=date(2026, 11, 6))) == ["R08"]
     assert codes(replace(clean(), invoice_date=TODAY)) == []
+    # Tomorrow on a UTC server is today in Dhaka until 06:00 (D87).
+    assert codes(replace(clean(), invoice_date=date(2026, 11, 5))) == []
     old = run(replace(clean(), invoice_date=date(2015, 1, 1)))
     assert [(i.rule_code, i.severity) for i in old] == [("R08", Severity.WARNING)]
 
@@ -189,3 +191,9 @@ def test_r11_currency() -> None:
 def test_messages_name_the_numbers() -> None:
     [issue] = run(replace(clean(), total=D("146.50")))
     assert "136.50" in issue.message and "146.50" in issue.message
+
+
+def test_messages_use_field_names_a_reviewer_reads() -> None:
+    """Not "invoice_number is missing" (D87)."""
+    [issue] = run(replace(clean(), invoice_number=None))
+    assert issue.message == "invoice number is missing" and issue.field == "invoice_number"

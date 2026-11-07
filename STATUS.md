@@ -45,6 +45,18 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 7 Nov 2026, live audit (Claude Code)
+
+Sowan asked to check the whole live system. Read Render's logs and deploys, the jobs table and Supabase's advisors: start-up about 38 s with migrations and two worker loops, no 5xx errors, no stuck or retried jobs, every invoice indexed and embedded, broken files rejected with the right codes, advisors informational only. Fixed (D89): one tap on a suggested pair saved two comparisons; Tesseract timed out after 120 s on every full-size phone photo before vision began. Tested: 439 backend tests pass (new: photo OCR size); lint and typecheck pass.
+
+### 7 Nov 2026, search, Compare and the light-mode warning (Claude Code)
+
+Sowan asked to check search, Compare, and an error-like preview on taps in light mode. Found and fixed (D88): "00026", "inv 2026 00026" and "452.23" found nothing (Postgres tokenizes the number as negative numbers); the "By meaning" box raised the browser's "Please fill out this field" bubble; Compare could pair the wrong supplier on a shared short number and would compare unfinished documents. Tested: 438 backend tests pass (new: number tail, spaced number, amount, supplier-aware pairing, 409 for unfinished documents); the fixed queries checked against local data.
+
+### 7 Nov 2026, validation messages (Claude Code)
+
+Sowan asked to check the messages for invoices with several kinds of issue. From the live data after the walkthrough: duplicates did not name the other file, raw field names ("invoice_number is missing"), wrong R07 wording for an invoice with no number, review cards showing only the first problem, duplicate flags left behind when the original was deleted or re-uploaded, and dates "in the future" because the server runs on UTC. All fixed (D87). Tested: 436 backend tests pass (new: messages name the file, R07 without a number, a deleted original clears its copy, tomorrow's date allowed, readable field names); in Chromium at phone size a review card lists both of its problems.
+
 ### 7 Nov 2026, walkthrough video (Claude Code)
 
 Sowan recorded the walkthrough on the live site: https://youtu.be/n9xKvACPR90. Added to the README, `docs/DELIVERABLES.md` and the rebuilt PDF; ticked in PHASES.md. Left for Sowan: repository access for reviewers, and the Reply All with the links, CV, references and portfolio.

@@ -11,12 +11,13 @@ SQL, with bound parameters only (security rule 6).
 """
 
 import contextlib
+import re
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Literal
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, case, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import Settings
@@ -24,6 +25,7 @@ from app.db.enums import ReviewStatus
 from app.db.models import Document, Invoice
 from app.extract import prompts
 from app.extract.llm import LlmClient, LlmError, require_model
+from app.extract.normalise import norm_invoice_number
 
 Mode = Literal["keyword", "semantic", "hybrid"]
 # Reciprocal rank fusion: score = sum of 1 / (RRF_K + rank) over both lists.
@@ -118,6 +120,20 @@ def search(
     return [Hit(r[0], r[1], None) for r in rows], total
 
 
+AMOUNT = re.compile(r"^\d{1,3}(,\d{3})+(\.\d{1,2})?$|^\d+\.\d{1,2}$")
+
+
+def _amount(q: str) -> Decimal | None:
+    """ "452.23" or "1,250.00" as money; a bare "2026" stays a word."""
+    text = q.strip()
+    if not AMOUNT.match(text):
+        return None
+    try:
+        return Decimal(text.replace(",", ""))
+    except InvalidOperation:
+        return None
+
+
 def _keyword(
     session: Session, query: Select, q: str, limit: int, offset: int
 ) -> tuple[list[Hit], int]:
@@ -125,7 +141,23 @@ def _keyword(
         func.websearch_to_tsquery("english", q)
     )
     rank = func.ts_rank(Invoice.search_vector, tsquery)
-    query = query.where(Invoice.search_vector.op("@@")(tsquery))
+    # Postgres reads "INV-2026-00026" as inv, -2026, -00026, so "00026" or
+    # "inv 2026 00026" found nothing. The number as letters and digits only, and
+    # an amount typed as money, match directly; exact hits rank first (D88).
+    found = [Invoice.search_vector.op("@@")(tsquery)]
+    boost = []
+    number = norm_invoice_number(q)
+    if number and len(number) >= 3 and any(c.isdigit() for c in number):
+        found.append(Invoice.invoice_number_norm.contains(number, autoescape=True))
+        boost.append((Invoice.invoice_number_norm == number, 2.0))
+        boost.append((Invoice.invoice_number_norm.contains(number, autoescape=True), 1.0))
+    amount = _amount(q)
+    if amount is not None:
+        found.append(or_(Invoice.total == amount, Invoice.subtotal == amount))
+        boost.append((Invoice.total == amount, 1.0))
+    if boost:
+        rank = rank + case(*boost, else_=0.0)
+    query = query.where(or_(*found))
     total = session.scalar(select(func.count()).select_from(query.subquery())) or 0
     rows = session.execute(
         query.add_columns(rank.label("rank"))

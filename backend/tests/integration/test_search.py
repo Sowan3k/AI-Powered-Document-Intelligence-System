@@ -171,3 +171,16 @@ def test_semantic_search_sees_past_dead_index_entries(db: Session) -> None:
         llm=FixedQuery(query),
     )  # type: ignore[arg-type]
     assert [h.invoice.invoice_number for h in hits] == ["LIVE-1"]
+
+
+def test_a_number_tail_a_spaced_number_or_an_amount_finds_the_invoice(
+    db: Session, corpus: Document
+) -> None:
+    """Postgres reads "INV-2026-0007" as inv, -2026, -0007, so these found nothing (D88)."""
+    assert numbers(db, mode="keyword", q="0007") == ["INV-2026-0007"]
+    assert numbers(db, mode="keyword", q="inv 2026 0007") == ["INV-2026-0007"]
+    assert numbers(db, mode="keyword", q="980.00") == ["B-77"]
+    assert numbers(db, mode="keyword", q="45.50") == ["INV-2026-0008"]
+    # A bare year stays a word, and the exact number still ranks first.
+    assert numbers(db, mode="keyword", q="INV-2026-0008")[0] == "INV-2026-0008"
+    assert numbers(db, mode="keyword", q="Padma") == ["B-77"]

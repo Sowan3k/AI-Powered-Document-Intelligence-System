@@ -1183,3 +1183,47 @@ Run 8 measured it: photo fields rose from 77.8% to 87.5%. Mild and medium photos
 **Trade-off:** A running job stops at its next step, not mid-call, so a cancel can take up to one model call to land. A vision page that would have answered after a minute now falls back sooner, which can mean a weaker reading on that page; the reviewer sees its lower confidence.
 
 **In one sentence:** Fail fast on the slow model, run two jobs at once, and let the person stop any file.
+
+## D87: Validation messages a reviewer can act on
+
+**Alternatives:** Keep the messages as they were and rely on the issue list on the document page; show only the first problem on each review card.
+
+**Why:** Sowan asked to check the messages shown when an invoice has several kinds of issue. The live data after the walkthrough showed six faults:
+
+- **A duplicate did not say where the other copy was.** "Already stored (1 match)" left the reviewer to search. It now names the file: `already stored in "06_register_two_sheets.xlsx"`, or "earlier in this file", and "and 1 other file" when there are more.
+- **Field names reached people raw**, as in "invoice_number is missing". Messages now say "invoice number", "supplier", "customer". The web app also shows each message as a sentence, which tidies messages stored before this change.
+- **Wrong wording without a number.** An invoice with no number got "same supplier, date and total under another number". R07 now names the other invoice ("as invoice INV-5", or "as an invoice with no number") and its file.
+- **A review card showed only the first problem.** An invoice with a wrong total and a duplicate showed the total alone. The review queue now returns every open error (`problems`), and the card lists them all.
+- **Stale duplicate flags.** When the original was deleted, re-uploaded or cancelled, its copies stayed flagged as duplicates of something that no longer existed. Those copies are now checked again at that moment.
+- **"In the future" by time zone.** The server runs on UTC, so an invoice dated today in Dhaka counted as a future date until 06:00. R08 now allows one day.
+
+**Trade-off:** A date one day ahead is no longer flagged, wherever it comes from. Checking copies again costs a scan of the open duplicate issues on each delete or re-upload, which is small at this size.
+
+**In one sentence:** Every message names what is wrong and where, in plain words, and none outlives the invoice it points to.
+
+## D88: Search finds numbers and amounts; Compare pairs by supplier; no browser warning bubble
+
+**Alternatives:** Rebuild every stored search vector with extra number tokens; leave Compare's first-match pairing; keep the required search box.
+
+**Why:** Sowan asked to check search, Compare, and an error-like preview when tapping buttons in light mode.
+
+- **Search.** Postgres reads "INV-2026-00026" as `inv`, `-2026`, `-00026`, so typing "00026" or "inv 2026 00026" found nothing, and neither did an amount like "452.23". Keyword search (and so Best match) now also matches the invoice number as letters and digits only (the column the duplicate rule already uses), and a query written as money matches the total or subtotal. Exact number matches rank first. This works on invoices already stored, with no re-indexing.
+- **The warning bubble.** "By meaning" marked the box as required, so tapping Search with it empty raised the browser's own "Please fill out this field" bubble, which looked like an error. Any mode with an empty box now lists what fits the filters.
+- **Compare.** The first pass paired an invoice with the first row in the other file that had the same number. Short numbers like "1001" repeat across suppliers, so it could pair the wrong supplier while the right one sat further down. It now takes the same number with the most similar supplier. Compare also refuses, with a clear message, a document that is still being processed or has failed, instead of giving a partial report.
+
+**Trade-off:** A query that is only digits, like "2026", also matches every invoice number containing it. That is what a person typing it usually wants.
+
+**In one sentence:** Find an invoice the way people type it, pair the right supplier, and never show a warning that looks like an error.
+
+## D89: Fixes from a live audit after the walkthrough
+
+**Alternatives:** Trust the tests alone; raise the Tesseract timeout.
+
+**Why:** Sowan asked for a check of the whole live system: start-up, wake-up, the database, and every main task. Render's logs, the deploys, the jobs table and Supabase's own advisors were read for the evening of the recording. Start-up runs migrations and both worker loops in about 38 seconds; there were no 5xx errors; no job was stuck or retried; every invoice had its search vector and embedding; and Supabase's advisors raised only informational notes (row-level security on with no policies, which keeps the disabled Data API closed, and indexes unused at this size). Two faults showed:
+
+- **One tap, two comparisons.** Tapping a suggested pair ran `POST /api/reconcile` twice within 0.25 s. The page writes both document IDs into the URL, and the effect that reads the URL compared them again. The page now marks the comparison as started first.
+- **Two minutes lost on every phone photo.** Tesseract read a 12-megapixel photo at full size and hit its 120-second timeout on the free CPU before the vision model even began. A photo goes to vision anyway (D82), so its fallback OCR now runs at 2,400 pixels, about 200 dpi for an A4 page. Photos keep their full size when `VISION_FOR_PHOTOS` is off.
+
+**Trade-off:** The fallback text of a photo is read at a lower resolution; the vision model, which gives the reading that counts, still gets its own image.
+
+**In one sentence:** The logs found what the tests could not, and both faults are fixed.

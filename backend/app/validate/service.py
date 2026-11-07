@@ -87,6 +87,31 @@ def validate_invoice(
     return issues
 
 
+def recheck_copies_of(session: Session, gone: set[uuid.UUID], settings: Settings) -> int:
+    """Check again every invoice flagged as a copy of one that no longer exists
+    (its document was deleted, re-uploaded or cancelled), so no stale duplicate
+    flag stays behind (D87). Returns how many were checked. Commits."""
+    if not gone:
+        return 0
+    ids = {str(g) for g in gone}
+    affected: set[uuid.UUID] = set()
+    for issue in session.scalars(
+        select(ValidationIssue).where(
+            ValidationIssue.rule_code.in_(("R06", "R07")), ValidationIssue.resolved.is_(False)
+        )
+    ):
+        matches = (issue.details or {}).get("matches") or []
+        if any(isinstance(m, dict) and m.get("invoice_id") in ids for m in matches):
+            affected.add(issue.invoice_id)
+    affected -= gone
+    for invoice_id in affected:
+        invoice = session.get(Invoice, invoice_id)
+        if invoice is not None:
+            validate_invoice(session, invoice, settings)
+    session.commit()
+    return len(affected)
+
+
 def validate_document(
     session: Session,
     document_id: uuid.UUID,

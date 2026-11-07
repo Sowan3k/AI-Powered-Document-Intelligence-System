@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+import cv2
 import numpy as np
 from PIL import Image, ImageOps, ImageSequence, UnidentifiedImageError
 
@@ -17,6 +18,19 @@ from app.ingest.schemas import PageContent
 
 # Refuse decompression bombs. 80 megapixels covers an A3 scan at 600 DPI.
 Image.MAX_IMAGE_PIXELS = 80_000_000
+# A phone photo goes to the vision model anyway (D82), so its OCR is only the
+# fallback. At full size (12 megapixels) Tesseract ran past its 120 s timeout on
+# the free CPU, holding the photo for two minutes; 2,400 px is about 200 dpi for
+# an A4 page, enough for Tesseract (D88).
+PHOTO_OCR_SIDE = 2400
+
+
+def _photo_size(gray: np.ndarray) -> np.ndarray:
+    h, w = gray.shape
+    if max(h, w) <= PHOTO_OCR_SIDE:
+        return gray
+    scale = PHOTO_OCR_SIDE / max(h, w)
+    return cv2.resize(gray, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
 
 
 @contextmanager
@@ -56,8 +70,11 @@ def _frame_to_gray(frame: Image.Image) -> np.ndarray:
 def iter_pages(path: Path, settings: Settings) -> Iterator[PageContent]:
     with open_image(path) as img:
         check_page_count(getattr(img, "n_frames", 1), settings)
+        photo = settings.vision_for_photos and img.format in ("JPEG", "PNG")
         for number, frame in enumerate(ImageSequence.Iterator(img), start=1):
             gray = _frame_to_gray(frame)
+            if photo:
+                gray = _photo_size(gray)
             result = ocr_image(gray, settings.ocr_timeout_s)
             del gray
             yield PageContent(

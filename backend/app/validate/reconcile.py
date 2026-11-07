@@ -120,7 +120,16 @@ def reconcile(
     for ra in list(left):
         if not ra.invoice_number_norm:
             continue
-        rb = next((x for x in right if x.invoice_number_norm == ra.invoice_number_norm), None)
+        # Short numbers like "1001" repeat across suppliers: among the same number,
+        # take the most similar supplier, not simply the first row (D88).
+        same = [x for x in right if x.invoice_number_norm == ra.invoice_number_norm]
+        rb = max(
+            same,
+            key=lambda x: similarity(
+                norm_supplier(ra.supplier_name), norm_supplier(x.supplier_name)
+            ),
+            default=None,
+        )
         if rb is not None:
             pairs.append((ra, rb, "invoice_number"))
             left.remove(ra)

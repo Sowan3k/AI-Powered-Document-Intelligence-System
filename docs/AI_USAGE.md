@@ -244,3 +244,21 @@ AI-generated: the replace endpoint and its test, the shared file module, the but
 Prompt (summary): Sowan's walkthrough recording stalled on a blurred photo that could not be cancelled; he asked to debug the whole thing and wondered about duplicate rows in Supabase.
 
 AI-generated: the diagnosis from Render logs and the jobs table (no duplicates; slow OCR, then vision calls timing out with long retries, behind a single worker), the fast-fail vision policy, JPEG page images, worker concurrency, the cancel endpoint and button, their tests, and decision D86.
+
+### 7 Nov 2026, validation messages (Claude Code)
+
+Prompt (summary): Sowan asked to debug the validation logic, especially the messages shown when an invoice has several kinds of issue such as duplicates or dates, and to fix what was wrong.
+
+AI-generated: the review of all eleven rules against the live issues, the six fixes and their tests, and decision D87.
+
+### 7 Nov 2026, search, Compare and the light-mode warning (Claude Code)
+
+Prompt (summary): Sowan asked to check an error-like preview on button taps in light mode, and to debug the search and Compare mechanisms.
+
+AI-generated: the diagnosis (tapping buttons in Chromium at phone size with screenshots mid-tap, probing the search API with real queries, reading the matching passes), the fixes and tests, and decision D88.
+
+### 7 Nov 2026, live audit (Claude Code)
+
+Prompt (summary): Sowan asked what else could be wrong, and to check the backend's wake-up, start-up and database connection, and whether every main task works.
+
+AI-generated: the audit of Render logs and deploys, the jobs table and Supabase advisors, the two fixes, their test, and decision D89.

@@ -17,6 +17,17 @@ export function label(field: string | null | undefined): string {
   return FIELD_LABELS[field] ?? field.replaceAll("_", " ");
 }
 
+/**
+ * A validation message as a sentence: field names as a reviewer reads them, and
+ * a capital first letter (D87). Also tidies messages stored before that change.
+ */
+export function issueText(message: string): string {
+  const named = message.replace(/\b(invoice_number|invoice_date|supplier_name|customer_name)\b/g, (f) =>
+    label(f).toLowerCase(),
+  );
+  return named.charAt(0).toUpperCase() + named.slice(1);
+}
+
 export function money(value: string | null | undefined, currency?: string | null): string {
   if (value === null || value === undefined || value === "") return "—";
   const [whole, fraction] = value.split(".");

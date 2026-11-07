@@ -26,7 +26,7 @@ from app.ingest.service import ingest_document
 from app.ingest.upload import register_upload
 from app.storage.local import LocalStorage
 from app.validate.reconcile import reconcile_documents
-from app.validate.service import validate_document, validate_invoice
+from app.validate.service import recheck_copies_of, validate_document, validate_invoice
 from tests.conftest import FakeLlmClient
 from tests.unit.extract.test_extract_fixtures import perfect_reader
 
@@ -35,8 +35,8 @@ FIELDS = ("invoice_number", "invoice_date", "supplier_name", "customer_name",
           "subtotal", "tax", "total", "currency")  # fmt: skip
 
 
-def document(db: Session) -> Document:
-    doc = Document(id=uuid.uuid4(), filename="x.pdf", sha256="0" * 64, size_bytes=1)
+def document(db: Session, filename: str = "x.pdf") -> Document:
+    doc = Document(id=uuid.uuid4(), filename=filename, sha256="0" * 64, size_bytes=1)
     db.add(doc)
     db.flush()
     return doc
@@ -242,3 +242,48 @@ def test_reconcile_refuses_bad_input(db: Session) -> None:
         reconcile_documents(db, doc.id, doc.id, Settings())
     with pytest.raises(ValueError, match="not found"):
         reconcile_documents(db, doc.id, uuid.uuid4(), Settings())
+
+
+def test_duplicate_messages_name_the_other_file(db: Session) -> None:
+    """The reviewer sees where the other copy is, without hunting (D87)."""
+    invoice(db, document(db, "march_statement.pdf"), "INV-9", "Acme Traders Ltd")
+    copy = invoice(db, document(db, "register.xlsx"), "INV-9", "Acme Traders Ltd")
+    [issue] = validate_invoice(db, copy, Settings(), TODAY)
+    assert issue.message == (
+        'duplicate: invoice INV-9 from this supplier is already stored in "march_statement.pdf"'
+    )
+    assert issue.details["matches"][0]["filename"] == "march_statement.pdf"
+    # The same invoice twice in one file says so.
+    doc = document(db, "statement.pdf")
+    invoice(db, doc, "INV-10", "Delta Hardware Co")
+    twice = invoice(db, doc, "INV-10", "Delta Hardware Co")
+    [issue] = validate_invoice(db, twice, Settings(), TODAY)
+    assert issue.message.endswith("already stored earlier in this file")
+
+
+def test_possible_duplicate_without_a_number_says_so(db: Session) -> None:
+    invoice(db, document(db, "a.pdf"), "INV-5", "Acme Traders Ltd")
+    unnumbered = invoice(db, document(db, "b.xlsx"), "INV-X", "Acme Traders Ltd")
+    unnumbered.invoice_number = unnumbered.invoice_number_norm = None
+    issues = validate_invoice(db, unnumbered, Settings(), TODAY)
+    [r07] = [i for i in issues if i.rule_code == "R07"]
+    assert r07.message == (
+        'possible duplicate: same supplier, date and total as invoice INV-5 in "a.pdf"'
+    )
+    assert "under another number" not in r07.message
+
+
+def test_deleting_the_original_clears_the_copy(db: Session) -> None:
+    """A copy flagged against an invoice that is gone is checked again (D87)."""
+    first_doc = document(db, "original.pdf")
+    first = invoice(db, first_doc, "INV-11", "Acme Traders Ltd")
+    copy = invoice(db, document(db, "copy.pdf"), "INV-11", "Acme Traders Ltd")
+    validate_invoice(db, copy, Settings(), TODAY)
+    assert copy.review_status is ReviewStatus.NEEDS_REVIEW
+    db.delete(first_doc)
+    db.flush()
+    assert recheck_copies_of(db, {first.id}, Settings()) == 1
+    db.refresh(copy)
+    assert copy.review_status is ReviewStatus.OK
+    open_issues = db.scalars(select(ValidationIssue).where(ValidationIssue.invoice_id == copy.id))
+    assert [i.rule_code for i in open_issues] == []

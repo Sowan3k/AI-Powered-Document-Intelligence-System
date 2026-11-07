@@ -208,6 +208,6 @@ Exit test: `docs/EVALUATION.md` reports every metric from a real run, including 
 - [x] Walkthrough video (3 to 5 minutes, phone screen recording; script in `docs/WALKTHROUGH.md`): mixed upload, progress, results, a validation flag, a correction, keyword and semantic search, reconciliation, a failed file and its retry, API docs, CI, evaluation report Recorded 7 Nov 2026: https://youtu.be/n9xKvACPR90
 - [x] Final secret scan of the full Git history (gitleaks in CI run 84, 5 Nov 2026, commit `3c78986`: no leaks found)
 - [x] Repository access for reviewers decided (invite them, or make it public after the scan). Made public by Sowan on 7 Nov 2026, after the full-history gitleaks scan in CI run 84 passed
-- [ ] Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio
+- [x] Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio. Sent by Sowan on 8 Nov 2026, before the 03:39 deadline
 
 Exit test: a stranger can follow the README and reach a working system.

@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 8 Nov 2026, submitted (Claude chat)
+
+Sowan submitted to Care Guide by Reply All before the 03:39 deadline: live app, API docs, public repository, evaluation report, walkthrough video (https://youtu.be/n9xKvACPR90), CV with two references (academic supervisor and ECTrons CTO, official emails), and the ECTrons internship testimonial. Phase 7 is complete. Next: a video-call interview if shortlisted.
+
 ### 7 Nov 2026, grey boxes on the top pills (Claude Code)
 
 Sowan saw both pills at the top turn into grey boxes in light mode when he tapped. Reproduced in Chromium with the animations slowed: it happened on every page change, not on the press. The scroll edge had its own transition name, so it became a separate layer under the pills, and the refraction filter drew a grey box over it. Removed that name (added to D76). Tested: no box on a tab tap or a tap on the DocIntel pill, at phone and desktop sizes, light and dark; lint and typecheck pass.

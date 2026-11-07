@@ -30,7 +30,7 @@ https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System
 | `eval/` | Labelled dataset generator, evaluation runner, load test |
 | `docs/` | Architecture, schema, security, evaluation, test report, AI usage |
 
-Every design choice, 85 in all, is in [DECISIONS.md](../DECISIONS.md) with the alternatives, the reason and the trade-off.
+Every design choice, 89 in all, is in [DECISIONS.md](../DECISIONS.md) with the alternatives, the reason and the trade-off.
 
 ## 2. README and setup instructions
 
@@ -70,6 +70,7 @@ Both are live and deploy from `main`: the web app on Vercel, the API and worker 
 | Manual corrections | `PATCH /api/invoices/{id}`, `GET /api/review-queue` |
 | Failed-job reprocessing | `POST /api/jobs/{id}/retry`, `POST /api/documents/{id}/reprocess` |
 | Retake a blurred photo | `POST /api/documents/{id}/replace` (the same document, read again from the new file) |
+| Cancel a file | `POST /api/documents/{id}/cancel` (queued or running; nothing read so far is kept) |
 | Cross-verification | `POST /api/reconcile`, `GET /api/reconcile/suggestions` |
 | The original file | `GET /api/documents/{id}/file`, `GET /api/documents/{id}/pages/{n}/image` |
 
@@ -96,11 +97,11 @@ Gemini returns each field as printed, with a confidence score and the text it ca
 
 ## 6. Automated tests and test results
 
-[TEST_REPORT.md](TEST_REPORT.md) has the full report. From CI run 84 on 5 November 2026:
+[TEST_REPORT.md](TEST_REPORT.md) has the full report. From the last CI run before submission, on 7 November 2026 ([run 42412092438](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/actions/runs/42412092438)):
 
 | Job | Result |
 |---|---|
-| Backend: ruff, migrations, 428 pytest tests on Postgres 17 with pgvector and Tesseract | Passed, line coverage 96% |
+| Backend: ruff, migrations, 439 pytest tests on Postgres 17 with pgvector and Tesseract | Passed, line coverage 95% |
 | Frontend: ESLint, TypeScript, production build | Passed |
 | Secret scan: gitleaks over the full Git history | Passed |
 | Docker: both images build, the compose stack starts, a CSV upload is processed and found by search | Passed |

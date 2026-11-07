@@ -106,7 +106,7 @@ export function DocumentView() {
         )}
       </div>
       {d.mime_type && d.status !== "failed" && (
-        <OriginalFile documentId={d.id} mimeType={d.mime_type} filename={d.filename} />
+        <OriginalFile documentId={d.id} mimeType={d.mime_type} filename={d.filename} pageCount={d.page_count} />
       )}
 
       {ACTIVE.has(d.status) && !live && <Loading what="Processing. This page updates by itself" />}

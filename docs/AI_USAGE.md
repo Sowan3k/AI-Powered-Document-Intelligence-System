@@ -207,3 +207,9 @@ Prompt (summary): Sowan said the site was now too green. AI-generated: the narro
 Prompt (summary): Sowan asked what the build still missed against the brief, then asked to fix it and to add screenshots to the README like his other projects.
 
 AI-generated: the routing of phone photos to vision with the upside-down flip, its tests, decision D82, the run 8 write-up, the refreshed test report, the screenshot script and the README section. Claude Code took the run 8 numbers from the workflow log, not from memory, and looked at every screenshot before adding it. It retook the Compare shots after one showed the dark Compare button under the clear header, which read as a glitch.
+
+### 7 Nov 2026, "View original" blocked on the phone (Claude Code)
+
+Prompt (summary): Sowan sent a screenshot of "This content is blocked" after tapping "View original".
+
+AI-generated: the diagnosis (a `blob:` frame inherits the app's content security policy, which blocks the PDF viewer as a plugin), the page image endpoint and its test, the new viewer, the stricter `frame-src`, and decision D83. Claude Code checked the new viewer in Chromium at phone size on a 37-page PDF and a two-page TIFF.

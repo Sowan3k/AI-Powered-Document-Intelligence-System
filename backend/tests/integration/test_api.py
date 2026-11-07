@@ -13,6 +13,7 @@ from pathlib import Path
 import jwt
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -544,3 +545,28 @@ def test_original_file_and_delete(env: Env, db: Session) -> None:
     assert env.get(f"/api/documents/{pdf_id}").status_code == 404
     assert db.scalars(select(Invoice).where(Invoice.document_id == uuid.UUID(pdf_id))).all() == []
     assert env.get(f"/api/documents/{csv_id}").status_code == 200  # the other file stays
+
+
+def test_pages_of_the_original_as_images(env: Env) -> None:
+    """The web app shows the original as page images, never as an embedded PDF (D83)."""
+    env.login()
+    body = env.upload(
+        "digital_classic_0.pdf", "scan_two_pages.tiff", "photo_upside_down.jpg", "register.csv"
+    )
+    pdf_id, tiff_id, photo_id, csv_id = (d["document_id"] for d in body["documents"])
+
+    assert env.client.get(f"/api/documents/{pdf_id}/pages/1/image").status_code == 401
+    page = env.get(f"/api/documents/{pdf_id}/pages/1/image")
+    assert page.status_code == 200 and page.headers["content-type"] == "image/jpeg"
+    assert page.content[:3] == b"\xff\xd8\xff"  # a JPEG
+    with Image.open(io.BytesIO(page.content)) as img:
+        assert img.mode == "RGB" and max(img.size) <= 1800
+
+    second = env.get(f"/api/documents/{tiff_id}/pages/2/image")
+    assert second.status_code == 200 and second.content[:3] == b"\xff\xd8\xff"
+    assert env.get(f"/api/documents/{photo_id}/pages/1/image").status_code == 200
+
+    assert env.get(f"/api/documents/{pdf_id}/pages/99/image").status_code == 404
+    assert env.get(f"/api/documents/{tiff_id}/pages/3/image").status_code == 404
+    assert env.get(f"/api/documents/{pdf_id}/pages/0/image").status_code == 422
+    assert env.get(f"/api/documents/{csv_id}/pages/1/image").status_code == 404  # no pages

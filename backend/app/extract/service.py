@@ -42,14 +42,13 @@ from app.extract.llm import (
 from app.extract.normalise import norm_invoice_number, norm_supplier
 from app.extract.schemas import FIELDS, InvoiceData, LlmExtraction, LlmInvoice
 from app.ingest import reader
-from app.ingest.schemas import MIME_TYPES, FileKind
+from app.ingest.schemas import KIND_BY_MIME, FileKind
 from app.storage import FileStorage
 
 logger = logging.getLogger(__name__)
 
 EXTRACTION_FAILED = "EXTRACTION_FAILED"
 MONEY_LIMIT = Decimal("1e12")  # NUMERIC(14,2) holds 12 digits before the point
-KIND_BY_MIME = {mime: kind for kind, mime in MIME_TYPES.items()}
 # Phone photos: always worth a vision read when settings.vision_for_photos (D82).
 PHOTO_KINDS = {FileKind.JPEG, FileKind.PNG}
 

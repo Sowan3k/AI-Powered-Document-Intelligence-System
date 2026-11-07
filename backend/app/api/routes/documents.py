@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import Path as PathParam
 from fastapi.responses import FileResponse
 from sqlalchemy import delete as sql_delete
 from sqlalchemy import func, select
@@ -34,6 +35,8 @@ from app.db.models import Document, Invoice, Job, Page, ProcessingEvent
 from app.db.session import get_db
 from app.ingest.errors import IngestError
 from app.ingest.limits import check_batch
+from app.ingest.preview import PREVIEW_KINDS, PageNotFoundError, page_jpeg
+from app.ingest.schemas import KIND_BY_MIME
 from app.ingest.upload import register_upload
 from app.storage import FileStorage
 from app.storage.base import StorageError
@@ -262,6 +265,48 @@ def original_file(
         content_disposition_type="inline" if inline else "attachment",
         background=BackgroundTask(shutil.rmtree, tmp, ignore_errors=True),
     )
+
+
+@router.get(
+    "/{document_id}/pages/{page_number}/image",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/jpeg": {}}, "description": "One page as a JPEG"},
+        404: {},
+        422: {},
+        502: {},
+    },
+)
+def page_image(
+    document_id: uuid.UUID,
+    page_number: int = PathParam(ge=1),
+    db: Session = Depends(get_db),
+    storage: FileStorage = Depends(get_storage),
+) -> Response:
+    """One page of a PDF, TIFF or photo as a JPEG, so the web app can show the
+    original on any browser, phones included (D83)."""
+    doc = _get(db, document_id)
+    kind = KIND_BY_MIME.get(doc.mime_type or "")
+    if doc.storage_path is None or kind not in PREVIEW_KINDS:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "this file has no pages to show")
+    with tempfile.TemporaryDirectory(prefix="docintel-page-") as tmp:
+        local = Path(tmp) / "original"
+        try:
+            storage.download(doc.storage_path, local)
+        except StorageError:
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY, "the file store did not answer"
+            ) from None
+        try:
+            jpeg = page_jpeg(local, kind, page_number)
+        except PageNotFoundError:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "the file has no such page") from None
+        except Exception:  # a file that cannot be drawn; ingest has its own error for it
+            logger.warning("page image failed for document %s page %s", doc.id, page_number)
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "this page could not be drawn"
+            ) from None
+    return Response(jpeg, media_type="image/jpeg")
 
 
 @router.delete(

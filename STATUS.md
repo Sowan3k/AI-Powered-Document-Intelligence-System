@@ -45,6 +45,12 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 7 Nov 2026, "View original" blocked on the phone (Claude Code)
+
+Sowan tapped "View original" on a PDF and saw "This content is blocked". Cause: the PDF opened in a frame from a `blob:` link, which takes on the app's security policy, and that policy blocks Chrome's PDF viewer as a plugin. Fixed (D83): the API draws each page as a JPEG (`/api/documents/{id}/pages/{n}/image`) for PDFs, TIFF files and photos, and the page shows them as you scroll. Frames are now forbidden in the policy.
+
+Tested: 429 backend tests pass, including a new one for page images (PDF, a two-page TIFF, a photo, missing pages, a CSV). Lint, typecheck and build pass. In Chromium at phone size, a 37-page PDF and a two-page TIFF show their pages, with no console errors.
+
 ### 5 Nov 2026, photos to vision, run 8, README screenshots (Claude Code)
 
 Sowan asked to fix the gaps found against the brief and to add screenshots to the README like his other projects. Built D82: JPEG and PNG pages always go to the vision model (`VISION_FOR_PHOTOS`), and a page Tesseract found upside down is flipped before vision. Ran evaluation run 8: photos 77.8% to 87.5%. Refreshed `docs/TEST_REPORT.md` from CI run 84 (428 passed, 96% coverage) and ticked the final secret scan. Added 13 screenshots (desktop light and dark, phone dark) to `docs/screenshots/` and a Screenshots section to the README.

@@ -207,3 +207,34 @@ Prompt (summary): Sowan said the site was now too green. AI-generated: the narro
 Prompt (summary): Sowan asked what the build still missed against the brief, then asked to fix it and to add screenshots to the README like his other projects.
 
 AI-generated: the routing of phone photos to vision with the upside-down flip, its tests, decision D82, the run 8 write-up, the refreshed test report, the screenshot script and the README section. Claude Code took the run 8 numbers from the workflow log, not from memory, and looked at every screenshot before adding it. It retook the Compare shots after one showed the dark Compare button under the clear header, which read as a glitch.
+
+### 7 Nov 2026, "View original" blocked on the phone (Claude Code)
+
+Prompt (summary): Sowan sent a screenshot of "This content is blocked" after tapping "View original".
+
+AI-generated: the diagnosis (a `blob:` frame inherits the app's content security policy, which blocks the PDF viewer as a plugin), the page image endpoint and its test, the new viewer, the stricter `frame-src`, and decision D83. Claude Code checked the new viewer in Chromium at phone size on a 37-page PDF and a two-page TIFF.
+
+
+### 7 Nov 2026, photos missing from the phone's file picker (Claude Code)
+
+Prompt (summary): Sowan said the file picker showed PDFs but no photos, though the file manager showed the photo in the same folder.
+
+AI-generated: the new `accept` list, typing by MIME type, the in-browser JPEG conversion, the HEIC message, and decision D84. Claude Code tested the three cases in Chromium and uploaded the converted photo to the local API, which accepted it.
+
+### 7 Nov 2026, README deliverables and setup (Claude Code)
+
+Prompt (summary): Sowan shared the brief's list of nine deliverables and asked that the README show them, with clear installation steps.
+
+AI-generated: the Deliverables table, the quality table and the Installation and setup section. Claude Code checked each claim against the code (for example, CSV is read with Python's csv module, not pandas), checked the setup commands against `docker-compose.yml`, `start.sh` and the settings, and ran the sample generator command.
+
+### 7 Nov 2026, deliverables report and PDF (Claude Code)
+
+Prompt (summary): Sowan asked for a PDF or GitHub page holding the deliverables, linked from the README, with the video link to follow.
+
+AI-generated: `docs/DELIVERABLES.md` and the PDF made from it. Claude Code checked the claims against the code and the reports (OCR steps, endpoint paths, test and evaluation figures), then rendered the PDF pages to images and fixed page breaks that split headings from their tables.
+
+### 7 Nov 2026, retake a blurred photo from review (Claude Code)
+
+Prompt (summary): Sowan asked for a re-upload button in the review section, so a blurred invoice photo can be retaken and sent through the pipeline again.
+
+AI-generated: the replace endpoint and its test, the shared file module, the button on review cards and the document page, and decision D85. Claude Code drove the flow in Chromium at phone size, and found and fixed two gaps on the way: old invoices stayed in the review queue until the worker ran, and an old photo's upside-down flag would have turned the new photo.

@@ -45,6 +45,32 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 7 Nov 2026, diagrams as images (Claude Code)
+
+Sowan saw the README's architecture diagram as Mermaid code in the GitHub phone app, which does not draw Mermaid. All six diagrams (README, ARCHITECTURE, SCHEMA, DELIVERABLES) are now PNG images in `docs/diagrams/`, rendered in Chromium from their Mermaid sources kept beside them. The deliverables PDF was rebuilt with them.
+
+### 7 Nov 2026, retake a blurred photo from review (Claude Code)
+
+Sowan asked for a re-upload button in review for photos too blurred to read. Built (D85): `POST /api/documents/{id}/replace` swaps the file, keeps the document's ID and history, drops the old reading, and queues it again; "Retake photo" or "Re-upload" on every review card and on the document page. Tested: 430 backend tests pass, including a new one (refused while queued, refused for a bad file with the document unchanged, then replaced, old file removed, processed again). In Chromium at phone size: the button on a review card took a WEBP photo, converted it, uploaded it, and the card left the queue.
+
+### 7 Nov 2026, deliverables report and PDF (Claude Code)
+
+Sowan asked for one page or PDF with all the deliverables, linked from the README. Added `docs/DELIVERABLES.md` (each of the nine deliverables with its key results, the architecture and ER diagrams, endpoint table, phone screenshots, the quality goals and the stack differences) and `docs/DocIntel-Deliverables.pdf`, 7 A4 pages built from it in Chromium with the diagrams drawn. The README links both. The video link is still a placeholder in both; the PDF must be rebuilt when it is added.
+
+### 7 Nov 2026, README deliverables and setup (Claude Code)
+
+Sowan shared the brief's deliverables list. The README now has a Deliverables table (each of the nine items and where it is), the brief's quality goals with their evidence, and an Installation and setup section near the top: Docker in one command, or each part by hand, plus a check that it works. Found and fixed a trap in the old steps: copying `.env.example` to `.env` made Compose use `DEMO_PASSWORD=replace-me`, so the documented local password failed. The sample generator command was run to confirm it.
+
+### 7 Nov 2026, photos missing from the phone's file picker (Claude Code)
+
+Sowan's picker showed PDFs but no photos. Fixed (D84): the upload box asks for MIME types and `image/*`, not extensions alone; a file's type now comes from its MIME type when the name has no extension; WEBP, AVIF and other photos the server cannot read are converted to JPEG in the browser; HEIC that the browser cannot read gets a clear message. Tested in Chromium at phone size: a WEBP photo (converted and accepted), a PNG named "1000012345" (accepted), a HEIC file (clear message). Lint and typecheck pass.
+
+### 7 Nov 2026, "View original" blocked on the phone (Claude Code)
+
+Sowan tapped "View original" on a PDF and saw "This content is blocked". Cause: the PDF opened in a frame from a `blob:` link, which takes on the app's security policy, and that policy blocks Chrome's PDF viewer as a plugin. Fixed (D83): the API draws each page as a JPEG (`/api/documents/{id}/pages/{n}/image`) for PDFs, TIFF files and photos, and the page shows them as you scroll. Frames are now forbidden in the policy.
+
+Tested: 429 backend tests pass, including a new one for page images (PDF, a two-page TIFF, a photo, missing pages, a CSV). Lint, typecheck and build pass. In Chromium at phone size, a 37-page PDF and a two-page TIFF show their pages, with no console errors.
+
 ### 5 Nov 2026, photos to vision, run 8, README screenshots (Claude Code)
 
 Sowan asked to fix the gaps found against the brief and to add screenshots to the README like his other projects. Built D82: JPEG and PNG pages always go to the vision model (`VISION_FOR_PHOTOS`), and a page Tesseract found upside down is flipped before vision. Ran evaluation run 8: photos 77.8% to 87.5%. Refreshed `docs/TEST_REPORT.md` from CI run 84 (428 passed, 96% coverage) and ticked the final secret scan. Added 13 screenshots (desktop light and dark, phone dark) to `docs/screenshots/` and a Screenshots section to the README.

@@ -1,0 +1,24 @@
+flowchart TD
+    up[POST /api/documents] --> check{Size and type<br/>by magic bytes}
+    check -- bad --> rejected[Document failed<br/>with its code]
+    check -- ok --> store[Store file under a UUID key] --> job[Queue a process job]
+    job --> ingest
+
+    subgraph worker[Worker: one job]
+        ingest[Ingest] --> kind{File kind}
+        kind -- PDF page with text --> digital[PyMuPDF text]
+        kind -- scanned page or image --> ocr[OpenCV cleanup<br/>then Tesseract]
+        kind -- xlsx, xls, csv --> sheets[Sheets: header row,<br/>merged cells, encoding]
+        ocr --> weak{A phone photo, or OCR<br/>confidence below threshold?}
+        weak -- yes --> vision[Gemini vision transcribes<br/>fallback: text model, then OCR text]
+        weak -- no --> pages
+        digital --> pages[Pages of text]
+        vision --> pages
+        pages --> windows[Windows of 8 pages, 1 overlap<br/>Gemini returns printed strings<br/>with confidence and evidence]
+        sheets --> mapping[Columns by rule;<br/>Gemini once per sheet if stuck]
+        windows --> build[Code parses dates, money, currency<br/>and checks evidence in the source]
+        mapping --> build
+        build --> validate[Rules R01 to R11 in Decimal<br/>duplicates via pg_trgm]
+        validate --> index[Full-text vector and embedding]
+    end
+    index --> done[Document completed]

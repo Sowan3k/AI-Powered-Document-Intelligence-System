@@ -6,33 +6,12 @@ import { useActivity } from "@/components/activity";
 import { UploadIcon } from "@/components/icons";
 import { Button, ErrorBox } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { ACCEPT, prepare, type Picked } from "@/lib/files";
 import { bytes } from "@/lib/format";
 import type { UploadResponse } from "@/lib/types";
 
-const ACCEPT = ".pdf,.jpg,.jpeg,.png,.tif,.tiff,.xlsx,.xls,.csv";
-// Server limits (MAX_FILES_PER_BATCH, MAX_FILE_MB). The server checks again by content.
+// Server limit (MAX_FILES_PER_BATCH). The server checks again by content.
 const BATCH = 20;
-const MAX_MB = 50;
-
-const KINDS: Record<string, string> = {
-  pdf: "PDF", jpg: "Photo", jpeg: "Photo", png: "Photo", tif: "TIFF", tiff: "TIFF",
-  xlsx: "Excel", xls: "Excel", csv: "CSV",
-};
-
-type Picked = { key: string; file: File; kind: string | null; problem: string | null; marked: boolean };
-
-function describe(file: File): Picked {
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-  const kind = KINDS[ext] ?? null;
-  const problem = !kind
-    ? "not a supported type"
-    : file.size === 0
-      ? "empty file"
-      : file.size > MAX_MB * 1024 * 1024
-        ? `over ${MAX_MB} MB`
-        : null;
-  return { key: `${file.name}:${file.size}:${file.lastModified}`, file, kind, problem, marked: problem === null };
-}
 
 /**
  * Add files of any supported type, from several places if needed (on a phone,
@@ -61,15 +40,15 @@ export function DropZone() {
     return () => observer.disconnect();
   }, []);
 
-  function add(list: FileList | null) {
+  async function add(list: FileList | null) {
     // Copy now: the FileList is live and empties when the input is reset.
     const files = list ? Array.from(list) : [];
     if (files.length === 0) return;
     setSent(null);
+    const ready = await Promise.all(files.map(prepare));
     setPicked((current) => {
       const seen = new Set(current.map((p) => p.key));
-      const fresh = files.map(describe).filter((p) => !seen.has(p.key));
-      return [...current, ...fresh];
+      return [...current, ...ready.filter((p) => !seen.has(p.key))];
     });
   }
 
@@ -195,7 +174,7 @@ export function DropZone() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm">{p.file.name}</span>
                   <span className={`block text-xs ${p.problem ? "text-red-700 dark:text-red-400" : "text-neutral-500"}`}>
-                    {p.problem ? `Cannot upload: ${p.problem}` : bytes(p.file.size)}
+                    {p.problem ? `Cannot upload: ${p.problem}` : `${bytes(p.file.size)}${p.note ? `, ${p.note}` : ""}`}
                   </span>
                 </span>
                 <button

@@ -12,8 +12,8 @@ const csp = [
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   `connect-src 'self' ${apiOrigin}`,
-  // The original file opens from a blob the page fetched with the token.
-  "frame-src 'self' blob:",
+  // No frames: the original file shows as page images (D83).
+  "frame-src 'none'",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

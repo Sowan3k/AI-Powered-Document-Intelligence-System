@@ -4,31 +4,9 @@ DocIntel is one Python backend (an API process and a worker process in the same 
 
 ## Components
 
-```mermaid
-flowchart LR
-    user([Reviewer on a phone or laptop])
-    subgraph Vercel
-        web[Next.js web app]
-    end
-    subgraph Render["Render web service (one Docker container)"]
-        api[FastAPI API<br/>auth, uploads, results, search]
-        worker[Worker process<br/>job queue loop]
-    end
-    subgraph Supabase
-        db[(PostgreSQL<br/>pgvector, pg_trgm,<br/>job table)]
-        files[(Private bucket<br/>documents)]
-    end
-    gemini[Gemini API<br/>text, vision, embeddings]
+![Architecture: reviewer, Next.js on Vercel, FastAPI API and worker on Render, PostgreSQL and a private bucket on Supabase, and the Gemini API](diagrams/architecture.png)
 
-    user --> web
-    web -- "HTTPS + JWT" --> api
-    api -- SQLAlchemy --> db
-    api -- "Storage API (secret key)" --> files
-    worker -- "FOR UPDATE SKIP LOCKED" --> db
-    worker --> files
-    worker -- "extraction, vision, embeddings" --> gemini
-    api -- "query embedding (semantic search)" --> gemini
-```
+The diagrams are images so they show everywhere, the GitHub phone app included. Their Mermaid sources are in [diagrams/](diagrams/), beside each image.
 
 | Part | Runs where | Does |
 |---|---|---|
@@ -43,32 +21,7 @@ Locally, `docker compose up` runs the same API and worker images with a local Po
 
 ## The pipeline
 
-```mermaid
-flowchart TD
-    up[POST /api/documents] --> check{Size and type<br/>by magic bytes}
-    check -- bad --> rejected[Document failed<br/>with its code]
-    check -- ok --> store[Store file under a UUID key] --> job[Queue a process job]
-    job --> ingest
-
-    subgraph worker[Worker: one job]
-        ingest[Ingest] --> kind{File kind}
-        kind -- PDF page with text --> digital[PyMuPDF text]
-        kind -- scanned page or image --> ocr[OpenCV cleanup<br/>then Tesseract]
-        kind -- xlsx, xls, csv --> sheets[Sheets: header row,<br/>merged cells, encoding]
-        ocr --> weak{OCR confidence<br/>below threshold?}
-        weak -- yes --> vision[Gemini vision transcribes<br/>fallback: text model, then OCR text]
-        weak -- no --> pages
-        digital --> pages[Pages of text]
-        vision --> pages
-        pages --> windows[Windows of 8 pages, 1 overlap<br/>Gemini returns printed strings<br/>with confidence and evidence]
-        sheets --> mapping[Columns by rule;<br/>Gemini once per sheet if stuck]
-        windows --> build[Code parses dates, money, currency<br/>and checks evidence in the source]
-        mapping --> build
-        build --> validate[Rules R01 to R11 in Decimal<br/>duplicates via pg_trgm]
-        validate --> index[Full-text vector and embedding]
-    end
-    index --> done[Document completed]
-```
+![The pipeline for one upload: check by magic bytes, store, queue, then in the worker read the file by kind, OCR and vision when needed, extract in page windows, parse, validate and index](diagrams/pipeline.png)
 
 A file that cannot be read fails with its code and is never retried. A model reply that breaks the schema twice fails with `EXTRACTION_FAILED`. Network, quota and storage errors retry with exponential backoff, then fail with the last error (D45). Every step writes a `processing_events` row, which the web app shows as the document's history.
 

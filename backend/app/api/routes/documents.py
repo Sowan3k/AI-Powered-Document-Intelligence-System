@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import Path as PathParam
 from fastapi.responses import FileResponse
 from sqlalchemy import delete as sql_delete
 from sqlalchemy import func, select
@@ -34,7 +35,9 @@ from app.db.models import Document, Invoice, Job, Page, ProcessingEvent
 from app.db.session import get_db
 from app.ingest.errors import IngestError
 from app.ingest.limits import check_batch
-from app.ingest.upload import register_upload
+from app.ingest.preview import PREVIEW_KINDS, PageNotFoundError, page_jpeg
+from app.ingest.schemas import KIND_BY_MIME
+from app.ingest.upload import register_upload, replace_file
 from app.storage import FileStorage
 from app.storage.base import StorageError
 from app.worker import queue
@@ -227,6 +230,52 @@ def reprocess(
     return JobOut.model_validate(job)
 
 
+@router.post(
+    "/{document_id}/replace",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=JobOut,
+    dependencies=[Depends(limit_upload)],
+    responses={
+        404: {},
+        409: {"description": "The document is being processed"},
+        422: {"description": "The new file would be rejected at upload"},
+        429: {},
+        502: {},
+    },
+)
+def replace(
+    document_id: uuid.UUID,
+    file: UploadFile = File(..., description="The new file, such as a retaken photo"),
+    db: Session = Depends(get_db),
+    storage: FileStorage = Depends(get_storage),
+    settings: Settings = Depends(get_settings),
+) -> JobOut:
+    """Put a new file in place of a document's file and process it again (D85).
+    For a photo too blurred to read: retake it, and the document keeps its place."""
+    doc = _get(db, document_id)
+    if queue.active_job(db, doc.id, queue.JOB_PROCESS):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "this document is being processed; try again when it ends"
+        )
+    with tempfile.TemporaryDirectory(prefix="docintel-replace-") as tmp:
+        path = Path(tmp) / "file"
+        with path.open("wb") as out:
+            shutil.copyfileobj(file.file, out, COPY_CHUNK)
+        try:
+            replace_file(db, storage, doc, file.filename or doc.filename, path, settings)
+        except IngestError as exc:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, f"{exc.code.value}: {exc.message}"
+            ) from None
+        except StorageError:
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY, "the file store did not answer"
+            ) from None
+    job = queue.enqueue(db, doc.id, queue.JOB_PROCESS, settings)
+    db.commit()
+    return JobOut.model_validate(job)
+
+
 # Types a browser can show safely inside the page; anything else downloads (D65).
 INLINE_TYPES = {"application/pdf", "image/png", "image/jpeg"}
 
@@ -262,6 +311,48 @@ def original_file(
         content_disposition_type="inline" if inline else "attachment",
         background=BackgroundTask(shutil.rmtree, tmp, ignore_errors=True),
     )
+
+
+@router.get(
+    "/{document_id}/pages/{page_number}/image",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/jpeg": {}}, "description": "One page as a JPEG"},
+        404: {},
+        422: {},
+        502: {},
+    },
+)
+def page_image(
+    document_id: uuid.UUID,
+    page_number: int = PathParam(ge=1),
+    db: Session = Depends(get_db),
+    storage: FileStorage = Depends(get_storage),
+) -> Response:
+    """One page of a PDF, TIFF or photo as a JPEG, so the web app can show the
+    original on any browser, phones included (D83)."""
+    doc = _get(db, document_id)
+    kind = KIND_BY_MIME.get(doc.mime_type or "")
+    if doc.storage_path is None or kind not in PREVIEW_KINDS:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "this file has no pages to show")
+    with tempfile.TemporaryDirectory(prefix="docintel-page-") as tmp:
+        local = Path(tmp) / "original"
+        try:
+            storage.download(doc.storage_path, local)
+        except StorageError:
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY, "the file store did not answer"
+            ) from None
+        try:
+            jpeg = page_jpeg(local, kind, page_number)
+        except PageNotFoundError:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "the file has no such page") from None
+        except Exception:  # a file that cannot be drawn; ingest has its own error for it
+            logger.warning("page image failed for document %s page %s", doc.id, page_number)
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "this page could not be drawn"
+            ) from None
+    return Response(jpeg, media_type="image/jpeg")
 
 
 @router.delete(

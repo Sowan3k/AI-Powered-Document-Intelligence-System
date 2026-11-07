@@ -860,7 +860,7 @@ The backend gained `GET /api/activity` (each document's stage from its latest hi
 
 **Alternatives:** Public or signed storage links; soft delete with a flag.
 
-**Why:** A reviewer checks a value against the page it came from, so the document page now shows the original: `GET /api/documents/{id}/file` streams the stored file through the API with the same login, and the page shows PDFs and photos inline (spreadsheets and TIFFs download). The bucket stays private and no link outlives the session (security rule 4). Deleting is the other half of handling personal data: `DELETE /api/documents/{id}` removes the stored file first and then the document row, and the database cascade removes pages, invoices, line items, issues, corrections, jobs, history and reconciliations. It refuses while a job runs, and if the file store fails it keeps the row so nothing is left half deleted. The log records only the document ID and the user.
+**Why:** A reviewer checks a value against the page it came from, so the document page now shows the original: `GET /api/documents/{id}/file` streams the stored file through the API with the same login, and the page shows PDFs and photos inline (spreadsheets and TIFFs download). Since D83 the pages show as images drawn by the API. The bucket stays private and no link outlives the session (security rule 4). Deleting is the other half of handling personal data: `DELETE /api/documents/{id}` removes the stored file first and then the document row, and the database cascade removes pages, invoices, line items, issues, corrections, jobs, history and reconciliations. It refuses while a job runs, and if the file store fails it keeps the row so nothing is left half deleted. The log records only the document ID and the user.
 
 **Trade-off:** Streaming through the API uses the free instance's bandwidth and memory for large files, where a signed URL would not. A hard delete cannot be undone; the page asks for confirmation first.
 
@@ -1123,3 +1123,48 @@ Run 8 measured it: photo fields rose from 77.8% to 87.5%. Mild and medium photos
 **Trade-off:** One more model call per photo page, and more time: a photo took 55.7 s on average in run 8. The vision model is often overloaded, so photos wait longer for it. A misread invoice number on a hard photo still breaks no rule.
 
 **In one sentence:** For phone photos, trust the image over Tesseract's confidence, and send it the right way up.
+
+## D83: The original file shows as page images, not as an embedded PDF
+
+**Alternatives:** Keep the PDF in a frame (D65); show the PDF with pdf.js in the browser; loosen the content security policy so the browser's PDF viewer may run.
+
+**Why:** On Sowan's phone, "View original" showed "This content is blocked". The PDF opened in a frame from a `blob:` link, and a `blob:` page takes on the app's own security policy, which forbids plugins (`object-src 'none'`) and framing. Chrome's PDF viewer is a plugin. Phone browsers handle a PDF in a frame badly even without the policy: many have no inline viewer, and iOS shows only the first page.
+
+- **The API draws the page.** `GET /api/documents/{id}/pages/{n}/image` returns one page as a JPEG in colour, at 150 dpi, its longer side at most 1,800 pixels. It works for PDFs, TIFF files (which most browsers cannot show at all) and photos. It uses the same login as the rest of the API.
+- **The page fetches pages as you scroll.** The first three pages appear, then five more at a time. Each page loads only when it comes near the screen, so a 1,000-page PDF costs nothing until someone scrolls.
+- **Download stays.** "Download original" gives the file itself, for anyone who wants the real PDF.
+- **The policy got stricter, not looser.** The app now uses no frames at all, so `frame-src` changed from `'self' blob:` to `'none'`.
+- **pdf.js** would draw the PDF in the browser, but it adds about a megabyte of script and a worker to set up, for the same result.
+
+**Trade-off:** Each page request downloads the file from storage again, which is slow for a very large file. Text in an image cannot be selected; the source text is shown beside it on the same page.
+
+**In one sentence:** Show every page as an image the API draws, so the original opens on any phone and the security policy stays strict.
+
+## D84: Every photo shows in the phone's file picker
+
+**Alternatives:** Keep the list of extensions (as before); accept only the three image types the server reads; add HEIC and WEBP readers to the backend.
+
+**Why:** On Sowan's phone, the upload box's picker hid every photo in a folder and showed only PDFs and spreadsheets. Android's picker shows only the file types the page asks for, and the page gave a list of extensions alone, which some pickers turn into the wrong set of types. A photo in a format the server does not read (WEBP from the web, HEIC from some cameras) is hidden by any list of three image types.
+
+- **The picker gets real file types.** The `accept` list now names MIME types and extensions, and `image/*`, so every photo shows. On Android this also offers the camera.
+- **The type comes from the file, not only its name.** Android often names a picked photo with no extension ("1000012345"); the file's own type now counts too. The server still checks the bytes.
+- **Other image formats become JPEG on the phone.** A WEBP, AVIF or GIF photo, or HEIC where the browser can read it, is drawn to a canvas and sent as a JPEG (largest 16 megapixels). The list says "converted from WEBP to JPEG". HEIC in Chrome on Android cannot be read, and the list says how to share the photo as JPEG instead.
+
+**Trade-off:** A converted photo is stored as the JPEG, not the file the phone held. Adding HEIC to the backend would need a new image library a day before submission.
+
+**In one sentence:** Ask the picker for every photo, and turn the formats the server cannot read into JPEG before they leave the phone.
+
+## D85: Re-upload a file in place, such as a retaken photo
+
+**Alternatives:** Upload the new photo as a new document and delete the old one; only let the reviewer correct the values by hand.
+
+**Why:** Sowan asked for a way to retake a photo that is too blurred to read, from the review queue, and send it through the pipeline again.
+
+- **The document keeps its place.** `POST /api/documents/{id}/replace` takes one file, checks it exactly like an upload (size, type by its bytes), stores it, and queues the document again. The ID and the processing history stay, with a `file_replaced` event. A file that would be refused at upload is refused here too, and the document stays as it was.
+- **The old reading goes at once.** The old file's invoices, page text and sheets are deleted when the new file arrives, so the review queue no longer shows them. Their line items, issues and corrections go with them. Keeping corrections made to a blurred photo would be wrong once a sharp one exists.
+- **Where the button is.** On every review card and on the document page. It says "Retake photo" for a photo and "Re-upload" for anything else. The phone's picker offers the camera too, and the same photo preparation as the upload box applies (D84). The page asks for confirmation first.
+- **Flips belong to a file.** An upside-down page found in the old photo no longer turns the new one: only flips recorded after the latest upload count.
+
+**Trade-off:** A deleted reading cannot be brought back. Replacing a file of another type removes the old file from storage; a failure there leaves an orphan file, logged, and never blocks the replacement.
+
+**In one sentence:** Retake a blurred photo from the review queue, and the same document is read again from the new file.

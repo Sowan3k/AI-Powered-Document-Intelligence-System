@@ -45,7 +45,7 @@ What DocIntel protects today, and what a production deployment would add. Every 
 
 ## Headers
 
-The API sends `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, a deny-all CSP and, in production, HSTS. The web app sends a CSP that allows only its own origin and the API, and forbids framing (D63).
+The API sends `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, a deny-all CSP and, in production, HSTS. The web app sends a CSP that allows only its own origin and the API, forbids framing, and loads no frames itself: the original file shows as page images drawn by the API (D63, D83).
 
 ## Deleting data
 

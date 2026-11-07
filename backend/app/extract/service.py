@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -42,14 +42,13 @@ from app.extract.llm import (
 from app.extract.normalise import norm_invoice_number, norm_supplier
 from app.extract.schemas import FIELDS, InvoiceData, LlmExtraction, LlmInvoice
 from app.ingest import reader
-from app.ingest.schemas import MIME_TYPES, FileKind
+from app.ingest.schemas import KIND_BY_MIME, FileKind
 from app.storage import FileStorage
 
 logger = logging.getLogger(__name__)
 
 EXTRACTION_FAILED = "EXTRACTION_FAILED"
 MONEY_LIMIT = Decimal("1e12")  # NUMERIC(14,2) holds 12 digits before the point
-KIND_BY_MIME = {mime: kind for kind, mime in MIME_TYPES.items()}
 # Phone photos: always worth a vision read when settings.vision_for_photos (D82).
 PHOTO_KINDS = {FileKind.JPEG, FileKind.PNG}
 
@@ -269,12 +268,20 @@ def _vision_fallback(
     models = [settings.gemini_vision_model, settings.gemini_model]
     with tempfile.TemporaryDirectory(prefix="docintel-") as tmp:
         local, kind = _download(storage, document, tmp)
+        # Only flips found in the current file: a replaced photo has its own (D85).
+        since = session.scalar(
+            select(func.max(ProcessingEvent.id)).where(
+                ProcessingEvent.document_id == document.id,
+                ProcessingEvent.event.in_(("uploaded", "file_replaced")),
+            )
+        )
         turned = frozenset(
             e.detail.get("page")
             for e in session.scalars(
                 select(ProcessingEvent).where(
                     ProcessingEvent.document_id == document.id,
                     ProcessingEvent.event == "page_turned",
+                    ProcessingEvent.id > (since or 0),
                 )
             )
         )

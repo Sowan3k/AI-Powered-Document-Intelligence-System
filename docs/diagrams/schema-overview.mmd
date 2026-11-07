@@ -1,0 +1,12 @@
+erDiagram
+    documents ||--o{ pages : "has"
+    documents ||--o{ sheets : "has"
+    documents ||--o{ invoices : "has"
+    documents ||--o{ jobs : "has"
+    documents ||--o{ processing_events : "history"
+    jobs ||--o{ processing_events : "writes"
+    sheets ||--o{ invoices : "rows of"
+    invoices ||--o{ line_items : "has"
+    invoices ||--o{ validation_issues : "has"
+    invoices ||--o{ corrections : "has"
+    documents ||--o{ reconciliations : "as A or B"

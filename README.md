@@ -8,8 +8,134 @@ I built it for the AI Engineer assessment at Care Guide. The brief is in [docs/B
 - API docs: https://docintel-api-y25b.onrender.com/api/docs
 - Health: https://docintel-api-y25b.onrender.com/api/health (database and file storage)
 - Walkthrough video: link added before submission
+- Deliverables report: [read it here](docs/DELIVERABLES.md), or [download the PDF](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/raw/main/docs/DocIntel-Deliverables.pdf) (6 pages)
 
 The backend runs on Render's free plan. It sleeps when idle, so the first request can take up to a minute. The web app's opening page starts waking it the moment it loads and shows the real status at the top, with Sign in beside it.
+
+## Deliverables
+
+The brief asks for nine things, submitted within five days. Each one is here. The same list, with the key results of each, diagrams and screenshots, is in the [deliverables report](docs/DELIVERABLES.md). **[Download it as a PDF](https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System/raw/main/docs/DocIntel-Deliverables.pdf).**
+
+| # | Deliverable | Where it is |
+|---|---|---|
+| 1 | Git repository with the source code | This repository: `backend/` (FastAPI API and worker), `frontend/` (Next.js), `eval/` (dataset and evaluation). Every step is in the Git history. |
+| 2 | README and setup instructions | This file. [Installation and setup](#installation-and-setup) gives two ways to run the system: one Docker Compose command, or each part by hand. [Environment variables](#environment-variables) lists every setting, and `.env.example` holds placeholders only. |
+| 3 | Architecture diagram and database schema | [How it works](#how-it-works) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) hold the architecture and data flow diagrams. [docs/SCHEMA.md](docs/SCHEMA.md) holds the ER diagram of all ten tables. |
+| 4 | Working backend API and frontend | Web app: https://docintel-tan-two.vercel.app. API docs: https://docintel-api-y25b.onrender.com/api/docs. Both deploy from `main`. |
+| 5 | PDF, image, Excel and CSV pipelines | `backend/app/ingest`. Digital PDFs through PyMuPDF; scans and photos through OpenCV and Tesseract, with Gemini vision for weak pages and every phone photo; Excel through openpyxl and xlrd; CSV through Python's csv module, which detects the encoding and the delimiter. All four give the same internal structure to the extraction step. |
+| 6 | Automated tests and test results | `backend/tests`, with unit tests and integration tests on Postgres. CI runs them on every push. [docs/TEST_REPORT.md](docs/TEST_REPORT.md): 428 passed with 96% line coverage in CI run 84. |
+| 7 | Evaluation report with measured metrics | [docs/EVALUATION.md](docs/EVALUATION.md): eight runs with the real Gemini models on a labelled dataset. Accuracy per field, line items, planted errors caught, false flags, broken files, time per document, tokens and cost, and the weak spots. |
+| 8 | Recorded walkthrough | The video link at the top of this file. The script is in [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md). |
+| 9 | AI prompts and disclosure | [docs/AI_USAGE.md](docs/AI_USAGE.md): the tools, the main prompts, what AI wrote and how each part was checked. Every prompt the system sends to Gemini is in `backend/app/extract/prompts.py`. |
+
+The brief also asks for smooth performance, high speed, scalability, reliability and strong security. The short version is below; [Speed, scale, reliability and security](#speed-scale-reliability-and-security) has the measurements.
+
+| Quality | What shows it |
+|---|---|
+| Smooth performance | Uploads return at once and the work runs in the background, with each file's steps shown live. Home holds 60 frames a second with the CPU slowed four times. Long PDFs show their pages as you scroll. |
+| High speed | A digital page reads in about 3 ms and a spreadsheet in about 2 seconds. The windows of a long PDF go to the model in parallel. Most of the remaining time is the free tier's limit of 12 model calls a minute, which is a setting. |
+| Scalability | A 1,000-page PDF reads in 2.6 seconds with a 160 MB memory peak, because pages stream in batches. The job queue lets workers share the load: 1, 2 and 4 workers ran 1.0x, 2.0x and 3.8x as fast. |
+| Reliability | Jobs live in the database and survive a restart. Failed calls retry with backoff, a failing model falls back to a second one, and a broken file fails alone without stopping the batch. A health check covers the database and file storage. |
+| Strong security | Secrets live only in the hosting settings, and gitleaks scans the full Git history on every push. Uploads are checked by their bytes. Files sit in a private bucket. Every route except login and health needs a login token, login and upload are rate-limited, and logs never hold document text. See [docs/SECURITY.md](docs/SECURITY.md). |
+
+## Installation and setup
+
+You can run the whole system on your own machine in two ways. Docker is the quick one. Both read spreadsheets and CSV files with no key. PDFs and images need a Gemini API key, free from [Google AI Studio](https://aistudio.google.com/apikey).
+
+### Option 1: Docker (recommended)
+
+You need Git and Docker with Compose v2.
+
+```bash
+git clone https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System.git
+cd AI-Powered-Document-Intelligence-System
+```
+
+Create a file named `.env` in that folder with these four lines, and put your key in the first:
+
+```bash
+GEMINI_API_KEY=your-key
+GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_VISION_MODEL=gemini-3.8-flash
+GEMINI_EMBED_MODEL=gemini-embedding-2
+```
+
+Then start everything:
+
+```bash
+docker compose up --build
+```
+
+This starts four containers: Postgres with pgvector, the API (it creates the tables first), the background worker and the web app. The first build takes a few minutes.
+
+- Web app: http://localhost:3000. Sign in as `reviewer` with the password `docintel-demo`. This login works on your machine only.
+- API docs: http://localhost:8000/api/docs
+- Stop with `Ctrl+C`. `docker compose down -v` also deletes the local database and uploaded files.
+
+Do not copy `.env.example` to `.env` for this. It holds placeholders for the hosted setup, and Compose would read its `DEMO_PASSWORD=replace-me` instead of the local password. Git ignores `.env`, so your key never reaches the repository.
+
+### Option 2: Without Docker
+
+You need Python 3.12, Node.js 20.9 or later, PostgreSQL 16 or 17 with the pgvector extension, and Tesseract OCR 5 with English (`apt install tesseract-ocr` on Ubuntu, `brew install tesseract` on macOS). Create an empty database. Its user must be allowed to create the `vector` and `pg_trgm` extensions, or a superuser creates them first.
+
+Backend, in one terminal:
+
+```bash
+cd backend
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Create `backend/.env`:
+
+```bash
+APP_ENV=development
+DATABASE_URL=postgresql+psycopg://USER:PASSWORD@localhost:5432/docintel
+STORAGE_BACKEND=local
+LOCAL_STORAGE_DIR=./data/uploads
+DEMO_USERNAME=reviewer
+DEMO_PASSWORD=choose-a-password
+JWT_SECRET=a-long-random-string
+CORS_ORIGINS=http://localhost:3000
+GEMINI_API_KEY=your-key
+GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_VISION_MODEL=gemini-3.8-flash
+GEMINI_EMBED_MODEL=gemini-embedding-2
+```
+
+Then create the tables and start the API:
+
+```bash
+alembic upgrade head
+uvicorn app.main:app --port 8000
+```
+
+The worker, in a second terminal (it does the reading, OCR and model calls):
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m app.worker.main
+```
+
+The web app, in a third terminal:
+
+```bash
+cd frontend
+npm ci
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
+```
+
+Open http://localhost:3000 and sign in as `reviewer` with the password you chose.
+
+### Check that it works
+
+1. `curl http://localhost:8000/api/health` answers with `"database":"connected"` and `"storage":"ok"`.
+2. Make sample invoices to try: with the backend's Python environment active, run `cd eval/generate && python -m synth --out ~/docintel-samples`. It writes about 40 files (digital and scanned PDFs, photos, TIFF, Excel, CSV and some broken files), each with its correct answer in a `.json` file beside it.
+3. Sign in and upload a few of them. Each file's steps appear on Home as it is processed, and its invoices appear when it is done.
+
+Every other setting is optional. They are listed in [Environment variables](#environment-variables) and in [.env.example](.env.example).
 
 ## Screenshots
 
@@ -65,36 +191,12 @@ The whole app works on a phone. I built and tested it from one.
 | 4. Backend API | REST endpoints for upload, status, results, search, corrections, reprocessing of failed jobs, reconciliation, export and stats. OCR and model calls run in a background worker. | `backend/app/api`, [API docs](https://docintel-api-y25b.onrender.com/api/docs) |
 | 5. Database and search | PostgreSQL holds documents, page text, invoices, line items, validation issues, corrections, jobs and the processing history. Search uses full text with filters, vector similarity with pgvector, or both merged. | [docs/SCHEMA.md](docs/SCHEMA.md), `backend/app/search` |
 | 6. Frontend | Next.js. Upload many files at once, watch each move through its steps, inspect fields beside the source text, review and correct issues, search, and compare two documents. | `frontend/` |
-| 7. Testing and evaluation | 412 backend tests in CI on Postgres with Tesseract, plus an evaluation on a labelled dataset with the real Gemini models. | [docs/TEST_REPORT.md](docs/TEST_REPORT.md), [docs/EVALUATION.md](docs/EVALUATION.md) |
+| 7. Testing and evaluation | 429 backend tests in CI on Postgres with Tesseract, plus an evaluation on a labelled dataset with the real Gemini models. | [docs/TEST_REPORT.md](docs/TEST_REPORT.md), [docs/EVALUATION.md](docs/EVALUATION.md) |
 | Cross-verification | PDF against PDF, or PDF against Excel: matched invoices, mismatched fields, and invoices found on one side only. The Compare page suggests pairs that share invoices. | `backend/app/validate/reconcile.py`, Compare page |
-
-The deliverables:
-
-1. Source code: this repository.
-2. README and setup: this file, from [Run it locally](#run-it-locally).
-3. Architecture diagram and database schema: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/SCHEMA.md](docs/SCHEMA.md).
-4. Working backend API and frontend: the links above.
-5. PDF, image, Excel and CSV pipelines: `backend/app/ingest`.
-6. Automated tests and results: `backend/tests`, [docs/TEST_REPORT.md](docs/TEST_REPORT.md).
-7. Evaluation report with measured metrics: [docs/EVALUATION.md](docs/EVALUATION.md).
-8. Walkthrough video: linked above.
-9. AI prompts and disclosure: [docs/AI_USAGE.md](docs/AI_USAGE.md), and every runtime prompt in `backend/app/extract/prompts.py`.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    web[Next.js on Vercel] -- "HTTPS + JWT" --> api[FastAPI API]
-    subgraph Render["Render, one container"]
-        api
-        worker[Worker]
-    end
-    api --> db[(Supabase Postgres<br/>pgvector, pg_trgm, job queue)]
-    worker --> db
-    api --> files[(Private storage bucket)]
-    worker --> files
-    worker --> gemini[Gemini: text, vision, embeddings]
-```
+![System overview: the Next.js web app on Vercel calls the FastAPI API on Render; the API and worker share one container and use Supabase Postgres, a private storage bucket and Gemini](docs/diagrams/system-overview.png)
 
 An upload is checked, stored in a private bucket under a random key, and queued. The API answers at once. A worker claims the job from a PostgreSQL table with `FOR UPDATE SKIP LOCKED` and reads the file. It sends the text to Gemini in windows of eight pages, so an invoice that crosses a page edge stays whole. Python then parses the values, runs the rules and indexes the invoice for search. Every step writes a row to the processing history, which the web app shows live.
 
@@ -129,17 +231,7 @@ The brief suggests Node.js or NestJS, Redis with BullMQ, and a vector database, 
 | A separate vector database | pgvector in PostgreSQL | Vectors sit beside the invoices, so one query can filter by supplier, date and amount and rank by meaning (D05). |
 | pandas | openpyxl and xlrd, rows converted in plain Python | The readers already turn every cell into text. pandas would add about 60 MB to the image and more memory on a 512 MB instance, for no gain (D37). |
 
-Every design choice, 73 in all, is in [DECISIONS.md](DECISIONS.md) with the alternatives, the reason and the trade-off.
-
-## Run it locally
-
-You need Docker with Compose v2.
-
-```bash
-docker compose up --build
-```
-
-Open http://localhost:3000 and sign in as `reviewer` with the password `docintel-demo` (local only). Spreadsheets and CSV files work with no keys. PDFs and images need Gemini: copy `.env.example` to `.env`, set `GEMINI_API_KEY`, and keep the model names. Never commit `.env`. The API docs are at http://localhost:8000/api/docs.
+Every design choice, 85 in all, is in [DECISIONS.md](DECISIONS.md) with the alternatives, the reason and the trade-off.
 
 ## Environment variables
 
@@ -212,7 +304,7 @@ CI runs ruff, the backend tests, the frontend build, gitleaks, and a Docker Comp
 | `backend/app/api` | REST API |
 | `frontend/` | Next.js web app |
 | `eval/` | Dataset generator, evaluation runner, load test, Gemini smoke test |
-| `docs/` | Brief, architecture, schema, security, evaluation, test report, walkthrough, AI usage |
+| `docs/` | Deliverables report (also as a PDF), brief, architecture, schema, security, evaluation, test report, walkthrough, AI usage |
 
 ## How it was built
 

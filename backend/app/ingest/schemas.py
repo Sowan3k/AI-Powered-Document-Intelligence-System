@@ -46,6 +46,7 @@ MIME_TYPES = {
     FileKind.XLS: "application/vnd.ms-excel",
     FileKind.CSV: "text/csv",
 }
+KIND_BY_MIME = {mime: kind for kind, mime in MIME_TYPES.items()}
 
 SOURCE_KINDS = {
     FileKind.PDF: SourceKind.PDF,

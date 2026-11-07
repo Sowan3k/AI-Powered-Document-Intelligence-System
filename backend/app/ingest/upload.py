@@ -11,11 +11,12 @@ import logging
 import uuid
 from pathlib import Path
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.db.enums import DocumentStatus
-from app.db.models import Document, Job, ProcessingEvent
+from app.db.models import Document, Invoice, Job, Page, ProcessingEvent, Sheet
 from app.ingest.detect import detect_kind
 from app.ingest.errors import IngestError
 from app.ingest.limits import check_file_size
@@ -97,3 +98,45 @@ def register_upload(
     _event(session, document, "uploaded", None, kind=kind.value, size_bytes=size)
     logger.info("upload %s stored as %s", document.id, kind.value)
     return document
+
+
+def replace_file(
+    session: Session,
+    storage: FileStorage,
+    document: Document,
+    filename: str,
+    source: Path,
+    settings: Settings,
+) -> None:
+    """Swap a document's file for a new one, such as a retaken photo (D85). The
+    document keeps its ID and history and is queued again. Does not commit.
+
+    Raises IngestError for a file that would be rejected at upload, and
+    StorageError when the file store fails; the document is then unchanged.
+    """
+    size = source.stat().st_size
+    check_file_size(size, settings)
+    kind = detect_kind(source, settings)
+    key = object_key(document.id, kind.extension)
+    old_key = document.storage_path
+    storage.upload(key, source, kind.mime_type)  # same key: the store overwrites it
+    if old_key and old_key != key:
+        try:
+            storage.delete(old_key)
+        except StorageError:
+            logger.warning("replace %s: the old file stays in storage", document.id)
+    document.filename = _display_name(filename)
+    document.sha256 = sha256_of(source)
+    document.size_bytes = size
+    document.storage_path = key
+    document.mime_type = kind.mime_type
+    document.source_kind = kind.source_kind
+    document.status = DocumentStatus.QUEUED
+    document.error_code = document.error_message = None
+    document.page_count = None
+    # What was read from the old file goes now, so its invoices leave the review
+    # queue at once. Line items, issues and corrections go with them (cascade).
+    for table in (Invoice, Page, Sheet):
+        session.execute(delete(table).where(table.document_id == document.id))
+    _event(session, document, "file_replaced", None, kind=kind.value, size_bytes=size)
+    logger.info("document %s: file replaced with a %s", document.id, kind.value)

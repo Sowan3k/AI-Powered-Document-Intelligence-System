@@ -20,7 +20,7 @@ def test_pdf_pages_render_only_the_wanted_ones(synthetic_dir: Path) -> None:
         vision.page_images(synthetic_dir / "multi_invoice.pdf", FileKind.PDF, {2, 4}, 100)
     )
     assert [n for n, _ in images] == [2, 4]
-    assert all(png.startswith(b"\x89PNG") for _, png in images)
+    assert all(img.startswith(b"\xff\xd8\xff") for _, img in images)  # JPEG (D86)
 
 
 def test_tiff_frames(synthetic_dir: Path) -> None:
@@ -99,4 +99,6 @@ def test_a_page_read_upside_down_is_sent_the_right_way_up(synthetic_dir: Path) -
     [(_, turned)] = vision.page_images(path, FileKind.PNG, {1}, 200, turned=frozenset({1}))
     a = cv2.imdecode(np.frombuffer(plain, np.uint8), cv2.IMREAD_GRAYSCALE)
     b = cv2.imdecode(np.frombuffer(turned, np.uint8), cv2.IMREAD_GRAYSCALE)
-    assert np.array_equal(b, np.rot90(a, 2))
+    # JPEG is lossy, so the turned page matches within a few grey levels.
+    diff = np.abs(b.astype(int) - np.rot90(a, 2).astype(int))
+    assert b.shape == a.shape and diff.mean() < 3

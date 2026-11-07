@@ -108,6 +108,8 @@ class Settings(BaseSettings):
     # confidence says: on photos it scores 90 and still misreads the one word
     # that matters (evaluation run 7, D82). Scans in PDF and TIFF keep the threshold.
     vision_for_photos: bool = True
+    # Jobs the worker process runs at once; each OCR job needs about 150 MB (D86).
+    worker_concurrency: int = Field(default=2, ge=1, le=8)
     date_day_first: bool = True  # 03/04/2026 is 3 April unless the day is over 12
 
     # Worker loop and job queue (Phase 4).

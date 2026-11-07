@@ -231,6 +231,23 @@ def reprocess(
 
 
 @router.post(
+    "/{document_id}/cancel",
+    response_model=DocumentOut,
+    responses={404: {}, 409: {"description": "Nothing is queued or running for it"}},
+)
+def cancel(document_id: uuid.UUID, db: Session = Depends(get_db)) -> DocumentOut:
+    """Stop a document that is queued or being processed (D86). A running worker
+    stops at its next step, and nothing read so far is kept."""
+    doc = _get(db, document_id)
+    job = queue.active_job(db, doc.id, queue.JOB_PROCESS)
+    if job is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "this document is not being processed")
+    queue.cancel(db, job)
+    db.refresh(doc)
+    return DocumentOut.model_validate(doc)
+
+
+@router.post(
     "/{document_id}/replace",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=JobOut,

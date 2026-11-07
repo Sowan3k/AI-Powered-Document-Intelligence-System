@@ -4,7 +4,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Now
 
-**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the exit tests on the live site for Phases 4 and 5, and the Phase 7 items only Sowan can do (the video, repository access, the Reply All). The final secret scan is done (CI run 84).
+**Phase:** Phases 0 to 6 done on 4 Nov 2026, and the Phase 7 documents are written. Still open: the exit tests on the live site for Phases 4 and 5, and the Reply All, which only Sowan can send. Done: the final secret scan (CI run 84), the walkthrough video, and repository access (public since 7 Nov).
 
 **Live bug, 5 Nov 12:29 Dhaka, fixed 13:30:** every upload failed with `STORAGE_ERROR`. Two causes: the client sent the key in `apikey` only, and the value in Render's `SUPABASE_SERVICE_ROLE_KEY` was not the project's `sb_secret_` key (D32). The header fix is in `main` (#2, #3), and Sowan re-pasted the key. At 07:30 UTC the live `/api/health` answered `"storage":"ok"`, and Render logged "the Supabase key is an sb_secret key, 41 characters".
 **Deadline:** 8 November 2026, 03:39 Dhaka. Target submission 7 November 2026, 22:00 Dhaka.
@@ -30,8 +30,8 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 2. Upload a few files on the live site and check they complete.
 3. In Render, check these environment variables: `DEMO_PASSWORD` is set (pick one and put it in the submission email); `STORAGE_BACKEND=supabase` and the new defaults come from `render.yaml` (sync the Blueprint if Render asks). Optional: set `GEMINI_VISION_MODEL=gemini-3.5-flash-lite` while `gemini-3.8-flash` stays overloaded; weak scans then skip a wait of about a minute.
 4. On the live site, check results, review, a correction, both searches and reconcile. Tell Claude Code what you see, and it will tick the exit tests for Phases 4 and 5.
-5. Record the walkthrough video (3 to 5 minutes) following `docs/WALKTHROUGH.md`.
-6. Decide repository access (invite the reviewers, or make it public; gitleaks scans the full history on every push and has been green).
+5. ~~Record the walkthrough video~~ Done: https://youtu.be/n9xKvACPR90
+6. ~~Decide repository access~~ Done: the repository is public.
 7. Reply All to the Care Guide email with the repo link, live links, video link, CV and portfolio.
 
 **Blockers:** None.
@@ -40,7 +40,7 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 **Open questions:**
 
-1. Repository access at submission: invite the reviewers, or make the repo public after a full secret scan.
+1. ~~Repository access at submission~~ Settled: public, after the full secret scan.
 2. Real public invoice samples were not added to the evaluation (licensing and personal data). The report says so.
 
 ## Session log

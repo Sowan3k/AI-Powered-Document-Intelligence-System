@@ -85,9 +85,12 @@ function TopBar({ pathname }: { pathname: string }) {
   const actionsGlass = useLiquidGlass<HTMLDivElement>();
   return (
     <>
+      {/*
+        No transition name here: as its own layer during a page change, it
+        turned the refracting pills above it into grey boxes in Chromium (D76).
+      */}
       <div
         aria-hidden
-        style={{ viewTransitionName: "app-edge" }}
         className="scroll-edge pointer-events-none fixed inset-x-0 top-0 z-20 h-[calc(env(safe-area-inset-top)+4.5rem)]"
       />
       <header className="sticky top-0 z-30 pt-[env(safe-area-inset-top)]">

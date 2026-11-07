@@ -262,3 +262,9 @@ AI-generated: the diagnosis (tapping buttons in Chromium at phone size with scre
 Prompt (summary): Sowan asked what else could be wrong, and to check the backend's wake-up, start-up and database connection, and whether every main task works.
 
 AI-generated: the audit of Render logs and deploys, the jobs table and Supabase advisors, the two fixes, their test, and decision D89.
+
+### 7 Nov 2026, grey boxes on the top pills (Claude Code)
+
+Prompt (summary): Sowan sent a screenshot of the review page in light mode where the top pills went dark on interaction.
+
+AI-generated: the diagnosis (slowed page transitions in Chromium, turning off one layer at a time until the box went away), the one-line fix, and the note added to decision D76.

@@ -566,7 +566,6 @@ body {
   to { translate: 0; }
 }
 /* The bars stay put while the page slides under them. */
-::view-transition-group(app-edge),
 ::view-transition-group(app-brand),
 ::view-transition-group(app-nav),
 ::view-transition-group(app-actions),
@@ -575,7 +574,6 @@ body {
   animation: none;
   z-index: 100;
 }
-::view-transition-old(app-edge),
 ::view-transition-old(app-brand),
 ::view-transition-old(app-nav),
 ::view-transition-old(app-actions),
@@ -583,7 +581,6 @@ body {
 ::view-transition-old(app-dock) {
   display: none;
 }
-::view-transition-new(app-edge),
 ::view-transition-new(app-brand),
 ::view-transition-new(app-nav),
 ::view-transition-new(app-actions),

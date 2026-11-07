@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 7 Nov 2026, stuck photo during the recording, and cancel (Claude Code)
+
+During the walkthrough recording a blurred photo held the batch for over ten minutes and could not be stopped. Render logs: OCR took 2 minutes, then each vision call waited about 90 s for HTTP 504 with four retries. Not duplicate data: one job per file in Supabase. Fixed (D86): vision calls time out at 45 s with one retry, pages go as JPEG at 2,000 px, the worker runs two jobs at once, and any queued or running file can be cancelled (API and a Cancel button). Tested: 432 backend tests pass (new: cancel queued and running, vision fast fail); in Chromium at phone size, an upload was cancelled from its Home card.
+
 ### 7 Nov 2026, diagrams as images (Claude Code)
 
 Sowan saw the README's architecture diagram as Mermaid code in the GitHub phone app, which does not draw Mermaid. All six diagrams (README, ARCHITECTURE, SCHEMA, DELIVERABLES) are now PNG images in `docs/diagrams/`, rendered in Chromium from their Mermaid sources kept beside them. The deliverables PDF was rebuilt with them.

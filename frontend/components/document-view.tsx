@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useActivity } from "@/components/activity";
 import { InvoiceCard } from "@/components/invoice-card";
 import { JobProgress } from "@/components/job-progress";
+import { CancelButton } from "@/components/cancel-button";
 import { OriginalFile } from "@/components/original-file";
 import { ReplaceFile } from "@/components/replace-file";
 import { ProcessFlow } from "@/components/process-flow";
@@ -98,6 +99,16 @@ export function DocumentView() {
       )}
 
       <div className="flex flex-wrap gap-2">
+        {ACTIVE.has(d.status) && (
+          <CancelButton
+            documentId={d.id}
+            filename={d.filename}
+            onDone={() => {
+              doc.reload();
+              refresh();
+            }}
+          />
+        )}
         {job?.status === "failed" && (
           <Button onClick={() => act(`/api/jobs/${job.id}/retry`)}>Retry failed job</Button>
         )}

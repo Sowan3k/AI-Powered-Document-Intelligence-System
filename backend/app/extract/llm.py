@@ -32,6 +32,10 @@ from app.extract import prompts
 logger = logging.getLogger(__name__)
 
 RETRY_STATUS = {408, 429, 500, 502, 503, 504}
+# Calls with a fallback behind them give up sooner: a vision page that times out
+# goes to the text model, then keeps its OCR text, instead of blocking the queue
+# for ten minutes on an overloaded model (D86). (timeout seconds, retries)
+FAST_FAIL: dict[str, tuple[float, int]] = {"vision_transcribe": (45.0, 1)}
 
 
 class CallRateLimiter:
@@ -194,7 +198,8 @@ class GeminiClient:
 
     def _with_retries(self, purpose: str, call):  # type: ignore[no-untyped-def]
         """Run `call()` under the semaphore, retrying 408, 429, 5xx and timeouts."""
-        for attempt in range(1, self._max_retries + 2):
+        max_retries = FAST_FAIL[purpose][1] if purpose in FAST_FAIL else self._max_retries
+        for attempt in range(1, max_retries + 2):
             hint = None
             try:
                 waited = self._rate.acquire()
@@ -203,14 +208,14 @@ class GeminiClient:
                 with self._semaphore:
                     return call(), attempt
             except genai_errors.APIError as exc:
-                if exc.code not in RETRY_STATUS or attempt > self._max_retries:
+                if exc.code not in RETRY_STATUS or attempt > max_retries:
                     logger.warning("llm %s failed: HTTP %s", purpose, exc.code)
                     raise LlmError(f"Gemini call failed with HTTP {exc.code}") from None
                 reason = f"HTTP {exc.code}"
                 if exc.code == 429:
                     hint = max(retry_delay(exc) or 0.0, self._quota_delay_s)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
-                if attempt > self._max_retries:
+                if attempt > max_retries:
                     logger.warning("llm %s failed: %s", purpose, type(exc).__name__)
                     raise LlmError("Gemini call failed: network error or timeout") from None
                 reason = type(exc).__name__
@@ -251,6 +256,8 @@ class GeminiClient:
             response_schema=schema,
             thinking_config=self._thinking,
         )
+        if purpose in FAST_FAIL:
+            config.http_options = types.HttpOptions(timeout=int(FAST_FAIL[purpose][0] * 1000))
         contents = [self._content(t) for t in turns]
         started = time.monotonic()
         response, attempts = self._with_retries(

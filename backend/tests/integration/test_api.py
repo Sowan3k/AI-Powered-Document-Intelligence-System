@@ -611,3 +611,35 @@ def test_replace_the_file_and_process_it_again(env: Env, db: Session) -> None:
     assert {"uploaded", "file_replaced"} <= {e["event"] for e in detail["history"]}
     results = env.get(f"/api/documents/{doc_id}/results").json()
     assert results["invoices"] and all(i["row_start"] for i in results["invoices"])
+
+
+def test_cancel_a_queued_or_running_document(env: Env, db: Session) -> None:
+    """A stuck file could not be stopped on live (D86)."""
+    env.login()
+    [queued] = env.upload("register.csv")["documents"]
+    r = env.post(f"/api/documents/{queued['document_id']}/cancel")
+    assert r.status_code == 200 and r.json()["status"] == "failed"
+    assert r.json()["error_code"] == "CANCELLED"
+    assert env.post(f"/api/documents/{queued['document_id']}/cancel").status_code == 409
+    env.work()  # nothing left to run for it
+    assert env.get(f"/api/documents/{queued['document_id']}").json()["status"] == "failed"
+
+    # Running: the person cancels while the model is reading; nothing is kept.
+    [running] = env.upload("digital_classic_0.pdf")["documents"]
+    reader = reader_for_truths([env.truth("digital_classic_0.pdf")])
+
+    def cancel_midway(call: FakeCall):  # type: ignore[no-untyped-def]
+        assert env.post(f"/api/documents/{running['document_id']}/cancel").status_code == 200
+        return reader(call)
+
+    env.fake.replies = cancel_midway
+    env.work()
+    detail = env.get(f"/api/documents/{running['document_id']}").json()
+    assert (detail["status"], detail["error_code"]) == ("failed", "CANCELLED")
+    assert "job_cancelled" in {e["event"] for e in detail["history"]}
+    assert env.get(f"/api/documents/{running['document_id']}/results").json()["invoices"] == []
+    # It can be processed again afterwards.
+    env.fake.replies = reader_for_truths([env.truth("digital_classic_0.pdf")])
+    assert env.post(f"/api/documents/{running['document_id']}/reprocess").status_code == 202
+    env.work()
+    assert env.get(f"/api/documents/{running['document_id']}").json()["status"] == "completed"

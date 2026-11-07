@@ -11,12 +11,12 @@ import logging
 import uuid
 from datetime import timedelta
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.db.enums import DocumentStatus, JobStatus
-from app.db.models import Document, Job, ProcessingEvent
+from app.db.models import Document, Invoice, Job, Page, ProcessingEvent, Sheet
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,44 @@ def claim(session: Session, worker_id: str) -> Job | None:
     session.commit()
     session.refresh(job)
     return job
+
+
+CANCELLED = "CANCELLED"
+
+
+class JobCancelledError(Exception):
+    """The job was cancelled while it ran; what it did so far is discarded (D86)."""
+
+
+def cancel(session: Session, job: Job) -> None:
+    """Stop a queued or running job at once (D86). A running worker sees it at its
+    next step and stops; nothing it read is kept. Commits."""
+    job.status = JobStatus.FAILED
+    job.finished_at = func.now()
+    job.last_error = CANCELLED
+    job.locked_by = None  # the heartbeat stops matching, so the job is no longer "running"
+    event(session, job, "job_cancelled", attempts=job.attempts)
+    document = session.get(Document, job.document_id)
+    if document and job.job_type == JOB_PROCESS:
+        document.status = DocumentStatus.FAILED
+        document.error_code = CANCELLED
+        document.error_message = "Cancelled. Process it again, re-upload it, or delete it."
+    session.commit()
+    discard_results(session, job.document_id)
+    logger.info("job %s cancelled", job.id)
+
+
+def is_cancelled(session: Session, job_id: uuid.UUID) -> bool:
+    """Read from the database, not the session: the cancel comes from the API."""
+    row = session.execute(select(Job.status, Job.last_error).where(Job.id == job_id)).one_or_none()
+    return row is not None and row[0] == JobStatus.FAILED and row[1] == CANCELLED
+
+
+def discard_results(session: Session, document_id: uuid.UUID) -> None:
+    """Drop what a cancelled run read. Line items, issues and corrections cascade."""
+    for table in (Invoice, Page, Sheet):
+        session.execute(delete(table).where(table.document_id == document_id))
+    session.commit()
 
 
 def heartbeat(session: Session, job_id: uuid.UUID, worker_id: str) -> bool:

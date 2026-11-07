@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useActivity } from "@/components/activity";
 import { ApproveButton } from "@/components/approve-button";
 import { BulkActions, RetryAllFailed } from "@/components/bulk-actions";
+import { CancelButton } from "@/components/cancel-button";
 import { DropZone } from "@/components/drop-zone";
 import { ExportButton } from "@/components/export-button";
 import { SearchIcon } from "@/components/icons";
@@ -27,7 +28,7 @@ const FILTERS = [
 ];
 
 export default function HomePage() {
-  const { activity } = useActivity();
+  const { activity, refresh } = useActivity();
   const active = activity?.active ?? [];
   return (
     <>
@@ -37,12 +38,17 @@ export default function HomePage() {
         <section className="flex flex-col gap-2">
           <h2 className="type-section">Processing now</h2>
           {active.map((item) => (
-            <Link key={item.document_id} href={`/documents/${item.document_id}`} className="block">
-              <Card className="hover:border-foreground/20">
-                <p className="mb-2 truncate text-sm font-medium">{item.filename}</p>
+            <Card key={item.document_id} className="hover:border-foreground/20">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <Link href={`/documents/${item.document_id}`} className="min-w-0 truncate text-sm font-medium">
+                  {item.filename}
+                </Link>
+                <CancelButton documentId={item.document_id} filename={item.filename} onDone={refresh} className="-my-1.5 -mr-2" />
+              </div>
+              <Link href={`/documents/${item.document_id}`} className="block" aria-label={`Open ${item.filename}`}>
                 <ProcessFlow item={item} />
-              </Card>
-            </Link>
+              </Link>
+            </Card>
           ))}
         </section>
       )}

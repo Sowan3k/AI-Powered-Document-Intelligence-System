@@ -134,8 +134,17 @@ class Worker:
             try:
                 with beat:
                     outcome = self._run(session, job)
+            except queue.JobCancelledError:
+                session.rollback()
+                queue.discard_results(session, job.document_id)
+                logger.info("job %s stopped: it was cancelled", job.id)
+                return True
             except Exception as exc:
                 session.rollback()
+                if queue.is_cancelled(session, job.id):
+                    queue.discard_results(session, job.document_id)
+                    logger.info("job %s stopped: it was cancelled", job.id)
+                    return True
                 logger.warning("job %s failed: %s", job.id, type(exc).__name__)
                 queue.fail(
                     session, job, describe(exc), retryable=is_retryable(exc), settings=self.settings
@@ -184,7 +193,10 @@ def install_signal_handlers(handler: Callable[[int, FrameType | None], None]) ->
     signal.signal(signal.SIGINT, handler)
 
 
-def build_worker(settings: Settings) -> Worker:
+def build_workers(settings: Settings) -> list[Worker]:
+    """WORKER_CONCURRENCY loops in one process, sharing the model client (and so
+    its rate limits), the file store and the database pool. One slow photo no
+    longer holds up the rest of a batch (D86)."""
     from app.db.session import get_sessionmaker
     from app.extract.llm import get_llm_client
     from app.storage import get_storage
@@ -192,22 +204,38 @@ def build_worker(settings: Settings) -> Worker:
     llm = get_llm_client(settings) if settings.gemini_api_key else None
     if llm is None:
         logger.warning("GEMINI_API_KEY is not set: documents will fail at extraction")
-    return Worker(
-        poll_interval_s=settings.worker_poll_interval_s,
-        sessions=get_sessionmaker(),
-        storage=get_storage(settings),
-        llm=llm,
-        settings=settings,
-    )
+    sessions, storage = get_sessionmaker(), get_storage(settings)
+    base = f"{socket.gethostname()}:{os.getpid()}"
+    return [
+        Worker(
+            poll_interval_s=settings.worker_poll_interval_s,
+            worker_id=f"{base}:{n}",
+            sessions=sessions,
+            storage=storage,
+            llm=llm,
+            settings=settings,
+        )
+        for n in range(settings.worker_concurrency)
+    ]
 
 
 def main() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
-    worker = build_worker(settings)
-    install_signal_handlers(worker.stop)
-    worker.recover()
-    worker.run()
+    workers = build_workers(settings)
+
+    def stop_all(signum: int, frame: FrameType | None) -> None:
+        for worker in workers:
+            worker.stop(signum, frame)
+
+    install_signal_handlers(stop_all)
+    workers[0].recover()
+    others = [threading.Thread(target=w.run, name=f"worker-{n}") for n, w in enumerate(workers)][1:]
+    for thread in others:
+        thread.start()
+    workers[0].run()
+    for thread in others:
+        thread.join()
 
 
 if __name__ == "__main__":

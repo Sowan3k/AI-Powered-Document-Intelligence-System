@@ -117,7 +117,7 @@ def test_low_confidence_scan_goes_to_vision(
     def reply(call: FakeCall):  # type: ignore[no-untyped-def]
         if call.purpose == "vision_transcribe":
             assert call.model == "vision-model"
-            assert call.turns[0].parts[0].data.startswith(b"\x89PNG")
+            assert call.turns[0].parts[0].data.startswith(b"\xff\xd8\xff")  # JPEG (D86)
             return "INVOICE\nInvoice No: INV-7\nTotal: $12.00"
         assert "INV-7" in call.turns[0].parts[0]  # extraction reads the transcription
         number = fld("INV-7", "Invoice No: INV-7")

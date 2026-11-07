@@ -238,3 +238,9 @@ AI-generated: `docs/DELIVERABLES.md` and the PDF made from it. Claude Code check
 Prompt (summary): Sowan asked for a re-upload button in the review section, so a blurred invoice photo can be retaken and sent through the pipeline again.
 
 AI-generated: the replace endpoint and its test, the shared file module, the button on review cards and the document page, and decision D85. Claude Code drove the flow in Chromium at phone size, and found and fixed two gaps on the way: old invoices stayed in the review queue until the worker ran, and an old photo's upside-down flag would have turned the new photo.
+
+### 7 Nov 2026, stuck photo during the recording, and cancel (Claude Code)
+
+Prompt (summary): Sowan's walkthrough recording stalled on a blurred photo that could not be cancelled; he asked to debug the whole thing and wondered about duplicate rows in Supabase.
+
+AI-generated: the diagnosis from Render logs and the jobs table (no duplicates; slow OCR, then vision calls timing out with long retries, behind a single worker), the fast-fail vision policy, JPEG page images, worker concurrency, the cancel endpoint and button, their tests, and decision D86.

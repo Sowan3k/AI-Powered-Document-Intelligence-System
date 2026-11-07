@@ -1168,3 +1168,18 @@ Run 8 measured it: photo fields rose from 77.8% to 87.5%. Mild and medium photos
 **Trade-off:** A deleted reading cannot be brought back. Replacing a file of another type removes the old file from storage; a failure there leaves an orphan file, logged, and never blocks the replacement.
 
 **In one sentence:** Retake a blurred photo from the review queue, and the same document is read again from the new file.
+
+## D86: A slow photo cannot hold up a batch, and any job can be cancelled
+
+**Alternatives:** Keep one worker loop with the full retry budget on every call; a separate worker container per job type; kill a running job's thread from the API.
+
+**Why:** During the walkthrough recording on 7 November, one blurred phone photo held the whole batch for more than ten minutes, and there was no way to stop it. The Render log showed why: OCR on the large photo took two minutes on the free CPU, then each vision call waited about 90 seconds for an HTTP 504 from Gemini, with four retries before the fallback. The worker runs one job at a time, so seven files waited behind it.
+
+- **Vision calls give up sooner.** A vision transcription now has a 45-second timeout and one retry. Then the text model gets the page, and if that fails too, the page keeps its OCR text (D44). Extraction calls keep their full retries, because nothing stands behind them.
+- **Smaller images.** Pages go to the vision model as JPEG, at most 2,000 pixels. A noisy phone photo as a PNG at 3,000 pixels ran to several megabytes.
+- **Two jobs at once.** The worker process runs `WORKER_CONCURRENCY` loops (default 2), sharing one model client, so the rate limits still hold. One slow photo no longer blocks the rest. Each OCR job needs about 150 MB, so two fit in the free instance's 512 MB with the API.
+- **Cancel.** `POST /api/documents/{id}/cancel` marks a queued or running job as cancelled and the document as failed with the code `CANCELLED`. A running worker checks between its steps and stops, and what it read so far is deleted. The web app shows Cancel on every file that is waiting or being processed, and on the document page. Process again and Re-upload work on a cancelled file.
+
+**Trade-off:** A running job stops at its next step, not mid-call, so a cancel can take up to one model call to land. A vision page that would have answered after a minute now falls back sooner, which can mean a weaker reading on that page; the reviewer sees its lower confidence.
+
+**In one sentence:** Fail fast on the slow model, run two jobs at once, and let the person stop any file.

@@ -28,15 +28,18 @@ from app.ingest.schemas import FileKind
 
 logger = logging.getLogger(__name__)
 
-MAX_SIDE = 3000  # keeps image tokens and upload size bounded
+MAX_SIDE = 2000  # keeps image tokens and upload size bounded
+JPEG_QUALITY = 88
 
 
 def _png(gray) -> bytes:  # type: ignore[no-untyped-def]
+    """The page as a JPEG (the name stays for its callers). A noisy phone photo
+    as a PNG ran to several megabytes, and the model timed out reading it (D86)."""
     h, w = gray.shape
     if max(h, w) > MAX_SIDE:
         scale = MAX_SIDE / max(h, w)
         gray = cv2.resize(gray, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-    ok, buf = cv2.imencode(".png", gray)
+    ok, buf = cv2.imencode(".jpg", gray, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
     if not ok:
         raise ValueError("page image could not be encoded")
     return buf.tobytes()
@@ -45,7 +48,7 @@ def _png(gray) -> bytes:  # type: ignore[no-untyped-def]
 def page_images(
     path: Path, kind: FileKind, numbers: set[int], dpi: int, turned: frozenset[int] = frozenset()
 ) -> Iterator[tuple[int, bytes]]:
-    """PNG images of the wanted pages, one at a time. Pages in `turned` were read
+    """JPEG images of the wanted pages, one at a time. Pages in `turned` were read
     upside down by Tesseract and are sent the right way up (D82)."""
     if kind is FileKind.PDF:
         with pymupdf.open(path, filetype="pdf") as doc:
@@ -67,7 +70,7 @@ def transcribe(llm: LlmClient, model: str, png: bytes) -> tuple[str, LlmUsage]:
         purpose="vision_transcribe",
         model=model,
         system=prompts.VISION_SYSTEM,
-        turns=[Turn("user", [ImagePart(png), prompts.VISION_USER])],
+        turns=[Turn("user", [ImagePart(png, "image/jpeg"), prompts.VISION_USER])],
     )
     return reply.text.strip(), reply.usage
 

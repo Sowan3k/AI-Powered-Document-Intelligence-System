@@ -309,3 +309,18 @@ def test_thinking_tokens_are_counted_and_the_level_is_configurable() -> None:
     c, models = client([])
     call(c)
     assert models.calls[0]["config"].thinking_config is None  # the model's default
+
+
+def test_a_vision_page_gives_up_soon_so_its_fallback_can_run() -> None:
+    """An overloaded vision model held a photo for ten minutes on live (D86)."""
+    c, models = client([api_error(504)] * 5, max_retries=4)
+    with pytest.raises(LlmError):
+        c.generate(
+            purpose="vision_transcribe", model="m", system="sys", turns=[Turn("user", ["hi"])]
+        )
+    assert len(models.calls) == 2  # one try, one retry
+    assert models.calls[0]["config"].http_options.timeout == 45_000  # milliseconds
+    c, models = client([api_error(504)] * 5, max_retries=4)
+    with pytest.raises(LlmError):
+        call(c)  # extraction keeps its full retries
+    assert len(models.calls) == 5

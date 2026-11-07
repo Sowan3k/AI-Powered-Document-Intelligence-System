@@ -23,7 +23,7 @@ The brief asks for nine things, submitted within five days. Each one is here. Th
 | 3 | Architecture diagram and database schema | [How it works](#how-it-works) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) hold the architecture and data flow diagrams. [docs/SCHEMA.md](docs/SCHEMA.md) holds the ER diagram of all ten tables. |
 | 4 | Working backend API and frontend | Web app: https://docintel-tan-two.vercel.app. API docs: https://docintel-api-y25b.onrender.com/api/docs. Both deploy from `main`. |
 | 5 | PDF, image, Excel and CSV pipelines | `backend/app/ingest`. Digital PDFs through PyMuPDF; scans and photos through OpenCV and Tesseract, with Gemini vision for weak pages and every phone photo; Excel through openpyxl and xlrd; CSV through Python's csv module, which detects the encoding and the delimiter. All four give the same internal structure to the extraction step. |
-| 6 | Automated tests and test results | `backend/tests`, with unit tests and integration tests on Postgres. CI runs them on every push. [docs/TEST_REPORT.md](docs/TEST_REPORT.md): 428 passed with 96% line coverage in CI run 84. |
+| 6 | Automated tests and test results | `backend/tests`, with unit tests and integration tests on Postgres. CI runs them on every push. [docs/TEST_REPORT.md](docs/TEST_REPORT.md): 439 passed with 95% line coverage in the last CI run before submission. |
 | 7 | Evaluation report with measured metrics | [docs/EVALUATION.md](docs/EVALUATION.md): eight runs with the real Gemini models on a labelled dataset. Accuracy per field, line items, planted errors caught, false flags, broken files, time per document, tokens and cost, and the weak spots. |
 | 8 | Recorded walkthrough | https://youtu.be/n9xKvACPR90, recorded on a phone on the live site. The planned script is in [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md). |
 | 9 | AI prompts and disclosure | [docs/AI_USAGE.md](docs/AI_USAGE.md): the tools, the main prompts, what AI wrote and how each part was checked. Every prompt the system sends to Gemini is in `backend/app/extract/prompts.py`. |
@@ -188,10 +188,10 @@ The whole app works on a phone. I built and tested it from one.
 | 1. Document processing | Accepts PDF, JPG, PNG, TIFF, XLSX, XLS and CSV, checked by their bytes, not their names. Digital PDF text comes from PyMuPDF, page by page. Scans and photos are cleaned with OpenCV and read by Tesseract. Weak scan pages and every phone photo go to Gemini vision. Every sheet of a workbook is read, with header detection and merged cells. A broken file fails alone with a code such as `CORRUPTED_FILE` or `ENCRYPTED_PDF`. | `backend/app/ingest` |
 | 2. AI extraction | Invoice number, date, supplier, customer, subtotal, tax, total, currency and line items, as JSON validated by Pydantic. The model copies each value as printed, with a confidence and the text it came from. A missing value stays empty. Code checks that the evidence appears in the source. | `backend/app/extract`, prompts in `prompts.py` |
 | 3. Validation | Eleven rules in `Decimal` arithmetic: missing fields, bad numbers, line sums, quantity times price, subtotal plus tax against total, duplicates (with fuzzy supplier names), dates, low confidence, unproven values, mixed currencies. An error sends the invoice to the review queue. | `backend/app/validate` |
-| 4. Backend API | REST endpoints for upload, status, results, search, corrections, reprocessing of failed jobs, reconciliation, export and stats. OCR and model calls run in a background worker. | `backend/app/api`, [API docs](https://docintel-api-y25b.onrender.com/api/docs) |
+| 4. Backend API | REST endpoints for upload, status, results, search, corrections, reprocessing of failed jobs, cancelling, replacing a file, reconciliation, export and stats. OCR and model calls run in a background worker. | `backend/app/api`, [API docs](https://docintel-api-y25b.onrender.com/api/docs) |
 | 5. Database and search | PostgreSQL holds documents, page text, invoices, line items, validation issues, corrections, jobs and the processing history. Search uses full text with filters, vector similarity with pgvector, or both merged. | [docs/SCHEMA.md](docs/SCHEMA.md), `backend/app/search` |
-| 6. Frontend | Next.js. Upload many files at once, watch each move through its steps, inspect fields beside the source text, review and correct issues, search, and compare two documents. | `frontend/` |
-| 7. Testing and evaluation | 429 backend tests in CI on Postgres with Tesseract, plus an evaluation on a labelled dataset with the real Gemini models. | [docs/TEST_REPORT.md](docs/TEST_REPORT.md), [docs/EVALUATION.md](docs/EVALUATION.md) |
+| 6. Frontend | Next.js. Upload many files at once, watch each move through its steps or cancel it, inspect fields beside the source text and the original pages, review and correct issues, retake a blurred photo, search, and compare two documents. | `frontend/` |
+| 7. Testing and evaluation | 439 backend tests in CI on Postgres with Tesseract, plus an evaluation on a labelled dataset with the real Gemini models. | [docs/TEST_REPORT.md](docs/TEST_REPORT.md), [docs/EVALUATION.md](docs/EVALUATION.md) |
 | Cross-verification | PDF against PDF, or PDF against Excel: matched invoices, mismatched fields, and invoices found on one side only. The Compare page suggests pairs that share invoices. | `backend/app/validate/reconcile.py`, Compare page |
 
 ## How it works
@@ -231,7 +231,7 @@ The brief suggests Node.js or NestJS, Redis with BullMQ, and a vector database, 
 | A separate vector database | pgvector in PostgreSQL | Vectors sit beside the invoices, so one query can filter by supplier, date and amount and rank by meaning (D05). |
 | pandas | openpyxl and xlrd, rows converted in plain Python | The readers already turn every cell into text. pandas would add about 60 MB to the image and more memory on a 512 MB instance, for no gain (D37). |
 
-Every design choice, 85 in all, is in [DECISIONS.md](DECISIONS.md) with the alternatives, the reason and the trade-off.
+Every design choice, 89 in all, is in [DECISIONS.md](DECISIONS.md) with the alternatives, the reason and the trade-off.
 
 ## Environment variables
 

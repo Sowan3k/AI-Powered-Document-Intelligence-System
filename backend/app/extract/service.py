@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -268,12 +268,20 @@ def _vision_fallback(
     models = [settings.gemini_vision_model, settings.gemini_model]
     with tempfile.TemporaryDirectory(prefix="docintel-") as tmp:
         local, kind = _download(storage, document, tmp)
+        # Only flips found in the current file: a replaced photo has its own (D85).
+        since = session.scalar(
+            select(func.max(ProcessingEvent.id)).where(
+                ProcessingEvent.document_id == document.id,
+                ProcessingEvent.event.in_(("uploaded", "file_replaced")),
+            )
+        )
         turned = frozenset(
             e.detail.get("page")
             for e in session.scalars(
                 select(ProcessingEvent).where(
                     ProcessingEvent.document_id == document.id,
                     ProcessingEvent.event == "page_turned",
+                    ProcessingEvent.id > (since or 0),
                 )
             )
         )

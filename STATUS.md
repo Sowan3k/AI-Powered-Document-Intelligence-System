@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 7 Nov 2026, retake a blurred photo from review (Claude Code)
+
+Sowan asked for a re-upload button in review for photos too blurred to read. Built (D85): `POST /api/documents/{id}/replace` swaps the file, keeps the document's ID and history, drops the old reading, and queues it again; "Retake photo" or "Re-upload" on every review card and on the document page. Tested: 430 backend tests pass, including a new one (refused while queued, refused for a bad file with the document unchanged, then replaced, old file removed, processed again). In Chromium at phone size: the button on a review card took a WEBP photo, converted it, uploaded it, and the card left the queue.
+
 ### 7 Nov 2026, deliverables report and PDF (Claude Code)
 
 Sowan asked for one page or PDF with all the deliverables, linked from the README. Added `docs/DELIVERABLES.md` (each of the nine deliverables with its key results, the architecture and ER diagrams, endpoint table, phone screenshots, the quality goals and the stack differences) and `docs/DocIntel-Deliverables.pdf`, 7 A4 pages built from it in Chromium with the diagrams drawn. The README links both. The video link is still a placeholder in both; the PDF must be rebuilt when it is added.

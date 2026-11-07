@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { ApproveButton } from "@/components/approve-button";
+import { ReplaceFile } from "@/components/replace-file";
 import { Badge, Card, Empty, ErrorBox, Loading, PageTitle } from "@/components/ui";
 import { dateText, money } from "@/lib/format";
 import type { Page, ReviewItem } from "@/lib/types";
@@ -13,6 +14,7 @@ import { useApi } from "@/lib/use-api";
 export default function ReviewPage() {
   const { data, error, loading, slow, reload } = useApi<Page<ReviewItem>>("/api/review-queue?limit=100");
   const [done, setDone] = useState<string[]>([]);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const items = (data?.items ?? []).filter((i) => !done.includes(i.id));
   return (
     <>
@@ -20,7 +22,16 @@ export default function ReviewPage() {
       <p className="-mt-3 text-sm text-muted">
         These invoices have a problem: numbers that do not add up, a missing field, a possible
         duplicate, or a value the AI could not prove. Approve it if it is right, or open it to fix it.
+        If a photo is too blurred to read, retake it.
       </p>
+      {notice &&
+        (notice.ok ? (
+          <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
+            {notice.text}
+          </p>
+        ) : (
+          <ErrorBox message={notice.text} />
+        ))}
       {error && <ErrorBox message={error} onRetry={reload} />}
       {loading && !data && <Loading slow={slow} />}
       {data && items.length === 0 && <Empty>All clear. Nothing needs review.</Empty>}
@@ -56,11 +67,25 @@ export default function ReviewPage() {
                   </div>
                 </div>
               </Link>
-              <div className="mt-3 flex gap-2">
-                <Link href={`/documents/${inv.document_id}`} className="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg border border-black/15 px-4 text-sm font-medium sm:flex-none dark:border-white/20">
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link href={`/documents/${inv.document_id}`} className="inline-flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-lg border border-black/15 px-4 text-sm font-medium sm:flex-none dark:border-white/20">
                   Open and fix
                 </Link>
                 <ApproveButton invoiceId={inv.id} onDone={() => setDone((d) => [...d, inv.id])} />
+                <ReplaceFile
+                  documentId={inv.document_id}
+                  filename={inv.filename}
+                  mimeType={inv.mime_type}
+                  variant="ghost"
+                  className="flex-1 whitespace-nowrap sm:flex-none"
+                  onDone={(message) => {
+                    setNotice({ ok: true, text: message });
+                    // Every invoice of that file is read again, so all of them leave the queue.
+                    const same = items.filter((x) => x.document_id === inv.document_id).map((x) => x.id);
+                    setDone((d) => [...d, ...same]);
+                  }}
+                  onError={(message) => setNotice({ ok: false, text: message })}
+                />
               </div>
             </Card>
           </motion.li>

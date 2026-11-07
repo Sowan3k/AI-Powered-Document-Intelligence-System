@@ -137,6 +137,7 @@ export type UploadResponse = { documents: UploadResult[]; accepted: number; reje
 
 export type ReviewItem = Invoice & {
   filename: string;
+  mime_type: string | null;
   error_count: number;
   warning_count: number;
   top_issue: string | null;

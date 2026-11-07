@@ -210,6 +210,7 @@ class InvoicePatch(BaseModel):
 
 class ReviewItem(InvoiceOut):
     filename: str
+    mime_type: str | None = None  # a photo can be retaken from the queue (D85)
     error_count: int
     warning_count: int
     top_issue: str | None = None  # the first error, so a person can decide without opening it

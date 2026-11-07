@@ -120,7 +120,7 @@ def review_queue(
 ) -> ReviewPage:
     """Invoices with at least one error-level issue, oldest first."""
     query = (
-        select(Invoice, Document.filename)
+        select(Invoice, Document.filename, Document.mime_type)
         .join(Document, Document.id == Invoice.document_id)
         .where(Invoice.review_status == ReviewStatus.NEEDS_REVIEW)
     )
@@ -150,10 +150,11 @@ def review_queue(
         ReviewItem(
             **InvoiceOut.model_validate(inv).model_dump(),
             filename=filename,
+            mime_type=mime_type,
             error_count=counts.get((inv.id, Severity.ERROR), 0),
             warning_count=counts.get((inv.id, Severity.WARNING), 0),
             top_issue=top.get(inv.id),
         )
-        for inv, filename in rows
+        for inv, filename, mime_type in rows
     ]
     return ReviewPage(items=items, total=total, limit=limit, offset=offset)

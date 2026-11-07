@@ -1153,3 +1153,18 @@ Run 8 measured it: photo fields rose from 77.8% to 87.5%. Mild and medium photos
 **Trade-off:** A converted photo is stored as the JPEG, not the file the phone held. Adding HEIC to the backend would need a new image library a day before submission.
 
 **In one sentence:** Ask the picker for every photo, and turn the formats the server cannot read into JPEG before they leave the phone.
+
+## D85: Re-upload a file in place, such as a retaken photo
+
+**Alternatives:** Upload the new photo as a new document and delete the old one; only let the reviewer correct the values by hand.
+
+**Why:** Sowan asked for a way to retake a photo that is too blurred to read, from the review queue, and send it through the pipeline again.
+
+- **The document keeps its place.** `POST /api/documents/{id}/replace` takes one file, checks it exactly like an upload (size, type by its bytes), stores it, and queues the document again. The ID and the processing history stay, with a `file_replaced` event. A file that would be refused at upload is refused here too, and the document stays as it was.
+- **The old reading goes at once.** The old file's invoices, page text and sheets are deleted when the new file arrives, so the review queue no longer shows them. Their line items, issues and corrections go with them. Keeping corrections made to a blurred photo would be wrong once a sharp one exists.
+- **Where the button is.** On every review card and on the document page. It says "Retake photo" for a photo and "Re-upload" for anything else. The phone's picker offers the camera too, and the same photo preparation as the upload box applies (D84). The page asks for confirmation first.
+- **Flips belong to a file.** An upside-down page found in the old photo no longer turns the new one: only flips recorded after the latest upload count.
+
+**Trade-off:** A deleted reading cannot be brought back. Replacing a file of another type removes the old file from storage; a failure there leaves an orphan file, logged, and never blocks the replacement.
+
+**In one sentence:** Retake a blurred photo from the review queue, and the same document is read again from the new file.

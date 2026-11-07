@@ -37,7 +37,7 @@ from app.ingest.errors import IngestError
 from app.ingest.limits import check_batch
 from app.ingest.preview import PREVIEW_KINDS, PageNotFoundError, page_jpeg
 from app.ingest.schemas import KIND_BY_MIME
-from app.ingest.upload import register_upload
+from app.ingest.upload import register_upload, replace_file
 from app.storage import FileStorage
 from app.storage.base import StorageError
 from app.worker import queue
@@ -225,6 +225,52 @@ def reprocess(
         raise HTTPException(status.HTTP_409_CONFLICT, "this document is already queued or running")
     doc.status = DocumentStatus.QUEUED
     doc.error_code = doc.error_message = None
+    job = queue.enqueue(db, doc.id, queue.JOB_PROCESS, settings)
+    db.commit()
+    return JobOut.model_validate(job)
+
+
+@router.post(
+    "/{document_id}/replace",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=JobOut,
+    dependencies=[Depends(limit_upload)],
+    responses={
+        404: {},
+        409: {"description": "The document is being processed"},
+        422: {"description": "The new file would be rejected at upload"},
+        429: {},
+        502: {},
+    },
+)
+def replace(
+    document_id: uuid.UUID,
+    file: UploadFile = File(..., description="The new file, such as a retaken photo"),
+    db: Session = Depends(get_db),
+    storage: FileStorage = Depends(get_storage),
+    settings: Settings = Depends(get_settings),
+) -> JobOut:
+    """Put a new file in place of a document's file and process it again (D85).
+    For a photo too blurred to read: retake it, and the document keeps its place."""
+    doc = _get(db, document_id)
+    if queue.active_job(db, doc.id, queue.JOB_PROCESS):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "this document is being processed; try again when it ends"
+        )
+    with tempfile.TemporaryDirectory(prefix="docintel-replace-") as tmp:
+        path = Path(tmp) / "file"
+        with path.open("wb") as out:
+            shutil.copyfileobj(file.file, out, COPY_CHUNK)
+        try:
+            replace_file(db, storage, doc, file.filename or doc.filename, path, settings)
+        except IngestError as exc:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, f"{exc.code.value}: {exc.message}"
+            ) from None
+        except StorageError:
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY, "the file store did not answer"
+            ) from None
     job = queue.enqueue(db, doc.id, queue.JOB_PROCESS, settings)
     db.commit()
     return JobOut.model_validate(job)

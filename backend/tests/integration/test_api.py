@@ -265,6 +265,7 @@ def test_full_pipeline_then_search_and_correct(env: Env) -> None:
     queue = env.get("/api/review-queue").json()
     [item] = queue["items"]
     assert item["filename"] == "planted_wrong_total.pdf" and item["error_count"] == 1
+    assert item["mime_type"] == "application/pdf"  # the queue offers a retake for photos
     assert item["top_issue"].startswith("subtotal plus tax is")
 
     # Correct it: the issue goes, the correction is recorded, an index job re-embeds it.
@@ -570,3 +571,43 @@ def test_pages_of_the_original_as_images(env: Env) -> None:
     assert env.get(f"/api/documents/{tiff_id}/pages/3/image").status_code == 404
     assert env.get(f"/api/documents/{pdf_id}/pages/0/image").status_code == 422
     assert env.get(f"/api/documents/{csv_id}/pages/1/image").status_code == 404  # no pages
+
+
+def test_replace_the_file_and_process_it_again(env: Env, db: Session) -> None:
+    """A photo too blurred to read is retaken: same document, new file, processed again (D85)."""
+    env.login()
+    env.fake.replies = reader_for_truths([env.truth("digital_classic_0.pdf")])
+    [first] = env.upload("digital_classic_0.pdf")["documents"]
+    doc_id = first["document_id"]
+
+    def send(name: str):  # type: ignore[no-untyped-def]
+        data = (env.dir / name).read_bytes()
+        return env.post(f"/api/documents/{doc_id}/replace", files={"file": (name, data)})
+
+    assert send("register.csv").status_code == 409  # still queued
+    env.work()
+    doc = db.get(Document, uuid.UUID(doc_id))
+    assert doc is not None and doc.storage_path
+    old_file = env.storage.root / doc.storage_path
+    assert old_file.exists()
+
+    bad = send("note_renamed.pdf")  # a text file named .pdf: refused at upload
+    assert bad.status_code == 422 and bad.json()["detail"].startswith("UNSUPPORTED_TYPE")
+    db.expire_all()
+    assert db.get(Document, uuid.UUID(doc_id)).mime_type == "application/pdf"  # unchanged
+
+    r = send("register.csv")
+    assert r.status_code == 202 and r.json()["status"] == "queued"
+    db.expire_all()
+    doc = db.get(Document, uuid.UUID(doc_id))
+    assert doc is not None
+    assert (doc.filename, doc.mime_type, doc.status.value) == ("register.csv", "text/csv", "queued")
+    assert not old_file.exists()  # a different type: the old file is removed
+    gone = env.get(f"/api/documents/{doc_id}/results").json()
+    assert gone["invoices"] == []  # the old file's invoices leave at once
+    env.work()
+    detail = env.get(f"/api/documents/{doc_id}").json()
+    assert detail["status"] == "completed"
+    assert {"uploaded", "file_replaced"} <= {e["event"] for e in detail["history"]}
+    results = env.get(f"/api/documents/{doc_id}/results").json()
+    assert results["invoices"] and all(i["row_start"] for i in results["invoices"])

@@ -232,3 +232,9 @@ AI-generated: the Deliverables table, the quality table and the Installation and
 Prompt (summary): Sowan asked for a PDF or GitHub page holding the deliverables, linked from the README, with the video link to follow.
 
 AI-generated: `docs/DELIVERABLES.md` and the PDF made from it. Claude Code checked the claims against the code and the reports (OCR steps, endpoint paths, test and evaluation figures), then rendered the PDF pages to images and fixed page breaks that split headings from their tables.
+
+### 7 Nov 2026, retake a blurred photo from review (Claude Code)
+
+Prompt (summary): Sowan asked for a re-upload button in the review section, so a blurred invoice photo can be retaken and sent through the pipeline again.
+
+AI-generated: the replace endpoint and its test, the shared file module, the button on review cards and the document page, and decision D85. Claude Code drove the flow in Chromium at phone size, and found and fixed two gaps on the way: old invoices stayed in the review queue until the worker ran, and an old photo's upside-down flag would have turned the new photo.

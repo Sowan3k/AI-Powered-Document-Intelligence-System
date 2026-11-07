@@ -7,6 +7,7 @@ import { useActivity } from "@/components/activity";
 import { InvoiceCard } from "@/components/invoice-card";
 import { JobProgress } from "@/components/job-progress";
 import { OriginalFile } from "@/components/original-file";
+import { ReplaceFile } from "@/components/replace-file";
 import { ProcessFlow } from "@/components/process-flow";
 import { Badge, Button, Card, Empty, ErrorBox, Loading, PageTitle, StatusBadge } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -29,6 +30,7 @@ export function DocumentView() {
   const reloadResults = results.reload;
   const [invoices, setInvoices] = useState<InvoiceDetail[] | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     // Keep a local copy, so a saved correction shows at once.
@@ -89,6 +91,11 @@ export function DocumentView() {
       )}
       {!live && job && job.status === "failed" && <JobProgress job={job} />}
       {actionError && <ErrorBox message={actionError} />}
+      {notice && (
+        <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
+          {notice}
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {job?.status === "failed" && (
@@ -98,6 +105,23 @@ export function DocumentView() {
           <Button variant="secondary" onClick={() => act(`/api/documents/${d.id}/reprocess`)}>
             Process again
           </Button>
+        )}
+        {!ACTIVE.has(d.status) && (
+          <ReplaceFile
+            documentId={d.id}
+            filename={d.filename}
+            mimeType={d.mime_type}
+            onDone={(message) => {
+              setActionError(null);
+              setNotice(message);
+              doc.reload();
+              refresh();
+            }}
+            onError={(message) => {
+              setNotice(null);
+              setActionError(message);
+            }}
+          />
         )}
         {!ACTIVE.has(d.status) && (
           <Button variant="ghost" onClick={remove} className="text-red-700 dark:text-red-400">

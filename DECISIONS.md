@@ -1200,3 +1200,17 @@ Run 8 measured it: photo fields rose from 77.8% to 87.5%. Mild and medium photos
 **Trade-off:** A date one day ahead is no longer flagged, wherever it comes from. Checking copies again costs a scan of the open duplicate issues on each delete or re-upload, which is small at this size.
 
 **In one sentence:** Every message names what is wrong and where, in plain words, and none outlives the invoice it points to.
+
+## D88: Search finds numbers and amounts; Compare pairs by supplier; no browser warning bubble
+
+**Alternatives:** Rebuild every stored search vector with extra number tokens; leave Compare's first-match pairing; keep the required search box.
+
+**Why:** Sowan asked to check search, Compare, and an error-like preview when tapping buttons in light mode.
+
+- **Search.** Postgres reads "INV-2026-00026" as `inv`, `-2026`, `-00026`, so typing "00026" or "inv 2026 00026" found nothing, and neither did an amount like "452.23". Keyword search (and so Best match) now also matches the invoice number as letters and digits only (the column the duplicate rule already uses), and a query written as money matches the total or subtotal. Exact number matches rank first. This works on invoices already stored, with no re-indexing.
+- **The warning bubble.** "By meaning" marked the box as required, so tapping Search with it empty raised the browser's own "Please fill out this field" bubble, which looked like an error. Any mode with an empty box now lists what fits the filters.
+- **Compare.** The first pass paired an invoice with the first row in the other file that had the same number. Short numbers like "1001" repeat across suppliers, so it could pair the wrong supplier while the right one sat further down. It now takes the same number with the most similar supplier. Compare also refuses, with a clear message, a document that is still being processed or has failed, instead of giving a partial report.
+
+**Trade-off:** A query that is only digits, like "2026", also matches every invoice number containing it. That is what a person typing it usually wants.
+
+**In one sentence:** Find an invoice the way people type it, pair the right supplier, and never show a warning that looks like an error.

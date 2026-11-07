@@ -89,3 +89,13 @@ def test_fallback_match_with_another_number_is_a_mismatch() -> None:
     [pair] = result["mismatched"]
     assert pair["matched_on"] == "supplier_date_total"
     assert [d["field"] for d in pair["differences"]] == ["invoice_number"]
+
+
+def test_a_shared_number_pairs_with_the_same_supplier() -> None:
+    """Short numbers repeat across suppliers: the right row is the same supplier (D88)."""
+    a = [rec("1001", "Padma Printing House")]
+    b = [rec("1001", "Delta Hardware Co"), rec("1001", "Padma Printing House")]
+    out = run(a, b)
+    [pair] = out["matched"]
+    assert pair["b"]["supplier_name"] == "Padma Printing House"
+    assert [r["supplier_name"] for r in out["only_in_b"]] == ["Delta Hardware Co"]

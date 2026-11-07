@@ -32,8 +32,9 @@ function SearchView() {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = Object.fromEntries(new FormData(event.currentTarget)) as Form;
-    // With no words, best match lists everything that fits the filters.
-    const effective = mode === "hybrid" && !form.q?.trim() ? "keyword" : mode;
+    // With no words, any mode lists everything that fits the filters. No "required"
+    // box: the browser's own warning bubble looked like an error on tap (D88).
+    const effective = !form.q?.trim() ? "keyword" : mode;
     setPath(`/api/search${query({ mode: effective, limit: 50, ...form })}`);
   }
 
@@ -61,7 +62,6 @@ function SearchView() {
               name="q"
               defaultValue={initial}
               className={inputClass}
-              required={mode === "semantic"}
               placeholder={mode === "keyword" ? 'INV-2026-00007, "toner cartridge", acme -delivery' : mode === "semantic" ? "printer supplies bought in spring" : "INV-2026-00007 or printer supplies"}
             />
           </Field>

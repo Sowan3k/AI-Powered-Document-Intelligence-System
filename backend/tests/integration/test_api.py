@@ -368,6 +368,9 @@ def test_reconcile_endpoint(env: Env) -> None:
     env.fake.replies = reader_for_truths([env.truth("recon_statement.pdf")])
     body = env.upload("recon_statement.pdf", "recon_register.xlsx")
     a, b = (d["document_id"] for d in body["documents"])
+    # Not read yet: a partial report would mislead, so it waits (D88).
+    early = env.post("/api/reconcile", json={"document_a": a, "document_b": b})
+    assert early.status_code == 409 and "still being processed" in early.json()["detail"]
     env.work()
     r = env.post("/api/reconcile", json={"document_a": a, "document_b": b})
     assert r.status_code == 201, r.text

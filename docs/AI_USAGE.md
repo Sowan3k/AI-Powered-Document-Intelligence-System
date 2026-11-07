@@ -250,3 +250,9 @@ AI-generated: the diagnosis from Render logs and the jobs table (no duplicates; 
 Prompt (summary): Sowan asked to debug the validation logic, especially the messages shown when an invoice has several kinds of issue such as duplicates or dates, and to fix what was wrong.
 
 AI-generated: the review of all eleven rules against the live issues, the six fixes and their tests, and decision D87.
+
+### 7 Nov 2026, search, Compare and the light-mode warning (Claude Code)
+
+Prompt (summary): Sowan asked to check an error-like preview on button taps in light mode, and to debug the search and Compare mechanisms.
+
+AI-generated: the diagnosis (tapping buttons in Chromium at phone size with screenshots mid-tap, probing the search API with real queries, reading the matching passes), the fixes and tests, and decision D88.

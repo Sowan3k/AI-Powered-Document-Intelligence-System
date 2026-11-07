@@ -105,7 +105,11 @@ def suggest_pairs(
     "/reconcile",
     status_code=status.HTTP_201_CREATED,
     response_model=ReconcileResponse,
-    responses={400: {}, 404: {}},
+    responses={
+        400: {},
+        404: {},
+        409: {"description": "A document is not processed yet, or failed"},
+    },
 )
 def reconcile(
     body: ReconcileRequest,
@@ -114,6 +118,15 @@ def reconcile(
 ) -> ReconcileResponse:
     if body.document_a == body.document_b:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "choose two different documents")
+    # A document still being read, or one that failed, would give a partial report (D88).
+    for doc_id in (body.document_a, body.document_b):
+        doc = db.get(Document, doc_id)
+        if doc is not None and doc.status is not DocumentStatus.COMPLETED:
+            state = "failed" if doc.status is DocumentStatus.FAILED else "is still being processed"
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"{doc.filename} {state}; compare it once it has been read",
+            )
     try:
         row = reconcile_documents(db, body.document_a, body.document_b, settings)
     except ValueError as exc:

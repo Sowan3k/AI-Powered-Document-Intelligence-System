@@ -55,7 +55,7 @@ flowchart TD
         kind -- PDF page with text --> digital[PyMuPDF text]
         kind -- scanned page or image --> ocr[OpenCV cleanup<br/>then Tesseract]
         kind -- xlsx, xls, csv --> sheets[Sheets: header row,<br/>merged cells, encoding]
-        ocr --> weak{OCR confidence<br/>below threshold?}
+        ocr --> weak{A phone photo, or OCR<br/>confidence below threshold?}
         weak -- yes --> vision[Gemini vision transcribes<br/>fallback: text model, then OCR text]
         weak -- no --> pages
         digital --> pages[Pages of text]

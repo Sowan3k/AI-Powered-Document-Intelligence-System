@@ -8,12 +8,13 @@ I built it for the AI Engineer assessment at Care Guide. The brief is in [docs/B
 - API docs: https://docintel-api-y25b.onrender.com/api/docs
 - Health: https://docintel-api-y25b.onrender.com/api/health (database and file storage)
 - Walkthrough video: link added before submission
+- Deliverables report: [docs/DELIVERABLES.md](docs/DELIVERABLES.md), also as a [PDF](docs/DocIntel-Deliverables.pdf)
 
 The backend runs on Render's free plan. It sleeps when idle, so the first request can take up to a minute. The web app's opening page starts waking it the moment it loads and shows the real status at the top, with Sign in beside it.
 
 ## Deliverables
 
-The brief asks for nine things, submitted within five days. Each one is here.
+The brief asks for nine things, submitted within five days. Each one is here. The same list, with the key results of each, diagrams and screenshots, is in the [deliverables report](docs/DELIVERABLES.md), also as a [PDF](docs/DocIntel-Deliverables.pdf).
 
 | # | Deliverable | Where it is |
 |---|---|---|
@@ -242,7 +243,7 @@ The brief suggests Node.js or NestJS, Redis with BullMQ, and a vector database, 
 | A separate vector database | pgvector in PostgreSQL | Vectors sit beside the invoices, so one query can filter by supplier, date and amount and rank by meaning (D05). |
 | pandas | openpyxl and xlrd, rows converted in plain Python | The readers already turn every cell into text. pandas would add about 60 MB to the image and more memory on a 512 MB instance, for no gain (D37). |
 
-Every design choice, 73 in all, is in [DECISIONS.md](DECISIONS.md) with the alternatives, the reason and the trade-off.
+Every design choice, 84 in all, is in [DECISIONS.md](DECISIONS.md) with the alternatives, the reason and the trade-off.
 
 ## Environment variables
 
@@ -315,7 +316,7 @@ CI runs ruff, the backend tests, the frontend build, gitleaks, and a Docker Comp
 | `backend/app/api` | REST API |
 | `frontend/` | Next.js web app |
 | `eval/` | Dataset generator, evaluation runner, load test, Gemini smoke test |
-| `docs/` | Brief, architecture, schema, security, evaluation, test report, walkthrough, AI usage |
+| `docs/` | Deliverables report (also as a PDF), brief, architecture, schema, security, evaluation, test report, walkthrough, AI usage |
 
 ## How it was built
 

@@ -226,3 +226,9 @@ AI-generated: the new `accept` list, typing by MIME type, the in-browser JPEG co
 Prompt (summary): Sowan shared the brief's list of nine deliverables and asked that the README show them, with clear installation steps.
 
 AI-generated: the Deliverables table, the quality table and the Installation and setup section. Claude Code checked each claim against the code (for example, CSV is read with Python's csv module, not pandas), checked the setup commands against `docker-compose.yml`, `start.sh` and the settings, and ran the sample generator command.
+
+### 7 Nov 2026, deliverables report and PDF (Claude Code)
+
+Prompt (summary): Sowan asked for a PDF or GitHub page holding the deliverables, linked from the README, with the video link to follow.
+
+AI-generated: `docs/DELIVERABLES.md` and the PDF made from it. Claude Code checked the claims against the code and the reports (OCR steps, endpoint paths, test and evaluation figures), then rendered the PDF pages to images and fixed page breaks that split headings from their tables.

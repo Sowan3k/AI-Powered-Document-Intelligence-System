@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 7 Nov 2026, deliverables report and PDF (Claude Code)
+
+Sowan asked for one page or PDF with all the deliverables, linked from the README. Added `docs/DELIVERABLES.md` (each of the nine deliverables with its key results, the architecture and ER diagrams, endpoint table, phone screenshots, the quality goals and the stack differences) and `docs/DocIntel-Deliverables.pdf`, 7 A4 pages built from it in Chromium with the diagrams drawn. The README links both. The video link is still a placeholder in both; the PDF must be rebuilt when it is added.
+
 ### 7 Nov 2026, README deliverables and setup (Claude Code)
 
 Sowan shared the brief's deliverables list. The README now has a Deliverables table (each of the nine items and where it is), the brief's quality goals with their evidence, and an Installation and setup section near the top: Docker in one command, or each part by hand, plus a check that it works. Found and fixed a trap in the old steps: copying `.env.example` to `.env` made Compose use `DEMO_PASSWORD=replace-me`, so the documented local password failed. The sample generator command was run to confirm it.

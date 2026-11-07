@@ -18,7 +18,7 @@ The builder, Sowan, works from a phone only. There is no local machine. All code
 
 ## Session routine
 
-1. Read `CLAUDE.md`, then `STATUS.md`, then the current phase in `PHASES.md`, then `DECISIONS.md`.
+1. Read `CLAUDE.md`, then `PROJECT_MEMORY.md`, then `STATUS.md`, then the current phase in `PHASES.md`, then `DECISIONS.md`.
 2. Work on one phase, or one clearly named part of a phase, per session.
 3. Before ending, update `STATUS.md`: what was done, what was tested, what is next, any blocker.
 4. Record every new design choice in `DECISIONS.md` using the existing format. Sowan must be able to defend each choice in an interview, so write the reason, the alternatives and the trade-off in plain words.

@@ -41,6 +41,9 @@ function Reconcile() {
   const anyDocs = useApi<Page<DocumentSummary>>("/api/documents?status=completed&limit=2");
 
   async function compare(first: Picked, second: Picked) {
+    // The URL below names both documents, and the effect that reads the URL would
+    // compare them a second time: live, one tap saved two reports (D88).
+    started.current = true;
     setBusy(true);
     setError(null);
     router.replace(`/reconcile?a=${first.id}&b=${second.id}`, { scroll: false });

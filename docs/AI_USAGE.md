@@ -256,3 +256,9 @@ AI-generated: the review of all eleven rules against the live issues, the six fi
 Prompt (summary): Sowan asked to check an error-like preview on button taps in light mode, and to debug the search and Compare mechanisms.
 
 AI-generated: the diagnosis (tapping buttons in Chromium at phone size with screenshots mid-tap, probing the search API with real queries, reading the matching passes), the fixes and tests, and decision D88.
+
+### 7 Nov 2026, live audit (Claude Code)
+
+Prompt (summary): Sowan asked what else could be wrong, and to check the backend's wake-up, start-up and database connection, and whether every main task works.
+
+AI-generated: the audit of Render logs and deploys, the jobs table and Supabase advisors, the two fixes, their test, and decision D89.

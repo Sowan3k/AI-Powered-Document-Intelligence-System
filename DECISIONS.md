@@ -1214,3 +1214,16 @@ Run 8 measured it: photo fields rose from 77.8% to 87.5%. Mild and medium photos
 **Trade-off:** A query that is only digits, like "2026", also matches every invoice number containing it. That is what a person typing it usually wants.
 
 **In one sentence:** Find an invoice the way people type it, pair the right supplier, and never show a warning that looks like an error.
+
+## D89: Fixes from a live audit after the walkthrough
+
+**Alternatives:** Trust the tests alone; raise the Tesseract timeout.
+
+**Why:** Sowan asked for a check of the whole live system: start-up, wake-up, the database, and every main task. Render's logs, the deploys, the jobs table and Supabase's own advisors were read for the evening of the recording. Start-up runs migrations and both worker loops in about 38 seconds; there were no 5xx errors; no job was stuck or retried; every invoice had its search vector and embedding; and Supabase's advisors raised only informational notes (row-level security on with no policies, which keeps the disabled Data API closed, and indexes unused at this size). Two faults showed:
+
+- **One tap, two comparisons.** Tapping a suggested pair ran `POST /api/reconcile` twice within 0.25 s. The page writes both document IDs into the URL, and the effect that reads the URL compared them again. The page now marks the comparison as started first.
+- **Two minutes lost on every phone photo.** Tesseract read a 12-megapixel photo at full size and hit its 120-second timeout on the free CPU before the vision model even began. A photo goes to vision anyway (D82), so its fallback OCR now runs at 2,400 pixels, about 200 dpi for an A4 page. Photos keep their full size when `VISION_FOR_PHOTOS` is off.
+
+**Trade-off:** The fallback text of a photo is read at a lower resolution; the vision model, which gives the reading that counts, still gets its own image.
+
+**In one sentence:** The logs found what the tests could not, and both faults are fixed.

@@ -220,3 +220,9 @@ AI-generated: the diagnosis (a `blob:` frame inherits the app's content security
 Prompt (summary): Sowan said the file picker showed PDFs but no photos, though the file manager showed the photo in the same folder.
 
 AI-generated: the new `accept` list, typing by MIME type, the in-browser JPEG conversion, the HEIC message, and decision D84. Claude Code tested the three cases in Chromium and uploaded the converted photo to the local API, which accepted it.
+
+### 7 Nov 2026, README deliverables and setup (Claude Code)
+
+Prompt (summary): Sowan shared the brief's list of nine deliverables and asked that the README show them, with clear installation steps.
+
+AI-generated: the Deliverables table, the quality table and the Installation and setup section. Claude Code checked each claim against the code (for example, CSV is read with Python's csv module, not pandas), checked the setup commands against `docker-compose.yml`, `start.sh` and the settings, and ran the sample generator command.

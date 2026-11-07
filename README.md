@@ -18,7 +18,7 @@ The brief asks for nine things, submitted within five days. Each one is here.
 | # | Deliverable | Where it is |
 |---|---|---|
 | 1 | Git repository with the source code | This repository: `backend/` (FastAPI API and worker), `frontend/` (Next.js), `eval/` (dataset and evaluation). Every step is in the Git history. |
-| 2 | README and setup instructions | This file. [Run it locally](#run-it-locally) starts the whole system with one Docker Compose command. [Environment variables](#environment-variables) lists every setting, and `.env.example` holds placeholders only. |
+| 2 | README and setup instructions | This file. [Installation and setup](#installation-and-setup) gives two ways to run the system: one Docker Compose command, or each part by hand. [Environment variables](#environment-variables) lists every setting, and `.env.example` holds placeholders only. |
 | 3 | Architecture diagram and database schema | [How it works](#how-it-works) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) hold the architecture and data flow diagrams. [docs/SCHEMA.md](docs/SCHEMA.md) holds the ER diagram of all ten tables. |
 | 4 | Working backend API and frontend | Web app: https://docintel-tan-two.vercel.app. API docs: https://docintel-api-y25b.onrender.com/api/docs. Both deploy from `main`. |
 | 5 | PDF, image, Excel and CSV pipelines | `backend/app/ingest`. Digital PDFs through PyMuPDF; scans and photos through OpenCV and Tesseract, with Gemini vision for weak pages and every phone photo; Excel through openpyxl and xlrd; CSV through Python's csv module, which detects the encoding and the delimiter. All four give the same internal structure to the extraction step. |
@@ -36,6 +36,105 @@ The brief also asks for smooth performance, high speed, scalability, reliability
 | Scalability | A 1,000-page PDF reads in 2.6 seconds with a 160 MB memory peak, because pages stream in batches. The job queue lets workers share the load: 1, 2 and 4 workers ran 1.0x, 2.0x and 3.8x as fast. |
 | Reliability | Jobs live in the database and survive a restart. Failed calls retry with backoff, a failing model falls back to a second one, and a broken file fails alone without stopping the batch. A health check covers the database and file storage. |
 | Strong security | Secrets live only in the hosting settings, and gitleaks scans the full Git history on every push. Uploads are checked by their bytes. Files sit in a private bucket. Every route except login and health needs a login token, login and upload are rate-limited, and logs never hold document text. See [docs/SECURITY.md](docs/SECURITY.md). |
+
+## Installation and setup
+
+You can run the whole system on your own machine in two ways. Docker is the quick one. Both read spreadsheets and CSV files with no key. PDFs and images need a Gemini API key, free from [Google AI Studio](https://aistudio.google.com/apikey).
+
+### Option 1: Docker (recommended)
+
+You need Git and Docker with Compose v2.
+
+```bash
+git clone https://github.com/Sowan3k/AI-Powered-Document-Intelligence-System.git
+cd AI-Powered-Document-Intelligence-System
+```
+
+Create a file named `.env` in that folder with these four lines, and put your key in the first:
+
+```bash
+GEMINI_API_KEY=your-key
+GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_VISION_MODEL=gemini-3.8-flash
+GEMINI_EMBED_MODEL=gemini-embedding-2
+```
+
+Then start everything:
+
+```bash
+docker compose up --build
+```
+
+This starts four containers: Postgres with pgvector, the API (it creates the tables first), the background worker and the web app. The first build takes a few minutes.
+
+- Web app: http://localhost:3000. Sign in as `reviewer` with the password `docintel-demo`. This login works on your machine only.
+- API docs: http://localhost:8000/api/docs
+- Stop with `Ctrl+C`. `docker compose down -v` also deletes the local database and uploaded files.
+
+Do not copy `.env.example` to `.env` for this. It holds placeholders for the hosted setup, and Compose would read its `DEMO_PASSWORD=replace-me` instead of the local password. Git ignores `.env`, so your key never reaches the repository.
+
+### Option 2: Without Docker
+
+You need Python 3.12, Node.js 20.9 or later, PostgreSQL 16 or 17 with the pgvector extension, and Tesseract OCR 5 with English (`apt install tesseract-ocr` on Ubuntu, `brew install tesseract` on macOS). Create an empty database. Its user must be allowed to create the `vector` and `pg_trgm` extensions, or a superuser creates them first.
+
+Backend, in one terminal:
+
+```bash
+cd backend
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Create `backend/.env`:
+
+```bash
+APP_ENV=development
+DATABASE_URL=postgresql+psycopg://USER:PASSWORD@localhost:5432/docintel
+STORAGE_BACKEND=local
+LOCAL_STORAGE_DIR=./data/uploads
+DEMO_USERNAME=reviewer
+DEMO_PASSWORD=choose-a-password
+JWT_SECRET=a-long-random-string
+CORS_ORIGINS=http://localhost:3000
+GEMINI_API_KEY=your-key
+GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_VISION_MODEL=gemini-3.8-flash
+GEMINI_EMBED_MODEL=gemini-embedding-2
+```
+
+Then create the tables and start the API:
+
+```bash
+alembic upgrade head
+uvicorn app.main:app --port 8000
+```
+
+The worker, in a second terminal (it does the reading, OCR and model calls):
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m app.worker.main
+```
+
+The web app, in a third terminal:
+
+```bash
+cd frontend
+npm ci
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev
+```
+
+Open http://localhost:3000 and sign in as `reviewer` with the password you chose.
+
+### Check that it works
+
+1. `curl http://localhost:8000/api/health` answers with `"database":"connected"` and `"storage":"ok"`.
+2. Make sample invoices to try: with the backend's Python environment active, run `cd eval/generate && python -m synth --out ~/docintel-samples`. It writes about 40 files (digital and scanned PDFs, photos, TIFF, Excel, CSV and some broken files), each with its correct answer in a `.json` file beside it.
+3. Sign in and upload a few of them. Each file's steps appear on Home as it is processed, and its invoices appear when it is done.
+
+Every other setting is optional. They are listed in [Environment variables](#environment-variables) and in [.env.example](.env.example).
 
 ## Screenshots
 
@@ -144,16 +243,6 @@ The brief suggests Node.js or NestJS, Redis with BullMQ, and a vector database, 
 | pandas | openpyxl and xlrd, rows converted in plain Python | The readers already turn every cell into text. pandas would add about 60 MB to the image and more memory on a 512 MB instance, for no gain (D37). |
 
 Every design choice, 73 in all, is in [DECISIONS.md](DECISIONS.md) with the alternatives, the reason and the trade-off.
-
-## Run it locally
-
-You need Docker with Compose v2.
-
-```bash
-docker compose up --build
-```
-
-Open http://localhost:3000 and sign in as `reviewer` with the password `docintel-demo` (local only). Spreadsheets and CSV files work with no keys. PDFs and images need Gemini: copy `.env.example` to `.env`, set `GEMINI_API_KEY`, and keep the model names. Never commit `.env`. The API docs are at http://localhost:8000/api/docs.
 
 ## Environment variables
 

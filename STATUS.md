@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 7 Nov 2026, README deliverables and setup (Claude Code)
+
+Sowan shared the brief's deliverables list. The README now has a Deliverables table (each of the nine items and where it is), the brief's quality goals with their evidence, and an Installation and setup section near the top: Docker in one command, or each part by hand, plus a check that it works. Found and fixed a trap in the old steps: copying `.env.example` to `.env` made Compose use `DEMO_PASSWORD=replace-me`, so the documented local password failed. The sample generator command was run to confirm it.
+
 ### 7 Nov 2026, photos missing from the phone's file picker (Claude Code)
 
 Sowan's picker showed PDFs but no photos. Fixed (D84): the upload box asks for MIME types and `image/*`, not extensions alone; a file's type now comes from its MIME type when the name has no extension; WEBP, AVIF and other photos the server cannot read are converted to JPEG in the browser; HEIC that the browser cannot read gets a clear message. Tested in Chromium at phone size: a WEBP photo (converted and accepted), a PNG named "1000012345" (accepted), a HEIC file (clear message). Lint and typecheck pass.

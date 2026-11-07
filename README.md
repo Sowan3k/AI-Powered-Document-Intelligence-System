@@ -11,6 +11,32 @@ I built it for the AI Engineer assessment at Care Guide. The brief is in [docs/B
 
 The backend runs on Render's free plan. It sleeps when idle, so the first request can take up to a minute. The web app's opening page starts waking it the moment it loads and shows the real status at the top, with Sign in beside it.
 
+## Deliverables
+
+The brief asks for nine things, submitted within five days. Each one is here.
+
+| # | Deliverable | Where it is |
+|---|---|---|
+| 1 | Git repository with the source code | This repository: `backend/` (FastAPI API and worker), `frontend/` (Next.js), `eval/` (dataset and evaluation). Every step is in the Git history. |
+| 2 | README and setup instructions | This file. [Run it locally](#run-it-locally) starts the whole system with one Docker Compose command. [Environment variables](#environment-variables) lists every setting, and `.env.example` holds placeholders only. |
+| 3 | Architecture diagram and database schema | [How it works](#how-it-works) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) hold the architecture and data flow diagrams. [docs/SCHEMA.md](docs/SCHEMA.md) holds the ER diagram of all ten tables. |
+| 4 | Working backend API and frontend | Web app: https://docintel-tan-two.vercel.app. API docs: https://docintel-api-y25b.onrender.com/api/docs. Both deploy from `main`. |
+| 5 | PDF, image, Excel and CSV pipelines | `backend/app/ingest`. Digital PDFs through PyMuPDF; scans and photos through OpenCV and Tesseract, with Gemini vision for weak pages and every phone photo; Excel through openpyxl and xlrd; CSV through Python's csv module, which detects the encoding and the delimiter. All four give the same internal structure to the extraction step. |
+| 6 | Automated tests and test results | `backend/tests`, with unit tests and integration tests on Postgres. CI runs them on every push. [docs/TEST_REPORT.md](docs/TEST_REPORT.md): 428 passed with 96% line coverage in CI run 84. |
+| 7 | Evaluation report with measured metrics | [docs/EVALUATION.md](docs/EVALUATION.md): eight runs with the real Gemini models on a labelled dataset. Accuracy per field, line items, planted errors caught, false flags, broken files, time per document, tokens and cost, and the weak spots. |
+| 8 | Recorded walkthrough | The video link at the top of this file. The script is in [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md). |
+| 9 | AI prompts and disclosure | [docs/AI_USAGE.md](docs/AI_USAGE.md): the tools, the main prompts, what AI wrote and how each part was checked. Every prompt the system sends to Gemini is in `backend/app/extract/prompts.py`. |
+
+The brief also asks for smooth performance, high speed, scalability, reliability and strong security. The short version is below; [Speed, scale, reliability and security](#speed-scale-reliability-and-security) has the measurements.
+
+| Quality | What shows it |
+|---|---|
+| Smooth performance | Uploads return at once and the work runs in the background, with each file's steps shown live. Home holds 60 frames a second with the CPU slowed four times. Long PDFs show their pages as you scroll. |
+| High speed | A digital page reads in about 3 ms and a spreadsheet in about 2 seconds. The windows of a long PDF go to the model in parallel. Most of the remaining time is the free tier's limit of 12 model calls a minute, which is a setting. |
+| Scalability | A 1,000-page PDF reads in 2.6 seconds with a 160 MB memory peak, because pages stream in batches. The job queue lets workers share the load: 1, 2 and 4 workers ran 1.0x, 2.0x and 3.8x as fast. |
+| Reliability | Jobs live in the database and survive a restart. Failed calls retry with backoff, a failing model falls back to a second one, and a broken file fails alone without stopping the batch. A health check covers the database and file storage. |
+| Strong security | Secrets live only in the hosting settings, and gitleaks scans the full Git history on every push. Uploads are checked by their bytes. Files sit in a private bucket. Every route except login and health needs a login token, login and upload are rate-limited, and logs never hold document text. See [docs/SECURITY.md](docs/SECURITY.md). |
+
 ## Screenshots
 
 Real screenshots of the running app on demo data, not mockups.
@@ -65,20 +91,8 @@ The whole app works on a phone. I built and tested it from one.
 | 4. Backend API | REST endpoints for upload, status, results, search, corrections, reprocessing of failed jobs, reconciliation, export and stats. OCR and model calls run in a background worker. | `backend/app/api`, [API docs](https://docintel-api-y25b.onrender.com/api/docs) |
 | 5. Database and search | PostgreSQL holds documents, page text, invoices, line items, validation issues, corrections, jobs and the processing history. Search uses full text with filters, vector similarity with pgvector, or both merged. | [docs/SCHEMA.md](docs/SCHEMA.md), `backend/app/search` |
 | 6. Frontend | Next.js. Upload many files at once, watch each move through its steps, inspect fields beside the source text, review and correct issues, search, and compare two documents. | `frontend/` |
-| 7. Testing and evaluation | 412 backend tests in CI on Postgres with Tesseract, plus an evaluation on a labelled dataset with the real Gemini models. | [docs/TEST_REPORT.md](docs/TEST_REPORT.md), [docs/EVALUATION.md](docs/EVALUATION.md) |
+| 7. Testing and evaluation | 429 backend tests in CI on Postgres with Tesseract, plus an evaluation on a labelled dataset with the real Gemini models. | [docs/TEST_REPORT.md](docs/TEST_REPORT.md), [docs/EVALUATION.md](docs/EVALUATION.md) |
 | Cross-verification | PDF against PDF, or PDF against Excel: matched invoices, mismatched fields, and invoices found on one side only. The Compare page suggests pairs that share invoices. | `backend/app/validate/reconcile.py`, Compare page |
-
-The deliverables:
-
-1. Source code: this repository.
-2. README and setup: this file, from [Run it locally](#run-it-locally).
-3. Architecture diagram and database schema: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/SCHEMA.md](docs/SCHEMA.md).
-4. Working backend API and frontend: the links above.
-5. PDF, image, Excel and CSV pipelines: `backend/app/ingest`.
-6. Automated tests and results: `backend/tests`, [docs/TEST_REPORT.md](docs/TEST_REPORT.md).
-7. Evaluation report with measured metrics: [docs/EVALUATION.md](docs/EVALUATION.md).
-8. Walkthrough video: linked above.
-9. AI prompts and disclosure: [docs/AI_USAGE.md](docs/AI_USAGE.md), and every runtime prompt in `backend/app/extract/prompts.py`.
 
 ## How it works
 

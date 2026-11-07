@@ -45,6 +45,10 @@ Current state of DocIntel. Update this file at the end of every session. Newest 
 
 ## Session log
 
+### 8 Nov 2026, submitted (Claude chat)
+
+Submitted to Care Guide by Reply All before the 03:39 deadline: live app, API docs, public repository, evaluation report, walkthrough video (https://youtu.be/n9xKvACPR90), CV with two references, and the ECTrons testimonial. The repository was made public on 7 Nov 2026. The video link is now in the README, and the Phase 7 checklist is complete.
+
 ### 5 Nov 2026, photos to vision, run 8, README screenshots (Claude Code)
 
 Sowan asked to fix the gaps found against the brief and to add screenshots to the README like his other projects. Built D82: JPEG and PNG pages always go to the vision model (`VISION_FOR_PHOTOS`), and a page Tesseract found upside down is flipped before vision. Ran evaluation run 8: photos 77.8% to 87.5%. Refreshed `docs/TEST_REPORT.md` from CI run 84 (428 passed, 96% coverage) and ticked the final secret scan. Added 13 screenshots (desktop light and dark, phone dark) to `docs/screenshots/` and a Screenshots section to the README.

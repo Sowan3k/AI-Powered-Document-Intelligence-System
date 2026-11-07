@@ -7,7 +7,7 @@ I built it for the AI Engineer assessment at Care Guide. The brief is in [docs/B
 - Web app: https://docintel-tan-two.vercel.app (the login is in the submission email)
 - API docs: https://docintel-api-y25b.onrender.com/api/docs
 - Health: https://docintel-api-y25b.onrender.com/api/health (database and file storage)
-- Walkthrough video: link added before submission
+- Walkthrough video: https://youtu.be/n9xKvACPR90
 
 The backend runs on Render's free plan. It sleeps when idle, so the first request can take up to a minute. The web app's opening page starts waking it the moment it loads and shows the real status at the top, with Sign in beside it.
 

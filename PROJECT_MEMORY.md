@@ -24,7 +24,8 @@ Sowan builds from a phone only, in Claude Code cloud sessions. He reviews on a s
 4. Postgres full-text search splits `INV-2026-00026` into `inv`, `-2026` and `-00026`. Keyword search also matches the normalised invoice number and money amounts (D88).
 5. Liquid glass: only Chromium draws a `url()` filter in `backdrop-filter`. A `view-transition-name` on an ancestor of a glass element stops its blur (D73). A separately named layer under refracting glass makes Chromium draw grey boxes during page changes, so the scroll edge has no name.
 6. Before the fix, the Supabase key in Render was not the project's `sb_secret_` key. It has to go in both the `apikey` and `Authorization` headers (D32).
-7. Force-pushing is blocked in these sessions. Bring the working branch up to `main` with `git merge --ff-only origin/main`.
+7. On 8 Nov 2026 the Render service fell asleep at 22:14 UTC and did not wake for about 15 hours: no request reached it, and the sign-in page said "Server not answering". A manual redeploy of the same commit (Render MCP `trigger_deploy`) brought it back in about 70 s. If it happens again, redeploy first, then read the logs.
+8. Force-pushing is blocked in these sessions. Bring the working branch up to `main` with `git merge --ff-only origin/main`.
 
 ## Working in a cloud session
 
